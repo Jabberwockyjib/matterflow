@@ -1,0 +1,15 @@
+{
+    "keep": {
+        "days": true,
+        "amount": 14
+    },
+    "auditLog": "/Users/brian/therapy/logs/.5d616ad1e8961d6066960b5de0e9afae723ec00e-audit.json",
+    "files": [
+        {
+            "date": 1766501124055,
+            "name": "/Users/brian/therapy/logs/mcp-puppeteer-2025-12-23.log",
+            "hash": "6b9cca74042f79bbf138795062be3fc6827912c224b99254f7442717058921f0"
+        }
+    ],
+    "hashType": "sha256"
+}

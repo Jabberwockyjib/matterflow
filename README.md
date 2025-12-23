@@ -1,36 +1,47 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# MatterFlow MVP (Next.js + Supabase)
+
+Front-end scaffold for the MatterFlow™ MVP outlined in `project.md`. Stack: Next.js (App Router), Tailwind 3 + shadcn-style components, Supabase JS client, pnpm.
 
 ## Getting Started
-
-First, run the development server:
-
+1. Install dependencies:
 ```bash
-npm run dev
-# or
-yarn dev
-# or
+pnpm install
+```
+2. Copy envs and fill secrets:
+```bash
+cp .env.example .env.local
+```
+3. Run the app:
+```bash
 pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Scripts
+- `pnpm dev` — start Next.js locally.
+- `pnpm lint` — Next.js lint rules.
+- `pnpm typecheck` — TypeScript with no emit.
+- `pnpm test` — placeholder (wire Vitest/RTL next).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Supabase (local)
+- Install CLI and start services: `supabase start`
+- Apply schema/RLS: `supabase migration up` (see `supabase/migrations/0001_init.sql`)
+- (Optional) generate types: `supabase gen types typescript --local > src/types/database.types.ts`
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Structure
+- `src/app` — routes and layout (dashboard control center)
+- `src/components/ui` — shadcn-style primitives
+- `src/lib` — utilities and Supabase client
+- `supabase/` — migrations + setup notes
+- `AGENTS.md` — contributor guide tailored to the PRD
 
-## Learn More
+## Current status
+- Dashboard, matters, tasks, billing, and time pages are live; forms create and update records with Supabase, gated by role and RLS.
+- Supabase schema + RLS shipped (`supabase/migrations/0001_init.sql`); local env uses `supabase start` and seeds in `supabase/seed.sql`.
+- Auth uses Supabase email+password (magic link optional if enabled); anonymous sign-in disabled. Middleware redirects unauthenticated users.
+- Actions log to `audit_logs`; tests and lint pass (`pnpm test`, `pnpm lint`).
 
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Remaining MVP steps
+- Tighten RBAC in middleware/UI (client role read-only); add form validation and toasts for errors/success.
+- Add integration tests (Vitest + RTL) for form submissions and role visibility.
+- Stub intake/conflict/documents views and Square/Drive retry surfaces per `project.md`.
+- Disable anonymous auth entirely in non-dev, and wire audit logging for all mutations.
