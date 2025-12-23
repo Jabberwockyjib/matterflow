@@ -44,20 +44,22 @@ export default function SignInPage() {
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-2">
-            <label className="text-xs font-medium uppercase tracking-wide text-slate-600">
+            <label htmlFor="email" className="text-xs font-medium uppercase tracking-wide text-slate-600">
               Email
             </label>
             <input
+              id="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               type="email"
               placeholder="you@example.com"
               className="w-full rounded-md border border-slate-200 px-3 py-2 text-sm"
             />
-            <label className="text-xs font-medium uppercase tracking-wide text-slate-600">
-              Password (if enabled)
+            <label htmlFor="password" className="text-xs font-medium uppercase tracking-wide text-slate-600">
+              Password
             </label>
             <input
+              id="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               type="password"
@@ -74,7 +76,7 @@ export default function SignInPage() {
               Sign in
             </Button>
           </div>
-          {message && <p className="text-xs text-amber-700">{message}</p>}
+          {message && <p role="alert" className="text-xs text-amber-700">{message}</p>}
         </CardContent>
       </Card>
     </div>

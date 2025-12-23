@@ -53,6 +53,8 @@ const logAudit = async ({
   }
 };
 
+// Matter Actions
+
 export async function createMatter(formData: FormData): Promise<ActionResult> {
   const roleCheck = await ensureStaffOrAdmin();
   if ("error" in roleCheck) return roleCheck;
@@ -88,114 +90,6 @@ export async function createMatter(formData: FormData): Promise<ActionResult> {
     });
     revalidatePath("/");
     revalidatePath("/matters");
-    return { ok: true };
-  } catch (err) {
-    return { error: err instanceof Error ? err.message : "Unknown error" };
-  }
-}
-
-export async function createTask(formData: FormData): Promise<ActionResult> {
-  const roleCheck = await ensureStaffOrAdmin();
-  if ("error" in roleCheck) return roleCheck;
-
-  try {
-    const supabase = ensureSupabase();
-    const title = (formData.get("title") as string) || "New Task";
-    const matterId = (formData.get("matterId") as string) || null;
-    const dueDate = (formData.get("dueDate") as string) || null;
-    const responsible = (formData.get("responsibleParty") as string) || "lawyer";
-
-    const { error } = await supabase.from("tasks").insert({
-      title,
-      matter_id: matterId,
-      due_date: dueDate,
-      responsible_party: responsible,
-      status: "open",
-    });
-
-    if (error) return { error: error.message };
-    await logAudit({
-      supabase,
-      actorId: roleCheck.session.user.id,
-      eventType: "task_created",
-      entityType: "task",
-      entityId: null,
-      metadata: { title, matterId },
-    });
-    revalidatePath("/");
-    revalidatePath("/tasks");
-    return { ok: true };
-  } catch (err) {
-    return { error: err instanceof Error ? err.message : "Unknown error" };
-  }
-}
-
-export async function createInvoice(formData: FormData): Promise<ActionResult> {
-  const roleCheck = await ensureStaffOrAdmin();
-  if ("error" in roleCheck) return roleCheck;
-
-  try {
-    const supabase = ensureSupabase();
-    const matterId = (formData.get("matterId") as string) || null;
-    const amount = Number(formData.get("amount")) || 0;
-    const status = (formData.get("status") as string) || "draft";
-
-    const { error } = await supabase.from("invoices").insert({
-      matter_id: matterId,
-      total_cents: Math.max(0, Math.round(amount * 100)),
-      status,
-      line_items: [{ description: "Line item", amount_cents: Math.max(0, Math.round(amount * 100)) }],
-    });
-
-    if (error) return { error: error.message };
-    await logAudit({
-      supabase,
-      actorId: roleCheck.session.user.id,
-      eventType: "invoice_created",
-      entityType: "invoice",
-      entityId: null,
-      metadata: { matterId, amount },
-    });
-    revalidatePath("/");
-    revalidatePath("/billing");
-    return { ok: true };
-  } catch (err) {
-    return { error: err instanceof Error ? err.message : "Unknown error" };
-  }
-}
-
-export async function createTimeEntry(
-  formData: FormData,
-): Promise<ActionResult> {
-  const roleCheck = await ensureStaffOrAdmin();
-  if ("error" in roleCheck) return roleCheck;
-
-  try {
-    const supabase = ensureSupabase();
-    const matterId = (formData.get("matterId") as string) || null;
-    const taskId = (formData.get("taskId") as string) || null;
-    const description = (formData.get("description") as string) || "Manual entry";
-    const minutes = Number(formData.get("minutes")) || null;
-
-    const { error } = await supabase.from("time_entries").insert({
-      matter_id: matterId,
-      task_id: taskId || null,
-      description,
-      duration_minutes: minutes || null,
-      status: "draft",
-    });
-
-    if (error) return { error: error.message };
-    await logAudit({
-      supabase,
-      actorId: roleCheck.session.user.id,
-      eventType: "time_entry_created",
-      entityType: "time_entry",
-      entityId: null,
-      metadata: { matterId, minutes },
-    });
-    revalidatePath("/");
-    revalidatePath("/time");
     return { ok: true };
   } catch (err) {
     return { error: err instanceof Error ? err.message : "Unknown error" };
@@ -239,58 +133,171 @@ export async function updateMatterStage(formData: FormData): Promise<ActionResul
   }
 }
 
-export async function updateTaskStatus(formData: FormData): Promise<ActionResult> {
+export async function deleteMatter(formData: FormData): Promise<ActionResult> {
   const roleCheck = await ensureStaffOrAdmin();
   if ("error" in roleCheck) return roleCheck;
 
   try {
     const supabase = ensureSupabase();
     const id = (formData.get("id") as string) || null;
-    const status = (formData.get("status") as string) || null;
+
+    if (!id) {
+      return { error: "Matter ID is required" };
+    }
+
     const { error } = await supabase
-      .from("tasks")
-      .update({ status })
-      .eq("id", id || "");
+      .from("matters")
+      .delete()
+      .eq("id", id);
+
     if (error) return { error: error.message };
     await logAudit({
       supabase,
       actorId: roleCheck.session.user.id,
-      eventType: "task_updated",
-      entityType: "task",
+      eventType: "matter_deleted",
+      entityType: "matter",
       entityId: id,
-      metadata: { status },
+      metadata: {},
     });
-    revalidatePath("/tasks");
     revalidatePath("/");
+    revalidatePath("/matters");
     return { ok: true };
   } catch (err) {
     return { error: err instanceof Error ? err.message : "Unknown error" };
   }
 }
 
-export async function updateInvoiceStatus(formData: FormData): Promise<ActionResult> {
+export async function getMatter(id: string): Promise<{ data?: unknown; error?: string }> {
+  const roleCheck = await ensureStaffOrAdmin();
+  if ("error" in roleCheck) return roleCheck;
+
+  try {
+    const supabase = ensureSupabase();
+    const { data, error } = await supabase
+      .from("matters")
+      .select("*")
+      .eq("id", id)
+      .maybeSingle();
+
+    if (error) return { error: error.message };
+    return { data };
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : "Unknown error" };
+  }
+}
+
+export async function getMatters(): Promise<{ data?: unknown[]; error?: string }> {
+  const roleCheck = await ensureStaffOrAdmin();
+  if ("error" in roleCheck) return roleCheck;
+
+  try {
+    const supabase = ensureSupabase();
+    const { data, error } = await supabase
+      .from("matters")
+      .select("*")
+      .order("created_at", { ascending: false });
+
+    if (error) return { error: error.message };
+    return { data: data || [] };
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : "Unknown error" };
+  }
+}
+
+// Time Entry Actions
+
+export async function createTimeEntry(formData: FormData): Promise<ActionResult> {
+  const roleCheck = await ensureStaffOrAdmin();
+  if ("error" in roleCheck) return roleCheck;
+
+  try {
+    const supabase = ensureSupabase();
+    const matterId = (formData.get("matterId") as string) || null;
+    const taskId = (formData.get("taskId") as string) || null;
+    const description = (formData.get("description") as string) || null;
+    const startedAt = (formData.get("startedAt") as string) || new Date().toISOString();
+    const endedAt = (formData.get("endedAt") as string) || null;
+    const durationMinutesStr = formData.get("durationMinutes") as string;
+    const durationMinutes = durationMinutesStr ? parseInt(durationMinutesStr, 10) : null;
+    const rateCentsStr = formData.get("rateCents") as string;
+    const rateCents = rateCentsStr ? parseInt(rateCentsStr, 10) : null;
+    const status = (formData.get("status") as string) || "recorded";
+
+    if (!matterId) {
+      return { error: "Matter ID is required" };
+    }
+
+    const { error } = await supabase.from("time_entries").insert({
+      matter_id: matterId,
+      task_id: taskId,
+      description,
+      started_at: startedAt,
+      ended_at: endedAt,
+      duration_minutes: durationMinutes,
+      rate_cents: rateCents,
+      status,
+      created_by: roleCheck.session.user.id,
+    });
+
+    if (error) return { error: error.message };
+    await logAudit({
+      supabase,
+      actorId: roleCheck.session.user.id,
+      eventType: "time_entry_created",
+      entityType: "time_entry",
+      entityId: null,
+      metadata: { matterId, description, durationMinutes },
+    });
+    revalidatePath("/");
+    revalidatePath("/time");
+    return { ok: true };
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : "Unknown error" };
+  }
+}
+
+export async function updateTimeEntry(formData: FormData): Promise<ActionResult> {
   const roleCheck = await ensureStaffOrAdmin();
   if ("error" in roleCheck) return roleCheck;
 
   try {
     const supabase = ensureSupabase();
     const id = (formData.get("id") as string) || null;
+    const description = (formData.get("description") as string) || null;
+    const endedAt = (formData.get("endedAt") as string) || null;
+    const durationMinutesStr = formData.get("durationMinutes") as string;
+    const durationMinutes = durationMinutesStr ? parseInt(durationMinutesStr, 10) : null;
+    const rateCentsStr = formData.get("rateCents") as string;
+    const rateCents = rateCentsStr ? parseInt(rateCentsStr, 10) : null;
     const status = (formData.get("status") as string) || null;
+
+    if (!id) {
+      return { error: "Time entry ID is required" };
+    }
+
+    const updateData: Record<string, unknown> = {};
+    if (description !== null) updateData.description = description;
+    if (endedAt !== null) updateData.ended_at = endedAt;
+    if (durationMinutes !== null) updateData.duration_minutes = durationMinutes;
+    if (rateCents !== null) updateData.rate_cents = rateCents;
+    if (status !== null) updateData.status = status;
+
     const { error } = await supabase
-      .from("invoices")
-      .update({ status })
-      .eq("id", id || "");
+      .from("time_entries")
+      .update(updateData)
+      .eq("id", id);
+
     if (error) return { error: error.message };
     await logAudit({
       supabase,
       actorId: roleCheck.session.user.id,
-      eventType: "invoice_updated",
-      entityType: "invoice",
+      eventType: "time_entry_updated",
+      entityType: "time_entry",
       entityId: id,
-      metadata: { status },
+      metadata: updateData,
     });
-    revalidatePath("/billing");
     revalidatePath("/");
+    revalidatePath("/time");
     return { ok: true };
   } catch (err) {
     return { error: err instanceof Error ? err.message : "Unknown error" };
@@ -330,6 +337,311 @@ export async function stopTimeEntry(formData: FormData): Promise<ActionResult> {
       metadata: { endedAt, durationMinutes },
     });
     revalidatePath("/time");
+    revalidatePath("/");
+    return { ok: true };
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : "Unknown error" };
+  }
+}
+
+export async function deleteTimeEntry(formData: FormData): Promise<ActionResult> {
+  const roleCheck = await ensureStaffOrAdmin();
+  if ("error" in roleCheck) return roleCheck;
+
+  try {
+    const supabase = ensureSupabase();
+    const id = (formData.get("id") as string) || null;
+
+    if (!id) {
+      return { error: "Time entry ID is required" };
+    }
+
+    const { error } = await supabase
+      .from("time_entries")
+      .delete()
+      .eq("id", id);
+
+    if (error) return { error: error.message };
+    await logAudit({
+      supabase,
+      actorId: roleCheck.session.user.id,
+      eventType: "time_entry_deleted",
+      entityType: "time_entry",
+      entityId: id,
+      metadata: {},
+    });
+    revalidatePath("/");
+    revalidatePath("/time");
+    return { ok: true };
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : "Unknown error" };
+  }
+}
+
+export async function getTimeEntry(id: string): Promise<{ data?: unknown; error?: string }> {
+  const roleCheck = await ensureStaffOrAdmin();
+  if ("error" in roleCheck) return roleCheck;
+
+  try {
+    const supabase = ensureSupabase();
+    const { data, error } = await supabase
+      .from("time_entries")
+      .select("*")
+      .eq("id", id)
+      .maybeSingle();
+
+    if (error) return { error: error.message };
+    return { data };
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : "Unknown error" };
+  }
+}
+
+export async function getTimeEntries(matterId?: string): Promise<{ data?: unknown[]; error?: string }> {
+  const roleCheck = await ensureStaffOrAdmin();
+  if ("error" in roleCheck) return roleCheck;
+
+  try {
+    const supabase = ensureSupabase();
+    let query = supabase
+      .from("time_entries")
+      .select("*")
+      .order("started_at", { ascending: false });
+
+    if (matterId) {
+      query = query.eq("matter_id", matterId);
+    }
+
+    const { data, error } = await query;
+
+    if (error) return { error: error.message };
+    return { data: data || [] };
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : "Unknown error" };
+  }
+}
+
+// Task Actions
+
+export async function createTask(formData: FormData): Promise<ActionResult> {
+  const roleCheck = await ensureStaffOrAdmin();
+  if ("error" in roleCheck) return roleCheck;
+
+  try {
+    const supabase = ensureSupabase();
+    const title = (formData.get("title") as string) || "Untitled Task";
+    const matterId = (formData.get("matterId") as string) || null;
+    const status = (formData.get("status") as string) || "open";
+    const responsibleParty = (formData.get("responsibleParty") as string) || "attorney";
+    const dueDate = (formData.get("dueDate") as string) || null;
+
+    if (!matterId) {
+      return { error: "Matter ID is required" };
+    }
+
+    const { error } = await supabase.from("tasks").insert({
+      title,
+      matter_id: matterId,
+      status,
+      responsible_party: responsibleParty,
+      due_date: dueDate,
+      created_by: roleCheck.session.user.id,
+    });
+
+    if (error) return { error: error.message };
+    await logAudit({
+      supabase,
+      actorId: roleCheck.session.user.id,
+      eventType: "task_created",
+      entityType: "task",
+      entityId: null,
+      metadata: { title, matterId, status },
+    });
+    revalidatePath("/");
+    revalidatePath("/tasks");
+    return { ok: true };
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : "Unknown error" };
+  }
+}
+
+export async function updateTaskStatus(formData: FormData): Promise<ActionResult> {
+  const roleCheck = await ensureStaffOrAdmin();
+  if ("error" in roleCheck) return roleCheck;
+
+  try {
+    const supabase = ensureSupabase();
+    const id = (formData.get("id") as string) || null;
+    const status = (formData.get("status") as string) || null;
+    const responsibleParty = (formData.get("responsibleParty") as string) || null;
+    const dueDate = (formData.get("dueDate") as string) || null;
+
+    if (!id) {
+      return { error: "Task ID is required" };
+    }
+
+    const updateData: Record<string, unknown> = {};
+    if (status !== null) updateData.status = status;
+    if (responsibleParty !== null) updateData.responsible_party = responsibleParty;
+    if (dueDate !== null) updateData.due_date = dueDate;
+
+    const { error } = await supabase
+      .from("tasks")
+      .update(updateData)
+      .eq("id", id);
+
+    if (error) return { error: error.message };
+    await logAudit({
+      supabase,
+      actorId: roleCheck.session.user.id,
+      eventType: "task_updated",
+      entityType: "task",
+      entityId: id,
+      metadata: updateData,
+    });
+    revalidatePath("/tasks");
+    revalidatePath("/");
+    return { ok: true };
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : "Unknown error" };
+  }
+}
+
+export async function deleteTask(formData: FormData): Promise<ActionResult> {
+  const roleCheck = await ensureStaffOrAdmin();
+  if ("error" in roleCheck) return roleCheck;
+
+  try {
+    const supabase = ensureSupabase();
+    const id = (formData.get("id") as string) || null;
+
+    if (!id) {
+      return { error: "Task ID is required" };
+    }
+
+    const { error } = await supabase
+      .from("tasks")
+      .delete()
+      .eq("id", id);
+
+    if (error) return { error: error.message };
+    await logAudit({
+      supabase,
+      actorId: roleCheck.session.user.id,
+      eventType: "task_deleted",
+      entityType: "task",
+      entityId: id,
+      metadata: {},
+    });
+    revalidatePath("/");
+    revalidatePath("/tasks");
+    return { ok: true };
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : "Unknown error" };
+  }
+}
+
+export async function getTask(id: string): Promise<{ data?: unknown; error?: string }> {
+  const roleCheck = await ensureStaffOrAdmin();
+  if ("error" in roleCheck) return roleCheck;
+
+  try {
+    const supabase = ensureSupabase();
+    const { data, error } = await supabase
+      .from("tasks")
+      .select("*")
+      .eq("id", id)
+      .maybeSingle();
+
+    if (error) return { error: error.message };
+    return { data };
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : "Unknown error" };
+  }
+}
+
+export async function getTasks(matterId?: string): Promise<{ data?: unknown[]; error?: string }> {
+  const roleCheck = await ensureStaffOrAdmin();
+  if ("error" in roleCheck) return roleCheck;
+
+  try {
+    const supabase = ensureSupabase();
+    let query = supabase
+      .from("tasks")
+      .select("*")
+      .order("created_at", { ascending: false });
+
+    if (matterId) {
+      query = query.eq("matter_id", matterId);
+    }
+
+    const { data, error } = await query;
+
+    if (error) return { error: error.message };
+    return { data: data || [] };
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : "Unknown error" };
+  }
+}
+
+// Invoice Actions
+
+export async function createInvoice(formData: FormData): Promise<ActionResult> {
+  const roleCheck = await ensureStaffOrAdmin();
+  if ("error" in roleCheck) return roleCheck;
+
+  try {
+    const supabase = ensureSupabase();
+    const matterId = (formData.get("matterId") as string) || null;
+    const amount = Number(formData.get("amount")) || 0;
+    const status = (formData.get("status") as string) || "draft";
+
+    const { error } = await supabase.from("invoices").insert({
+      matter_id: matterId,
+      total_cents: Math.max(0, Math.round(amount * 100)),
+      status,
+      line_items: [{ description: "Line item", amount_cents: Math.max(0, Math.round(amount * 100)) }],
+    });
+
+    if (error) return { error: error.message };
+    await logAudit({
+      supabase,
+      actorId: roleCheck.session.user.id,
+      eventType: "invoice_created",
+      entityType: "invoice",
+      entityId: null,
+      metadata: { matterId, amount },
+    });
+    revalidatePath("/");
+    revalidatePath("/billing");
+    return { ok: true };
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : "Unknown error" };
+  }
+}
+
+export async function updateInvoiceStatus(formData: FormData): Promise<ActionResult> {
+  const roleCheck = await ensureStaffOrAdmin();
+  if ("error" in roleCheck) return roleCheck;
+
+  try {
+    const supabase = ensureSupabase();
+    const id = (formData.get("id") as string) || null;
+    const status = (formData.get("status") as string) || null;
+    const { error } = await supabase
+      .from("invoices")
+      .update({ status })
+      .eq("id", id || "");
+    if (error) return { error: error.message };
+    await logAudit({
+      supabase,
+      actorId: roleCheck.session.user.id,
+      eventType: "invoice_updated",
+      entityType: "invoice",
+      entityId: id,
+      metadata: { status },
+    });
+    revalidatePath("/billing");
     revalidatePath("/");
     return { ok: true };
   } catch (err) {

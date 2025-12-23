@@ -11,14 +11,18 @@ const buttonVariants = cva(
           "bg-primary text-primary-foreground hover:bg-slate-800 shadow-sm",
         secondary:
           "bg-white text-slate-900 border border-slate-200 hover:bg-slate-100",
+        destructive:
+          "bg-red-600 text-white hover:bg-red-700 shadow-sm",
         ghost: "text-slate-800 hover:bg-slate-100",
         outline:
           "border border-slate-200 text-slate-900 bg-white hover:bg-slate-50",
+        link: "text-slate-900 underline-offset-4 hover:underline",
       },
       size: {
         default: "h-10 px-4",
         sm: "h-9 px-3 text-xs",
         lg: "h-11 px-5 text-base",
+        icon: "h-10 w-10",
       },
     },
     defaultVariants: {

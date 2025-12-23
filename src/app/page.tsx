@@ -27,6 +27,7 @@ import {
   fetchTimeEntries,
 } from "@/lib/data/queries";
 import { getSessionWithProfile } from "@/lib/auth/server";
+import { cn, isOverdue, formatDueDate } from "@/lib/utils";
 
 const automations = [
   {
@@ -49,6 +50,7 @@ const automations = [
 const badgeVariant = (badge: string) => {
   if (badge === "client") return "warning";
   if (badge === "lawyer") return "default";
+  if (badge === "staff") return "secondary";
   return "outline";
 };
 
@@ -105,27 +107,34 @@ export default async function Home() {
 
   const taskRows = tasks.slice(0, 3);
   const billingRows = invoices.slice(0, 3);
+  
+  // Sort matters by next action due date
+  const sortedMatters = [...matters].sort((a, b) => {
+    const dateA = new Date(a.nextActionDueDate || "").getTime();
+    const dateB = new Date(b.nextActionDueDate || "").getTime();
+    return dateA - dateB;
+  });
 
   return (
-    <div className="min-h-screen bg-slate-50">
-      <header className="border-b border-slate-200 bg-white">
+    <div className="min-h-screen bg-slate-50 dark:bg-black">
+      <header className="border-b border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-950">
         <div className="container flex flex-col gap-3 py-8 md:flex-row md:items-center md:justify-between">
           <div>
-            <p className="text-xs uppercase tracking-[0.2em] text-slate-500">
+            <p className="text-xs uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">
               MatterFlow
             </p>
-            <h1 className="text-3xl font-semibold leading-tight text-slate-900">
+            <h1 className="text-3xl font-semibold leading-tight text-slate-900 dark:text-slate-50">
               Control Center
             </h1>
-            <p className="text-sm text-slate-600">
+            <p className="text-sm text-slate-600 dark:text-slate-400">
               Map the MVP: matters, billing, time, and automation in one pass.
-              <span className="ml-2 font-medium text-slate-700">
+              <span className="ml-2 font-medium text-slate-700 dark:text-slate-300">
                 {matterSource === "supabase"
                   ? "Live Supabase data"
                   : "Mock data until Supabase is configured"}
               </span>
               {profile?.role ? (
-                <span className="ml-2 text-xs uppercase text-slate-500">
+                <span className="ml-2 text-xs uppercase text-slate-500 dark:text-slate-400">
                   Role: {profile.role}
                 </span>
               ) : null}
@@ -176,7 +185,7 @@ export default async function Home() {
                 <CardDescription>{stat.label}</CardDescription>
                 <CardTitle className="text-2xl">{stat.value}</CardTitle>
               </CardHeader>
-              <CardContent className="pt-0 text-sm text-slate-600">
+              <CardContent className="pt-0 text-sm text-slate-600 dark:text-slate-400">
                 {stat.helper}
               </CardContent>
             </Card>
@@ -187,36 +196,42 @@ export default async function Home() {
           <Card className="lg:col-span-2 animate-fade-in">
             <CardHeader className="pb-0">
               <CardTitle className="flex items-center gap-2">
-                Matter pipeline
-                <Badge variant="outline" className="text-xs">
-                  11 stages fixed
-                </Badge>
+                Next actions by responsible party
+                <Clock4 className="h-4 w-4 text-slate-500" />
               </CardTitle>
               <CardDescription>
-                Every matter has one stage, one next action, and a responsible
-                party (lawyer or client).
+                Every matter has one next action with a responsible party (lawyer, client, or staff) and a due date.
               </CardDescription>
             </CardHeader>
             <CardContent>
               <div className="space-y-3">
-                {stageCounts.map((item) => (
+                {sortedMatters.slice(0, 8).map((matter) => (
                   <div
-                    key={item.stage}
-                    className="flex flex-col gap-2 rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 md:flex-row md:items-center md:justify-between"
+                    key={matter.id}
+                    className={cn(
+                      "flex flex-col gap-2 rounded-lg border px-4 py-3 transition-colors md:flex-row md:items-center md:justify-between",
+                      isOverdue(matter.nextActionDueDate)
+                        ? "border-red-300 bg-red-50 dark:border-red-700 dark:bg-red-950"
+                        : "border-slate-200 bg-slate-50 dark:border-slate-700 dark:bg-slate-900"
+                    )}
                   >
                     <div>
-                      <p className="text-sm font-semibold text-slate-900">
-                        {item.stage}
+                      <p className="text-sm font-semibold text-slate-900 dark:text-slate-50">
+                        {matter.title}
                       </p>
-                      <p className="text-xs text-slate-600">
-                        Next: {item.next}
+                      <p className="text-xs text-slate-600 dark:text-slate-400">
+                        Next: {matter.nextAction}
                       </p>
                     </div>
                     <div className="flex items-center gap-3">
-                      <Badge variant={badgeVariant(item.badge)}>
-                        {item.badge === "client" ? "Client" : "Lawyer"} owns
+                      <Badge variant={badgeVariant(matter.responsibleParty)}>
+                        {matter.responsibleParty === "client" ? "Client" : matter.responsibleParty === "staff" ? "Staff" : "Lawyer"} owns
                       </Badge>
-                      <Badge variant="outline">{item.count} matters</Badge>
+                      <Badge 
+                        variant={isOverdue(matter.nextActionDueDate) ? "destructive" : "outline"}
+                      >
+                        Due: {formatDueDate(matter.nextActionDueDate)}
+                      </Badge>
                     </div>
                   </div>
                 ))}
@@ -227,39 +242,32 @@ export default async function Home() {
           <Card className="animate-fade-in">
             <CardHeader className="pb-3">
               <CardTitle className="flex items-center gap-2">
-                Next actions
-                <Clock4 className="h-4 w-4 text-slate-500" />
+                Pipeline stages
+                <Badge variant="outline" className="text-xs">
+                  11 fixed
+                </Badge>
               </CardTitle>
-              <CardDescription>Keep matters unblocked.</CardDescription>
+              <CardDescription>Matters by stage and owner.</CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
-              {taskRows.map((task) => (
-                <div key={task.id} className="space-y-1 rounded-lg bg-white">
-                  <p className="text-sm font-medium text-slate-900">
-                    {task.title}
-                  </p>
-                  <div className="flex items-center gap-2 text-xs text-slate-600">
-                    <Badge
-                      variant={
-                        task.responsibleParty === "client" ? "warning" : "default"
-                      }
-                    >
-                      {task.responsibleParty}
+            <CardContent className="space-y-2">
+              {stageCounts.slice(0, 6).map((item) => (
+                <div
+                  key={item.stage}
+                  className="flex items-center justify-between rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs dark:border-slate-700 dark:bg-slate-900"
+                >
+                  <div>
+                    <p className="font-medium text-slate-900 dark:text-slate-50">
+                      {item.stage}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Badge variant={badgeVariant(item.badge)} className="text-xs">
+                      {item.badge === "client" ? "Client" : item.badge === "staff" ? "Staff" : "Lawyer"}
                     </Badge>
-                    <span>
-                      {task.dueDate
-                        ? new Date(task.dueDate).toLocaleDateString()
-                        : "No due date"}
-                    </span>
+                    <Badge variant="outline" className="text-xs">{item.count}</Badge>
                   </div>
                 </div>
               ))}
-              <Link href="/tasks">
-                <Button variant="ghost" size="sm" className="px-0">
-                  View all tasks
-                  <ArrowRight className="ml-2 h-4 w-4" />
-                </Button>
-              </Link>
             </CardContent>
           </Card>
         </div>
@@ -279,18 +287,18 @@ export default async function Home() {
               {billingRows.map((row) => (
                 <div
                   key={row.id}
-                  className="flex items-center justify-between rounded-lg border border-slate-200 px-4 py-3"
+                  className="flex items-center justify-between rounded-lg border border-slate-200 px-4 py-3 dark:border-slate-700"
                 >
                   <div>
-                    <p className="text-sm font-medium text-slate-900">
+                    <p className="text-sm font-medium text-slate-900 dark:text-slate-50">
                       Invoice {row.id.slice(0, 8)}
                     </p>
-                    <p className="text-xs text-slate-600">
+                    <p className="text-xs text-slate-600 dark:text-slate-400">
                       Matter ID: {row.matterId}
                     </p>
                   </div>
                   <div className="flex items-center gap-3">
-                    <span className="text-sm font-semibold text-slate-900">
+                    <span className="text-sm font-semibold text-slate-900 dark:text-slate-50">
                       {currency(row.totalCents)}
                     </span>
                     <Button variant="outline" size="sm">
@@ -303,7 +311,7 @@ export default async function Home() {
                   </div>
                 </div>
               ))}
-              <p className="text-xs text-slate-600">
+              <p className="text-xs text-slate-600 dark:text-slate-400">
                 No invoice can be created outside MatterFlow. Sync failures must
                 be visible and retryable.
               </p>
@@ -320,25 +328,25 @@ export default async function Home() {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="flex items-center gap-3 rounded-lg border border-slate-200 px-4 py-3">
+              <div className="flex items-center gap-3 rounded-lg border border-slate-200 px-4 py-3 dark:border-slate-700">
                 <Timer className="h-4 w-4 text-slate-500" />
                 <div className="flex-1">
-                  <p className="text-sm font-semibold text-slate-900">
+                  <p className="text-sm font-semibold text-slate-900 dark:text-slate-50">
                     Time tracking
                   </p>
-                  <p className="text-xs text-slate-600">
+                  <p className="text-xs text-slate-600 dark:text-slate-400">
                     Start/stop from the matter page; approvals gate invoicing.
                   </p>
                 </div>
                 <Badge variant="outline">Timer + manual</Badge>
               </div>
-              <div className="flex items-center gap-3 rounded-lg border border-slate-200 px-4 py-3">
+              <div className="flex items-center gap-3 rounded-lg border border-slate-200 px-4 py-3 dark:border-slate-700">
                 <FileText className="h-4 w-4 text-slate-500" />
                 <div className="flex-1">
-                  <p className="text-sm font-semibold text-slate-900">
+                  <p className="text-sm font-semibold text-slate-900 dark:text-slate-50">
                     Documents
                   </p>
-                  <p className="text-xs text-slate-600">
+                  <p className="text-xs text-slate-600 dark:text-slate-400">
                     Store metadata + folder mapping now; Drive sync job follows
                     the PRD structure.
                   </p>
@@ -349,19 +357,19 @@ export default async function Home() {
                 {automations.map((item) => (
                   <div
                     key={item.title}
-                    className="flex items-start gap-3 rounded-lg border border-slate-200 px-4 py-3"
+                    className="flex items-start gap-3 rounded-lg border border-slate-200 px-4 py-3 dark:border-slate-700"
                   >
                     <item.icon className="mt-0.5 h-4 w-4 text-slate-500" />
                     <div>
-                      <p className="text-sm font-semibold text-slate-900">
+                      <p className="text-sm font-semibold text-slate-900 dark:text-slate-50">
                         {item.title}
                       </p>
-                      <p className="text-xs text-slate-600">{item.detail}</p>
+                      <p className="text-xs text-slate-600 dark:text-slate-400">{item.detail}</p>
                     </div>
                   </div>
                 ))}
               </div>
-              <div className="flex items-center gap-2 text-xs text-slate-600">
+              <div className="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-400">
                 <CheckCircle2 className="h-4 w-4 text-slate-500" />
                 Human approval remains required for AI decisions and conflict
                 checks.

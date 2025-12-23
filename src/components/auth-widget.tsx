@@ -1,6 +1,6 @@
 "use client";
 
-import { useTransition } from "react";
+import { useState, useTransition } from "react";
 import { LogOut } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -9,6 +9,7 @@ import { supabaseBrowser } from "@/lib/supabase/client";
 export function AuthWidget({ email }: { email?: string | null }) {
   const supabase = supabaseBrowser();
   const [pending, startTransition] = useTransition();
+  const [status, setStatus] = useState<string | null>(null);
 
   const handleSignOut = () => {
     startTransition(async () => {
@@ -42,6 +43,7 @@ export function AuthWidget({ email }: { email?: string | null }) {
           Sign in via /auth/sign-in
         </span>
       )}
+      {status && <span role="alert" className="text-xs text-red-600">{status}</span>}
     </div>
   );
 }

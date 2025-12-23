@@ -8,7 +8,28 @@ export type SessionProfile = {
   role: Database["public"]["Enums"]["user_role"] | null;
 };
 
-export async function getSessionWithProfile() {
+export type SessionWithProfile = {
+  session: {
+    user: {
+      id: string;
+      email?: string;
+    };
+  } | null;
+  profile: SessionProfile | null;
+};
+
+// For testing purposes - can be mocked in tests
+let mockSessionWithProfile: SessionWithProfile | null = null;
+
+export function setMockSessionWithProfile(data: SessionWithProfile | null) {
+  mockSessionWithProfile = data;
+}
+
+export async function getSessionWithProfile(): Promise<SessionWithProfile> {
+  if (mockSessionWithProfile !== null) {
+    return mockSessionWithProfile;
+  }
+
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 

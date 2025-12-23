@@ -4,7 +4,8 @@ export type MatterSummary = {
   id: string;
   title: string;
   stage: string;
-  nextAction: string | null;
+  nextAction: string;
+  nextActionDueDate: string;
   responsibleParty: string;
   billingModel: string;
   matterType: string;
@@ -42,12 +43,23 @@ export type TimeEntrySummary = {
 
 type DataSource = "supabase" | "mock";
 
+// Get today's date in ISO format for mock data
+const getTodayISO = () => new Date().toISOString().split("T")[0];
+
+// Get a date N days from today in ISO format
+const getDateFromTodayISO = (days: number) => {
+  const date = new Date();
+  date.setDate(date.getDate() + days);
+  return date.toISOString().split("T")[0];
+};
+
 const matterFallback: MatterSummary[] = [
   {
     id: "mock-1",
-    title: "Policy Review – Evergreen",
+    title: "Policy Review - Evergreen",
     stage: "Under Review",
     nextAction: "Draft review pack",
+    nextActionDueDate: getDateFromTodayISO(-2), // Overdue by 2 days
     responsibleParty: "lawyer",
     billingModel: "flat",
     matterType: "Policy Review",
@@ -55,12 +67,24 @@ const matterFallback: MatterSummary[] = [
   },
   {
     id: "mock-2",
-    title: "Contract – Lotus Clinic",
+    title: "Contract - Lotus Clinic",
     stage: "Waiting on Client",
     nextAction: "Nudge client",
+    nextActionDueDate: getTodayISO(), // Due today
     responsibleParty: "client",
     billingModel: "hourly",
     matterType: "Contract Review",
+    updatedAt: new Date().toISOString(),
+  },
+  {
+    id: "mock-3",
+    title: "Employment Agreement - Sunrise",
+    stage: "Drafting",
+    nextAction: "Send initial draft",
+    nextActionDueDate: getDateFromTodayISO(3), // Due in 3 days
+    responsibleParty: "staff",
+    billingModel: "flat",
+    matterType: "Employment Agreement",
     updatedAt: new Date().toISOString(),
   },
 ];
@@ -68,7 +92,7 @@ const matterFallback: MatterSummary[] = [
 const taskFallback: TaskSummary[] = [
   {
     id: "mock-task-1",
-    title: "Approve conflict check – Parker Therapy",
+    title: "Approve conflict check - Parker Therapy",
     dueDate: new Date().toISOString(),
     status: "open",
     responsibleParty: "lawyer",
@@ -76,7 +100,7 @@ const taskFallback: TaskSummary[] = [
   },
   {
     id: "mock-task-2",
-    title: "Upload W9 – Evergreen Counseling",
+    title: "Upload W9 - Evergreen Counseling",
     dueDate: null,
     status: "open",
     responsibleParty: "client",
@@ -122,8 +146,9 @@ export async function fetchMatters(): Promise<{
     const { data, error } = await supabase
       .from("matters")
       .select(
-        "id,title,stage,next_action,responsible_party,billing_model,matter_type,updated_at",
-      );
+        "id,title,stage,next_action,next_action_due_date,responsible_party,billing_model,matter_type,updated_at",
+      )
+      .order("next_action_due_date", { ascending: true });
 
     if (error || !data) {
       return {
@@ -139,6 +164,7 @@ export async function fetchMatters(): Promise<{
         title: row.title,
         stage: row.stage,
         nextAction: row.next_action,
+        nextActionDueDate: row.next_action_due_date,
         responsibleParty: row.responsible_party,
         billingModel: row.billing_model,
         matterType: row.matter_type,
