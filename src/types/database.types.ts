@@ -179,7 +179,8 @@ export type Database = {
           created_at: string;
           id: string;
           matter_type: string;
-          next_action: string | null;
+          next_action: string;
+          next_action_due_date: string;
           owner_id: string;
           responsible_party: string;
           stage: string;
@@ -192,7 +193,8 @@ export type Database = {
           created_at?: string;
           id?: string;
           matter_type: string;
-          next_action?: string | null;
+          next_action: string;
+          next_action_due_date?: string;
           owner_id: string;
           responsible_party: string;
           stage?: string;
@@ -205,7 +207,8 @@ export type Database = {
           created_at?: string;
           id?: string;
           matter_type?: string;
-          next_action?: string | null;
+          next_action?: string;
+          next_action_due_date?: string;
           owner_id?: string;
           responsible_party?: string;
           stage?: string;

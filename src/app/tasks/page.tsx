@@ -9,7 +9,8 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { createTask, updateTaskStatus } from "@/lib/data/actions";
+import { TaskForm } from "@/components/forms/TaskForm";
+import { TaskStatusForm } from "@/components/forms/TaskStatusForm";
 import { getSessionWithProfile } from "@/lib/auth/server";
 import { fetchMatters, fetchTasks } from "@/lib/data/queries";
 import { supabaseEnvReady } from "@/lib/supabase/server";
@@ -69,65 +70,7 @@ export default async function TasksPage() {
           </CardHeader>
           <CardContent>
             {canEdit ? (
-              <form action={createTask} className="grid gap-3 md:grid-cols-2">
-                <label className="text-sm text-slate-700">
-                  <span className="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-500">
-                    Title
-                  </span>
-                  <input
-                    name="title"
-                    required
-                    className="w-full rounded-md border border-slate-200 px-3 py-2 text-sm"
-                    placeholder="Send draft to client"
-                  />
-                </label>
-                <label className="text-sm text-slate-700">
-                  <span className="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-500">
-                    Matter ID
-                  </span>
-                  <select
-                    name="matterId"
-                    required
-                    className="w-full rounded-md border border-slate-200 px-3 py-2 text-sm"
-                    defaultValue=""
-                  >
-                    <option value="" disabled>
-                      Select a matter
-                    </option>
-                    {matters.map((m) => (
-                      <option key={m.id} value={m.id}>
-                        {m.title}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label className="text-sm text-slate-700">
-                  <span className="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-500">
-                    Due date
-                  </span>
-                  <input
-                    type="date"
-                    name="dueDate"
-                    className="w-full rounded-md border border-slate-200 px-3 py-2 text-sm"
-                  />
-                </label>
-                <label className="text-sm text-slate-700">
-                  <span className="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-500">
-                    Responsible party
-                  </span>
-                  <select
-                    name="responsibleParty"
-                    className="w-full rounded-md border border-slate-200 px-3 py-2 text-sm"
-                    defaultValue="lawyer"
-                  >
-                    <option value="lawyer">Lawyer</option>
-                    <option value="client">Client</option>
-                  </select>
-                </label>
-                <div className="md:col-span-2">
-                  <Button type="submit">Add task</Button>
-                </div>
-              </form>
+              <TaskForm matters={matters} />
             ) : (
               <p className="text-sm text-amber-700">
                 {supabaseReady
@@ -153,30 +96,18 @@ export default async function TasksPage() {
                   {formatDue(task.dueDate)}
                 </CardDescription>
               </CardHeader>
-              <CardContent className="flex flex-wrap items-center gap-2 text-xs text-slate-700">
-                <Badge
-                  variant={task.responsibleParty === "client" ? "warning" : "default"}
-                >
-                  {task.responsibleParty} owns
-                </Badge>
-                <Badge variant="outline">{task.status}</Badge>
-                <span className="text-slate-600">Matter ID: {task.matterId}</span>
+              <CardContent className="flex flex-col gap-3 text-xs text-slate-700">
+                <div className="flex flex-wrap items-center gap-2">
+                  <Badge
+                    variant={task.responsibleParty === "client" ? "warning" : "default"}
+                  >
+                    {task.responsibleParty} owns
+                  </Badge>
+                  <Badge variant="outline">{task.status}</Badge>
+                  <span className="text-slate-600">Matter ID: {task.matterId}</span>
+                </div>
                 {canEdit ? (
-                  <form action={updateTaskStatus} className="flex items-center gap-2">
-                    <input type="hidden" name="id" value={task.id} />
-                    <select
-                      name="status"
-                      defaultValue={task.status}
-                      className="rounded-md border border-slate-200 px-2 py-1 text-xs"
-                    >
-                      <option value="open">Open</option>
-                      <option value="in-progress">In progress</option>
-                      <option value="done">Done</option>
-                    </select>
-                    <Button size="sm" variant="secondary" type="submit">
-                      Update
-                    </Button>
-                  </form>
+                  <TaskStatusForm taskId={task.id} currentStatus={task.status} />
                 ) : null}
               </CardContent>
             </Card>

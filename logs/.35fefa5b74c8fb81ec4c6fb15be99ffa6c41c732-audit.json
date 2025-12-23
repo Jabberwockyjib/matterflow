@@ -1,0 +1,15 @@
+{
+    "keep": {
+        "days": true,
+        "amount": 14
+    },
+    "auditLog": "/Users/brian/therapy/.worktrees/003-2-click-time-tracking/logs/.35fefa5b74c8fb81ec4c6fb15be99ffa6c41c732-audit.json",
+    "files": [
+        {
+            "date": 1766507484076,
+            "name": "/Users/brian/therapy/.worktrees/003-2-click-time-tracking/logs/mcp-puppeteer-2025-12-23.log",
+            "hash": "945def594ce613aa0946ae6c5a341ac652d100600ac90b975300d8b4c33b4a47"
+        }
+    ],
+    "hashType": "sha256"
+}

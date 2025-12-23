@@ -1,35 +1,69 @@
 "use client";
 
 import { useSearchParams } from "next/navigation";
-import { useState, useTransition } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { Mail, ShieldCheck } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { FormInput } from "@/components/ui/form-field";
 import { supabaseBrowser } from "@/lib/supabase/client";
+import { signInSchema, type SignInFormData } from "@/lib/validation/schemas";
+import { useDraftPersistence } from "@/hooks/useDraftPersistence";
+import { useUnsavedChanges } from "@/hooks/useUnsavedChanges";
+import { showSuccess, showError } from "@/lib/toast";
 
 export default function SignInPage() {
   const supabase = supabaseBrowser();
   const searchParams = useSearchParams();
   const redirect = searchParams.get("redirect") || "/";
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [message, setMessage] = useState<string | null>(null);
-  const [pending, startTransition] = useTransition();
 
-  const signInWithPassword = () => {
-    startTransition(async () => {
-      setMessage(null);
-      const { error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
-      if (error) {
-        setMessage(error.message);
-      } else {
-        window.location.assign(redirect);
-      }
+  // Initialize React Hook Form with Zod validation
+  const {
+    register,
+    handleSubmit,
+    watch,
+    reset,
+    formState: { errors, isDirty, isSubmitting },
+  } = useForm<SignInFormData>({
+    resolver: zodResolver(signInSchema),
+    defaultValues: {
+      email: "",
+      password: "",
+    },
+  });
+
+  // Enable draft persistence for form state across page refreshes
+  const { clearDraft } = useDraftPersistence({
+    formId: "sign-in",
+    watch,
+    reset,
+  });
+
+  // Warn users when navigating away with unsaved changes
+  useUnsavedChanges({ isDirty });
+
+  // Handle form submission
+  const onSubmit = async (data: SignInFormData) => {
+    const { error } = await supabase.auth.signInWithPassword({
+      email: data.email,
+      password: data.password,
     });
+
+    if (error) {
+      showError(error.message, {
+        onRetry: () => handleSubmit(onSubmit)(),
+      });
+    } else {
+      // Clear draft on successful login
+      clearDraft();
+      showSuccess("Signed in successfully");
+      // Small delay to show toast before redirect
+      setTimeout(() => {
+        window.location.assign(redirect);
+      }, 500);
+    }
   };
 
   return (
@@ -42,41 +76,33 @@ export default function SignInPage() {
           </CardTitle>
           <CardDescription>Use your email and password to sign in.</CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="space-y-2">
-            <label htmlFor="email" className="text-xs font-medium uppercase tracking-wide text-slate-600">
-              Email
-            </label>
-            <input
-              id="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
+        <CardContent>
+          <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+            <FormInput
+              label="Email"
               type="email"
               placeholder="you@example.com"
-              className="w-full rounded-md border border-slate-200 px-3 py-2 text-sm"
+              registration={register("email")}
+              error={errors.email}
+              required
             />
-            <label htmlFor="password" className="text-xs font-medium uppercase tracking-wide text-slate-600">
-              Password
-            </label>
-            <input
-              id="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
+            <FormInput
+              label="Password"
               type="password"
               placeholder="••••••••"
-              className="w-full rounded-md border border-slate-200 px-3 py-2 text-sm"
+              registration={register("password")}
+              error={errors.password}
+              required
             />
             <Button
-              type="button"
+              type="submit"
               className="w-full"
-              onClick={signInWithPassword}
-              disabled={!email || !password || pending}
+              disabled={isSubmitting}
             >
               <Mail className="mr-2 h-4 w-4" />
-              Sign in
+              {isSubmitting ? "Signing in..." : "Sign in"}
             </Button>
-          </div>
-          {message && <p role="alert" className="text-xs text-amber-700">{message}</p>}
+          </form>
         </CardContent>
       </Card>
     </div>

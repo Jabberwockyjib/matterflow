@@ -1,7 +1,6 @@
-import { Clock4, Timer } from "lucide-react";
+import { Clock4 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
@@ -9,7 +8,8 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { createTimeEntry, stopTimeEntry } from "@/lib/data/actions";
+import { TimeEntryForm } from "@/components/forms/TimeEntryForm";
+import { StopTimerForm } from "@/components/forms/StopTimerForm";
 import { getSessionWithProfile } from "@/lib/auth/server";
 import { fetchMatters, fetchTasks, fetchTimeEntries } from "@/lib/data/queries";
 import { supabaseEnvReady } from "@/lib/supabase/server";
@@ -67,73 +67,7 @@ export default async function TimePage() {
           </CardHeader>
           <CardContent>
             {canEdit ? (
-              <form action={createTimeEntry} className="grid gap-3 md:grid-cols-3">
-                <label className="text-sm text-slate-700">
-                  <span className="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-500">
-                    Matter ID
-                  </span>
-                  <select
-                    name="matterId"
-                    required
-                    className="w-full rounded-md border border-slate-200 px-3 py-2 text-sm"
-                    defaultValue=""
-                  >
-                    <option value="" disabled>
-                      Select a matter
-                    </option>
-                    {matters.map((m) => (
-                      <option key={m.id} value={m.id}>
-                        {m.title}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label className="text-sm text-slate-700">
-                  <span className="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-500">
-                    Task ID (optional)
-                  </span>
-                  <select
-                    name="taskId"
-                    className="w-full rounded-md border border-slate-200 px-3 py-2 text-sm"
-                    defaultValue=""
-                  >
-                    <option value="">No task</option>
-                    {tasks.map((t) => (
-                      <option key={t.id} value={t.id}>
-                        {t.title}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label className="text-sm text-slate-700">
-                  <span className="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-500">
-                    Minutes
-                  </span>
-                  <input
-                    name="minutes"
-                    type="number"
-                    min="0"
-                    className="w-full rounded-md border border-slate-200 px-3 py-2 text-sm"
-                    placeholder="45"
-                  />
-                </label>
-                <label className="text-sm text-slate-700 md:col-span-3">
-                  <span className="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-500">
-                    Description
-                  </span>
-                  <input
-                    name="description"
-                    className="w-full rounded-md border border-slate-200 px-3 py-2 text-sm"
-                    placeholder="Review intake and prep notes"
-                  />
-                </label>
-                <div className="md:col-span-3">
-                  <Button type="submit">
-                    Log time
-                    <Timer className="ml-2 h-4 w-4" />
-                  </Button>
-                </div>
-              </form>
+              <TimeEntryForm matters={matters} tasks={tasks} />
             ) : (
               <p className="text-sm text-amber-700">
                 {supabaseReady
@@ -175,12 +109,7 @@ export default async function TimePage() {
                   <>
                     <Badge variant="warning">Running</Badge>
                     {canEdit ? (
-                      <form action={stopTimeEntry}>
-                        <input type="hidden" name="id" value={entry.id} />
-                        <Button size="sm" variant="secondary" type="submit">
-                          Stop timer
-                        </Button>
-                      </form>
+                      <StopTimerForm timeEntryId={entry.id} />
                     ) : null}
                   </>
                 )}

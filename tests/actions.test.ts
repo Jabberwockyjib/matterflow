@@ -49,13 +49,14 @@ describe("data actions", () => {
     vi.spyOn(auth, "getSessionWithProfile").mockResolvedValue({
       session: { user: { id: "user-1" } } as unknown as auth.SessionProfile,
       profile: { role: "admin", full_name: "Admin" },
-    } as unknown as ReturnType<typeof auth.getSessionWithProfile>);
+    } as unknown as Awaited<ReturnType<typeof auth.getSessionWithProfile>>);
   });
 
   it("creates matter", async () => {
     const form = new FormData();
     form.set("title", "Test Matter");
     form.set("billingModel", "hourly");
+    form.set("ownerId", "user-1");
     const res = await createMatter(form);
     expect(res?.ok).toBe(true);
     expect(mockSupabase.from).toHaveBeenCalledWith("matters");
@@ -116,7 +117,8 @@ describe("data actions", () => {
   });
 
   it("stops time entry", async () => {
-    mockSupabase.from.mockReturnValueOnce({
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (mockSupabase.from as any).mockReturnValueOnce({
       select: vi.fn().mockReturnValue({
         eq: vi.fn().mockReturnValue({
           maybeSingle: vi.fn().mockResolvedValue({
@@ -124,12 +126,13 @@ describe("data actions", () => {
           }),
         }),
       }),
-    } as unknown as ReturnType<typeof server.supabaseAdmin>);
-    mockSupabase.from.mockReturnValueOnce({
+    });
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (mockSupabase.from as any).mockReturnValueOnce({
       update: vi.fn().mockReturnValue({
         eq: vi.fn().mockResolvedValue({ error: null }),
       }),
-    } as unknown as ReturnType<typeof server.supabaseAdmin>);
+    });
 
     const form = new FormData();
     form.set("id", "1");

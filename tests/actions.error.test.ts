@@ -24,12 +24,13 @@ describe("data actions errors", () => {
     vi.spyOn(auth, "getSessionWithProfile").mockResolvedValue({
       session: { user: { id: "user-1" } } as unknown as auth.SessionProfile,
       profile: { role: "admin", full_name: "Admin" },
-    } as unknown as ReturnType<typeof auth.getSessionWithProfile>);
+    } as unknown as Awaited<ReturnType<typeof auth.getSessionWithProfile>>);
   });
 
   it("returns error when Supabase insert fails", async () => {
     const form = new FormData();
     form.set("title", "Test");
+    form.set("ownerId", "user-1");
     const res = await createMatter(form);
     expect(res?.error).toBe("boom");
   });

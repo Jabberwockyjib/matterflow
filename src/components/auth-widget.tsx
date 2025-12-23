@@ -25,6 +25,9 @@ export function AuthWidget({ email }: { email?: string | null }) {
 
   return (
     <div className="flex items-center gap-2">
+      {status && (
+        <span role="alert" className="text-xs text-red-600">{status}</span>
+      )}
       {email ? (
         <>
           <span className="text-xs text-slate-600">{email}</span>
@@ -43,7 +46,6 @@ export function AuthWidget({ email }: { email?: string | null }) {
           Sign in via /auth/sign-in
         </span>
       )}
-      {status && <span role="alert" className="text-xs text-red-600">{status}</span>}
     </div>
   );
 }

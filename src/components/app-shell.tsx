@@ -6,6 +6,11 @@ import { usePathname } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { AuthWidget } from "@/components/auth-widget";
+import { FloatingTimerButton } from "@/components/timer/floating-timer-button";
+import { HeaderTimerDisplay } from "@/components/timer/header-timer-display";
+import { KeyboardShortcuts } from "@/components/keyboard-shortcuts";
+import { TimerModal } from "@/components/timer/timer-modal";
+import type { MatterSummary } from "@/lib/data/queries";
 
 const links = [
   { href: "/", label: "Dashboard" },
@@ -20,10 +25,19 @@ type AppShellProps = {
   profileName?: string | null;
   role?: string | null;
   email?: string | null;
+  /**
+   * List of matters for timer modal's matter selection.
+   * Should be fetched server-side and passed down.
+   */
+  matters?: MatterSummary[];
 };
 
-export function AppShell({ children, profileName, role, email }: AppShellProps) {
+export function AppShell({ children, profileName, role, email, matters = [] }: AppShellProps) {
   const pathname = usePathname();
+
+  // Determine if user is authenticated (has email)
+  // Timer components should only show for authenticated users
+  const isAuthenticated = Boolean(email);
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900">
@@ -63,6 +77,8 @@ export function AppShell({ children, profileName, role, email }: AppShellProps) 
                 );
               })}
             </nav>
+            {/* Header timer display - only shown for authenticated users when timer is running */}
+            {isAuthenticated && <HeaderTimerDisplay matters={matters} />}
             <div className="text-right">
               <p className="text-sm font-semibold text-slate-900">
                 {profileName || "Guest"}
@@ -76,6 +92,15 @@ export function AppShell({ children, profileName, role, email }: AppShellProps) 
         </div>
       </header>
       <main>{children}</main>
+
+      {/* Timer components - only shown for authenticated users */}
+      {isAuthenticated && (
+        <>
+          <KeyboardShortcuts />
+          <FloatingTimerButton />
+          <TimerModal matters={matters} />
+        </>
+      )}
     </div>
   );
 }

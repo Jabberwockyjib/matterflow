@@ -1,22 +1,10 @@
-import { ArrowRight, User } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import { fetchMatters } from "@/lib/data/queries";
 import { createMatter, updateMatterStage } from "@/lib/data/actions";
 import { getSessionWithProfile } from "@/lib/auth/server";
 import { supabaseEnvReady } from "@/lib/supabase/server";
 import { cn, isOverdue, formatDueDate } from "@/lib/utils";
-
-const responsibleVariant = (owner: string) =>
-  owner === "client" ? "warning" : "default";
 
 // Wrapper to handle form action that returns ActionResult
 async function handleCreateMatter(formData: FormData): Promise<void> {
@@ -52,69 +40,62 @@ export default async function MattersPage() {
   ];
 
   return (
-    <div className="bg-slate-50">
-      <header className="border-b border-slate-200 bg-white">
-        <div className="container flex flex-col gap-3 py-8 md:flex-row md:items-center md:justify-between">
-          <div>
-            <p className="text-xs uppercase tracking-[0.2em] text-slate-500">
-              MatterFlow
+    <div className="min-h-screen bg-zinc-50 font-sans dark:bg-black">
+      <main className="mx-auto max-w-4xl px-4 py-8 sm:px-6 lg:px-8">
+        {/* Header */}
+        <header className="mb-8">
+          <h1 className="text-2xl font-semibold tracking-tight text-black dark:text-zinc-50">
+            Matters
+          </h1>
+          <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
+            Stage, next action, and responsible party per matter.{" "}
+            <span className="font-medium text-zinc-700 dark:text-zinc-300">
+              {source === "supabase"
+                ? "Live Supabase data"
+                : "Using mock data until Supabase is configured"}
+            </span>
+          </p>
+          {error && (
+            <p className="mt-2 text-xs text-red-600 dark:text-red-400">
+              {error}
             </p>
-            <h1 className="text-3xl font-semibold leading-tight text-slate-900">
-              Matters
-            </h1>
-            <p className="text-sm text-slate-600">
-              Stage, next action, and responsible party per matter.{" "}
-              <span className="font-medium text-slate-700">
-                {source === "supabase"
-                  ? "Live Supabase data"
-                  : "Using mock data until Supabase is configured"}
-              </span>
-              {error ? ` — ${error}` : null}
-            </p>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <Button variant="secondary" size="sm">
-              Import CSV
-            </Button>
-            <Button size="sm">
-              New Matter
-              <ArrowRight className="h-4 w-4" />
-            </Button>
-          </div>
-        </div>
-      </header>
+          )}
+        </header>
 
-      <main className="container py-8 space-y-4">
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle>Quick create matter</CardTitle>
-            <CardDescription>
-              Minimal fields to move faster during MVP slicing.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            {supabaseReady ? (
-              <form action={handleCreateMatter} className="grid gap-3 md:grid-cols-2">
-                <input type="hidden" name="ownerId" value={session?.user.id || ""} />
-                <label className="text-sm text-slate-700">
-                  <span className="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-500">
+        {/* Create Matter Form */}
+        <section className="mb-8">
+          <h2 className="mb-4 text-lg font-medium text-zinc-900 dark:text-zinc-100">
+            Create New Matter
+          </h2>
+          {supabaseReady ? (
+            <form
+              action={handleCreateMatter}
+              className="rounded-lg border border-zinc-200 bg-white p-6 dark:border-zinc-700 dark:bg-zinc-900"
+            >
+              <input type="hidden" name="ownerId" value={session?.user.id || ""} />
+              <div className="grid gap-4 sm:grid-cols-2">
+                {/* Title */}
+                <label className="text-sm text-slate-700 dark:text-slate-300">
+                  <span className="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">
                     Title
                   </span>
                   <input
                     type="text"
                     name="title"
                     required
-                    className="w-full rounded-md border border-slate-200 px-3 py-2 text-sm"
-                    placeholder="New matter title"
+                    placeholder="Matter title"
+                    className="w-full rounded-md border border-slate-200 px-3 py-2 text-sm dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100"
                   />
                 </label>
-                <label className="text-sm text-slate-700">
-                  <span className="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-500">
+
+                {/* Matter Type */}
+                <label className="text-sm text-slate-700 dark:text-slate-300">
+                  <span className="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">
                     Matter Type
                   </span>
                   <select
                     name="matterType"
-                    className="w-full rounded-md border border-slate-200 px-3 py-2 text-sm"
+                    className="w-full rounded-md border border-slate-200 px-3 py-2 text-sm dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100"
                   >
                     <option value="">Select type</option>
                     <option value="General">General</option>
@@ -124,13 +105,15 @@ export default async function MattersPage() {
                     <option value="Compliance">Compliance</option>
                   </select>
                 </label>
-                <label className="text-sm text-slate-700">
-                  <span className="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-500">
+
+                {/* Billing Model */}
+                <label className="text-sm text-slate-700 dark:text-slate-300">
+                  <span className="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">
                     Billing Model
                   </span>
                   <select
                     name="billingModel"
-                    className="w-full rounded-md border border-slate-200 px-3 py-2 text-sm"
+                    className="w-full rounded-md border border-slate-200 px-3 py-2 text-sm dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100"
                     defaultValue="hourly"
                   >
                     <option value="hourly">Hourly</option>
@@ -138,13 +121,15 @@ export default async function MattersPage() {
                     <option value="contingency">Contingency</option>
                   </select>
                 </label>
-                <label className="text-sm text-slate-700">
-                  <span className="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-500">
+
+                {/* Responsible Party */}
+                <label className="text-sm text-slate-700 dark:text-slate-300">
+                  <span className="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">
                     Responsible Party
                   </span>
                   <select
                     name="responsibleParty"
-                    className="w-full rounded-md border border-slate-200 px-3 py-2 text-sm"
+                    className="w-full rounded-md border border-slate-200 px-3 py-2 text-sm dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100"
                     defaultValue="lawyer"
                   >
                     <option value="lawyer">Lawyer</option>
@@ -152,84 +137,98 @@ export default async function MattersPage() {
                     <option value="client">Client</option>
                   </select>
                 </label>
-                <label className="text-sm text-slate-700 md:col-span-2">
-                  <span className="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-500">
-                    Next Action
+
+                {/* Next Action */}
+                <label className="text-sm text-slate-700 dark:text-slate-300 sm:col-span-2">
+                  <span className="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                    Next Action <span className="text-red-500">*</span>
                   </span>
                   <input
                     type="text"
                     name="nextAction"
                     required
-                    className="w-full rounded-md border border-slate-200 px-3 py-2 text-sm"
                     placeholder="What needs to be done next?"
+                    className="w-full rounded-md border border-slate-200 px-3 py-2 text-sm dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100"
                   />
                 </label>
-                <label className="text-sm text-slate-700">
-                  <span className="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-500">
-                    Next Action Due Date
+
+                {/* Next Action Due Date */}
+                <label className="text-sm text-slate-700 dark:text-slate-300">
+                  <span className="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                    Next Action Due Date <span className="text-red-500">*</span>
                   </span>
                   <input
                     type="date"
                     name="nextActionDueDate"
                     required
                     defaultValue={today}
-                    className="w-full rounded-md border border-slate-200 px-3 py-2 text-sm"
+                    className="w-full rounded-md border border-slate-200 px-3 py-2 text-sm dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100"
                   />
                 </label>
-                <div className="md:col-span-2">
-                  <Button type="submit">Create matter</Button>
-                  {!session?.user.id ? (
-                    <p className="mt-1 text-xs text-amber-700">
-                      No signed-in user; owner_id will be blank and may fail RLS. Sign in to set owner automatically.
-                    </p>
-                  ) : null}
-                </div>
-              </form>
-            ) : (
-              <p className="text-sm text-amber-700">
-                Supabase env vars not set; creation disabled. Configure `.env.local` to enable writes.
-              </p>
-            )}
-          </CardContent>
-        </Card>
+              </div>
 
-        <div className="grid gap-4">
-          {matters.length === 0 ? (
-            <Card>
-              <CardContent className="pt-6">
-                <p className="text-sm text-slate-500">
-                  No matters found. Create your first matter above.
-                </p>
-              </CardContent>
-            </Card>
+              <div className="mt-6">
+                <button
+                  type="submit"
+                  className="rounded-md bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200"
+                >
+                  Create Matter
+                </button>
+                {!session?.user.id ? (
+                  <p className="mt-2 text-xs text-amber-700 dark:text-amber-200">
+                    No signed-in user; owner_id will be blank and may fail RLS. Sign in to set owner automatically.
+                  </p>
+                ) : null}
+              </div>
+            </form>
           ) : (
-            matters.map((matter) => (
-              <Card
-                key={matter.id}
-                className={cn(
-                  "border-slate-200 bg-white",
-                  isOverdue(matter.nextActionDueDate)
-                    ? "border-red-300 bg-red-50"
-                    : ""
-                )}
-              >
-                <CardHeader className="pb-2">
-                  <div className="flex items-start justify-between">
+            <p className="text-sm text-amber-700 dark:text-amber-200">
+              Supabase env vars not set; creation disabled. Configure `.env.local` to enable writes.
+            </p>
+          )}
+        </section>
+
+        {/* Existing Matters */}
+        <section>
+          <h2 className="mb-4 text-lg font-medium text-zinc-900 dark:text-zinc-100">
+            Existing Matters
+          </h2>
+
+          {matters.length === 0 ? (
+            <div className="rounded-lg border border-dashed border-zinc-300 bg-white p-8 text-center dark:border-zinc-700 dark:bg-zinc-900">
+              <p className="text-sm text-zinc-500 dark:text-zinc-400">
+                No matters found. Create your first matter above.
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {matters.map((matter) => (
+                <div
+                  key={matter.id}
+                  className={cn(
+                    "rounded-lg border bg-white p-4 dark:bg-zinc-900",
+                    isOverdue(matter.nextActionDueDate)
+                      ? "border-red-300 bg-red-50 dark:border-red-700 dark:bg-red-950"
+                      : "border-zinc-200 dark:border-zinc-700"
+                  )}
+                >
+                  {/* Matter Header */}
+                  <div className="mb-4 flex items-start justify-between">
                     <div>
-                      <CardTitle className="text-lg text-slate-900">
+                      <h3 className="font-medium text-zinc-900 dark:text-zinc-100">
                         {matter.title}
-                      </CardTitle>
-                      <CardDescription className="text-sm">
-                        {matter.matterType} • {matter.billingModel} billing
-                      </CardDescription>
+                      </h3>
+                      <p className="mt-0.5 text-sm text-zinc-600 dark:text-zinc-400">
+                        {matter.matterType} • {matter.stage} • {matter.billingModel}
+                      </p>
                     </div>
                     {matter.nextActionDueDate && (
                       <span
                         className={cn(
                           "inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium",
                           isOverdue(matter.nextActionDueDate)
-                            ? "bg-red-100 text-red-800"
-                            : "bg-slate-100 text-slate-700"
+                            ? "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200"
+                            : "bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300"
                         )}
                       >
                         {isOverdue(matter.nextActionDueDate) && (
@@ -249,97 +248,120 @@ export default async function MattersPage() {
                       </span>
                     )}
                   </div>
-                </CardHeader>
-                <CardContent className="flex flex-col gap-3 text-sm text-slate-700">
-                  <div className="flex flex-wrap items-center gap-3">
-                    <Badge variant="outline">{matter.stage}</Badge>
-                    <Badge variant={responsibleVariant(matter.responsibleParty)}>
-                      <User className="mr-1 h-3.5 w-3.5" />
-                      {matter.responsibleParty} owns
-                    </Badge>
-                    <span className="text-slate-600">
+
+                  {/* Matter Details */}
+                  <div className="mb-4 flex flex-wrap items-center gap-3 text-sm text-slate-700 dark:text-slate-300">
+                    <span className="font-medium text-slate-800 dark:text-slate-200">
                       Next action:{" "}
-                      <span className="font-medium text-slate-800">
+                      <span className="font-medium text-slate-800 dark:text-slate-200">
                         {matter.nextAction || "Not set"}
                       </span>
                     </span>
-                    <span className="text-xs text-slate-500">
+                    <span className="text-xs text-slate-500 dark:text-slate-400">
                       Updated {new Date(matter.updatedAt).toLocaleDateString()}
                     </span>
                   </div>
 
+                  {/* Update Form */}
                   {supabaseReady ? (
-                    <form action={handleUpdateMatter} className="grid gap-2 md:grid-cols-4">
+                    <form
+                      action={handleUpdateMatter}
+                      className="rounded-md bg-zinc-50 p-4 dark:bg-zinc-800"
+                    >
                       <input type="hidden" name="id" value={matter.id} />
-                      <label className="text-xs text-slate-700">
-                        <span className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-slate-500">
-                          Stage
-                        </span>
-                        <select
-                          name="stage"
-                          defaultValue={matter.stage}
-                          className="w-full rounded-md border border-slate-200 px-2 py-1 text-xs"
+
+                      <div className="grid gap-4 sm:grid-cols-2">
+                        {/* Stage */}
+                        <label className="text-sm text-slate-700 dark:text-slate-300">
+                          <span className="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                            Stage
+                          </span>
+                          <select
+                            name="stage"
+                            defaultValue={matter.stage}
+                            className="w-full rounded-md border border-slate-200 px-3 py-2 text-sm dark:border-zinc-600 dark:bg-zinc-700 dark:text-zinc-100"
+                          >
+                            {stages.map((stage) => (
+                              <option key={stage} value={stage}>
+                                {stage}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+
+                        {/* Responsible Party */}
+                        <label className="text-sm text-slate-700 dark:text-slate-300">
+                          <span className="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                            Responsible Party
+                          </span>
+                          <select
+                            name="responsibleParty"
+                            defaultValue={matter.responsibleParty}
+                            className="w-full rounded-md border border-slate-200 px-3 py-2 text-sm dark:border-zinc-600 dark:bg-zinc-700 dark:text-zinc-100"
+                          >
+                            <option value="lawyer">Lawyer</option>
+                            <option value="staff">Staff</option>
+                            <option value="client">Client</option>
+                          </select>
+                        </label>
+
+                        {/* Next Action */}
+                        <label className="text-sm text-slate-700 dark:text-slate-300 sm:col-span-2">
+                          <span className="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                            Next Action <span className="text-red-500">*</span>
+                          </span>
+                          <input
+                            type="text"
+                            name="nextAction"
+                            required
+                            defaultValue={matter.nextAction || ""}
+                            className="w-full rounded-md border border-slate-200 px-3 py-2 text-sm dark:border-zinc-600 dark:bg-zinc-700 dark:text-zinc-100"
+                          />
+                        </label>
+
+                        {/* Next Action Due Date */}
+                        <label className="text-sm text-slate-700 dark:text-slate-300">
+                          <span className="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                            Next Action Due Date <span className="text-red-500">*</span>
+                          </span>
+                          <input
+                            type="date"
+                            name="nextActionDueDate"
+                            required
+                            defaultValue={matter.nextActionDueDate || ""}
+                            className="w-full rounded-md border border-slate-200 px-3 py-2 text-sm dark:border-zinc-600 dark:bg-zinc-700 dark:text-zinc-100"
+                          />
+                        </label>
+                      </div>
+
+                      <div className="mt-4">
+                        <button
+                          type="submit"
+                          className="rounded-md bg-zinc-700 px-3 py-1.5 text-xs font-medium text-white hover:bg-zinc-600 dark:bg-zinc-600 dark:hover:bg-zinc-500"
                         >
-                          {stages.map((stage) => (
-                            <option key={stage} value={stage}>
-                              {stage}
-                            </option>
-                          ))}
-                        </select>
-                      </label>
-                      <label className="text-xs text-slate-700">
-                        <span className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-slate-500">
-                          Responsible
-                        </span>
-                        <select
-                          name="responsibleParty"
-                          defaultValue={matter.responsibleParty}
-                          className="w-full rounded-md border border-slate-200 px-2 py-1 text-xs"
-                        >
-                          <option value="lawyer">Lawyer</option>
-                          <option value="staff">Staff</option>
-                          <option value="client">Client</option>
-                        </select>
-                      </label>
-                      <label className="text-xs text-slate-700">
-                        <span className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-slate-500">
-                          Next action
-                        </span>
-                        <input
-                          type="text"
-                          name="nextAction"
-                          required
-                          defaultValue={matter.nextAction || ""}
-                          className="w-full rounded-md border border-slate-200 px-2 py-1 text-xs"
-                        />
-                      </label>
-                      <label className="text-xs text-slate-700">
-                        <span className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-slate-500">
-                          Due Date
-                        </span>
-                        <input
-                          type="date"
-                          name="nextActionDueDate"
-                          required
-                          defaultValue={matter.nextActionDueDate || ""}
-                          className="w-full rounded-md border border-slate-200 px-2 py-1 text-xs"
-                        />
-                      </label>
-                      <div className="md:col-span-4">
-                        <Button type="submit" size="sm" variant="secondary">
-                          Update
-                        </Button>
+                          Update Matter
+                        </button>
                       </div>
                     </form>
                   ) : (
-                    <p className="text-xs text-amber-700">
+                    <p className="text-xs text-amber-700 dark:text-amber-200">
                       Supabase env vars not set; updates disabled.
                     </p>
                   )}
-                </CardContent>
-              </Card>
-            ))
+                </div>
+              ))}
+            </div>
           )}
+        </section>
+
+        {/* Back to Dashboard */}
+        <div className="mt-8">
+          <a
+            href="/"
+            className="text-sm text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100"
+          >
+            ← Back to Control Center
+          </a>
         </div>
       </main>
     </div>

@@ -38,11 +38,15 @@ export async function getSessionWithProfile(): Promise<SessionWithProfile> {
   }
 
   const cookieStore = cookies();
-  const safeGet = (name: string) => {
+  const safeGet = (name: string): string | undefined => {
     try {
       const store = cookieStore as unknown as { get?: (key: string) => unknown };
       const value = store?.get?.(name);
-      return typeof value === "string" ? value : value?.value;
+      if (typeof value === "string") return value;
+      if (value && typeof value === "object" && "value" in value) {
+        return (value as { value: string }).value;
+      }
+      return undefined;
     } catch {
       return undefined;
     }

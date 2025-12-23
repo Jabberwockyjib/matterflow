@@ -2,7 +2,9 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { AppShell } from "@/components/app-shell";
+import { TimerProvider } from "@/contexts/timer-context";
 import { getSessionWithProfile } from "@/lib/auth/server";
+import { fetchMatters, fetchRecentTimerActivity } from "@/lib/data/queries";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -24,20 +26,34 @@ export default async function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const { profile, session } = await getSessionWithProfile();
+  // Fetch session, matters, and recent activity in parallel for better performance
+  const [{ profile, session }, { data: matters }, { data: recentActivity }] = await Promise.all([
+    getSessionWithProfile(),
+    fetchMatters(),
+    fetchRecentTimerActivity(),
+  ]);
+
+  // Convert recent activity to the format expected by TimerProvider
+  const recentEntries = recentActivity.map((entry) => ({
+    matter_id: entry.matterId,
+    started_at: entry.startedAt,
+  }));
 
   return (
     <html lang="en">
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased bg-slate-50 text-slate-900`}
       >
-        <AppShell
-          profileName={profile?.full_name}
-          role={profile?.role}
-          email={session?.user.email}
-        >
-          {children}
-        </AppShell>
+        <TimerProvider recentEntries={recentEntries}>
+          <AppShell
+            profileName={profile?.full_name}
+            role={profile?.role}
+            email={session?.user.email}
+            matters={matters}
+          >
+            {children}
+          </AppShell>
+        </TimerProvider>
       </body>
     </html>
   );

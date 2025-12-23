@@ -9,7 +9,6 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { createInvoice, updateInvoiceStatus } from "@/lib/data/actions";
 import { getSessionWithProfile } from "@/lib/auth/server";
 import { fetchInvoices, fetchMatters } from "@/lib/data/queries";

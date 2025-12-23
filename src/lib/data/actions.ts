@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 
 import { getSessionWithProfile } from "@/lib/auth/server";
 import { supabaseAdmin, supabaseEnvReady } from "@/lib/supabase/server";
+import type { Json } from "@/types/database.types";
 
 type ActionResult = { error?: string; ok?: boolean };
 
@@ -38,7 +39,7 @@ const logAudit = async ({
   eventType: string;
   entityType: string;
   entityId: string | null;
-  metadata?: Record<string, unknown>;
+  metadata?: Record<string, Json | undefined>;
 }) => {
   try {
     await supabase.from("audit_logs").insert({
@@ -46,7 +47,7 @@ const logAudit = async ({
       event_type: eventType,
       entity_type: entityType,
       entity_id: entityId,
-      metadata: metadata || {},
+      metadata: (metadata || null) as Json | null,
     });
   } catch {
     // do not block primary flow on audit failure
@@ -62,12 +63,21 @@ export async function createMatter(formData: FormData): Promise<ActionResult> {
   try {
     const supabase = ensureSupabase();
     const title = (formData.get("title") as string) || "Untitled Matter";
-    const ownerId = (formData.get("ownerId") as string) || null;
+    const ownerId = (formData.get("ownerId") as string) || roleCheck.session.user.id;
     const clientId = (formData.get("clientId") as string) || null;
     const matterType = (formData.get("matterType") as string) || "General";
     const billingModel = (formData.get("billingModel") as string) || "hourly";
     const responsible = (formData.get("responsibleParty") as string) || "lawyer";
     const nextAction = (formData.get("nextAction") as string) || null;
+    const nextActionDueDate = (formData.get("nextActionDueDate") as string) || null;
+
+    // Validation: Next Action and Due Date are required
+    if (!nextAction) {
+      return { error: "Next Action is required" };
+    }
+    if (!nextActionDueDate) {
+      return { error: "Next Action Due Date is required" };
+    }
 
     const { error } = await supabase.from("matters").insert({
       title,
@@ -77,6 +87,7 @@ export async function createMatter(formData: FormData): Promise<ActionResult> {
       billing_model: billingModel,
       responsible_party: responsible,
       next_action: nextAction,
+      next_action_due_date: nextActionDueDate,
     });
 
     if (error) return { error: error.message };
@@ -86,7 +97,7 @@ export async function createMatter(formData: FormData): Promise<ActionResult> {
       eventType: "matter_created",
       entityType: "matter",
       entityId: null,
-      metadata: { title },
+      metadata: { title, nextAction, nextActionDueDate },
     });
     revalidatePath("/");
     revalidatePath("/matters");
@@ -106,13 +117,23 @@ export async function updateMatterStage(formData: FormData): Promise<ActionResul
     const stage = (formData.get("stage") as string) || null;
     const responsible = (formData.get("responsibleParty") as string) || null;
     const nextAction = (formData.get("nextAction") as string) || null;
+    const nextActionDueDate = (formData.get("nextActionDueDate") as string) || null;
+
+    // Validation: Next Action and Due Date are required for updates
+    if (!nextAction) {
+      return { error: "Next Action is required" };
+    }
+    if (!nextActionDueDate) {
+      return { error: "Next Action Due Date is required" };
+    }
 
     const { error } = await supabase
       .from("matters")
       .update({
-        stage,
+        stage: stage || undefined,
         responsible_party: responsible || undefined,
         next_action: nextAction,
+        next_action_due_date: nextActionDueDate,
       })
       .eq("id", id || "");
 
@@ -123,7 +144,7 @@ export async function updateMatterStage(formData: FormData): Promise<ActionResul
       eventType: "matter_updated",
       entityType: "matter",
       entityId: id,
-      metadata: { stage, responsible, nextAction },
+      metadata: { stage, responsible, nextAction, nextActionDueDate },
     });
     revalidatePath("/");
     revalidatePath("/matters");
@@ -206,22 +227,18 @@ export async function getMatters(): Promise<{ data?: unknown[]; error?: string }
 
 // Time Entry Actions
 
-export async function createTimeEntry(formData: FormData): Promise<ActionResult> {
+export async function createTimeEntry(
+  formData: FormData,
+): Promise<ActionResult> {
   const roleCheck = await ensureStaffOrAdmin();
   if ("error" in roleCheck) return roleCheck;
 
   try {
     const supabase = ensureSupabase();
-    const matterId = (formData.get("matterId") as string) || null;
+    const matterId = formData.get("matterId") as string;
     const taskId = (formData.get("taskId") as string) || null;
-    const description = (formData.get("description") as string) || null;
-    const startedAt = (formData.get("startedAt") as string) || new Date().toISOString();
-    const endedAt = (formData.get("endedAt") as string) || null;
-    const durationMinutesStr = formData.get("durationMinutes") as string;
-    const durationMinutes = durationMinutesStr ? parseInt(durationMinutesStr, 10) : null;
-    const rateCentsStr = formData.get("rateCents") as string;
-    const rateCents = rateCentsStr ? parseInt(rateCentsStr, 10) : null;
-    const status = (formData.get("status") as string) || "recorded";
+    const description = (formData.get("description") as string) || "Manual entry";
+    const minutes = Number(formData.get("minutes")) || null;
 
     if (!matterId) {
       return { error: "Matter ID is required" };
@@ -229,14 +246,10 @@ export async function createTimeEntry(formData: FormData): Promise<ActionResult>
 
     const { error } = await supabase.from("time_entries").insert({
       matter_id: matterId,
-      task_id: taskId,
+      task_id: taskId || null,
       description,
-      started_at: startedAt,
-      ended_at: endedAt,
-      duration_minutes: durationMinutes,
-      rate_cents: rateCents,
-      status,
-      created_by: roleCheck.session.user.id,
+      duration_minutes: minutes || null,
+      status: "draft",
     });
 
     if (error) return { error: error.message };
@@ -246,7 +259,7 @@ export async function createTimeEntry(formData: FormData): Promise<ActionResult>
       eventType: "time_entry_created",
       entityType: "time_entry",
       entityId: null,
-      metadata: { matterId, description, durationMinutes },
+      metadata: { matterId, minutes },
     });
     revalidatePath("/");
     revalidatePath("/time");
@@ -294,7 +307,7 @@ export async function updateTimeEntry(formData: FormData): Promise<ActionResult>
       eventType: "time_entry_updated",
       entityType: "time_entry",
       entityId: id,
-      metadata: updateData,
+      metadata: updateData as Record<string, Json | undefined>,
     });
     revalidatePath("/");
     revalidatePath("/time");
@@ -334,7 +347,7 @@ export async function stopTimeEntry(formData: FormData): Promise<ActionResult> {
       eventType: "time_entry_updated",
       entityType: "time_entry",
       entityId: id,
-      metadata: { endedAt, durationMinutes },
+      metadata: { endedAt: endedAt.toISOString(), durationMinutes },
     });
     revalidatePath("/time");
     revalidatePath("/");
@@ -429,11 +442,10 @@ export async function createTask(formData: FormData): Promise<ActionResult> {
 
   try {
     const supabase = ensureSupabase();
-    const title = (formData.get("title") as string) || "Untitled Task";
-    const matterId = (formData.get("matterId") as string) || null;
-    const status = (formData.get("status") as string) || "open";
-    const responsibleParty = (formData.get("responsibleParty") as string) || "attorney";
+    const title = (formData.get("title") as string) || "New Task";
+    const matterId = formData.get("matterId") as string;
     const dueDate = (formData.get("dueDate") as string) || null;
+    const responsible = (formData.get("responsibleParty") as string) || "lawyer";
 
     if (!matterId) {
       return { error: "Matter ID is required" };
@@ -442,10 +454,9 @@ export async function createTask(formData: FormData): Promise<ActionResult> {
     const { error } = await supabase.from("tasks").insert({
       title,
       matter_id: matterId,
-      status,
-      responsible_party: responsibleParty,
       due_date: dueDate,
-      created_by: roleCheck.session.user.id,
+      responsible_party: responsible,
+      status: "open",
     });
 
     if (error) return { error: error.message };
@@ -455,7 +466,7 @@ export async function createTask(formData: FormData): Promise<ActionResult> {
       eventType: "task_created",
       entityType: "task",
       entityId: null,
-      metadata: { title, matterId, status },
+      metadata: { title, matterId },
     });
     revalidatePath("/");
     revalidatePath("/tasks");
@@ -473,23 +484,10 @@ export async function updateTaskStatus(formData: FormData): Promise<ActionResult
     const supabase = ensureSupabase();
     const id = (formData.get("id") as string) || null;
     const status = (formData.get("status") as string) || null;
-    const responsibleParty = (formData.get("responsibleParty") as string) || null;
-    const dueDate = (formData.get("dueDate") as string) || null;
-
-    if (!id) {
-      return { error: "Task ID is required" };
-    }
-
-    const updateData: Record<string, unknown> = {};
-    if (status !== null) updateData.status = status;
-    if (responsibleParty !== null) updateData.responsible_party = responsibleParty;
-    if (dueDate !== null) updateData.due_date = dueDate;
-
     const { error } = await supabase
       .from("tasks")
-      .update(updateData)
-      .eq("id", id);
-
+      .update({ status: status || undefined })
+      .eq("id", id || "");
     if (error) return { error: error.message };
     await logAudit({
       supabase,
@@ -497,7 +495,7 @@ export async function updateTaskStatus(formData: FormData): Promise<ActionResult
       eventType: "task_updated",
       entityType: "task",
       entityId: id,
-      metadata: updateData,
+      metadata: { status },
     });
     revalidatePath("/tasks");
     revalidatePath("/");
@@ -592,15 +590,19 @@ export async function createInvoice(formData: FormData): Promise<ActionResult> {
 
   try {
     const supabase = ensureSupabase();
-    const matterId = (formData.get("matterId") as string) || null;
+    const matterId = formData.get("matterId") as string;
     const amount = Number(formData.get("amount")) || 0;
     const status = (formData.get("status") as string) || "draft";
+
+    if (!matterId) {
+      return { error: "Matter ID is required" };
+    }
 
     const { error } = await supabase.from("invoices").insert({
       matter_id: matterId,
       total_cents: Math.max(0, Math.round(amount * 100)),
       status,
-      line_items: [{ description: "Line item", amount_cents: Math.max(0, Math.round(amount * 100)) }],
+      line_items: [{ description: "Line item", amount_cents: Math.max(0, Math.round(amount * 100)) }] as Json,
     });
 
     if (error) return { error: error.message };
@@ -630,7 +632,7 @@ export async function updateInvoiceStatus(formData: FormData): Promise<ActionRes
     const status = (formData.get("status") as string) || null;
     const { error } = await supabase
       .from("invoices")
-      .update({ status })
+      .update({ status: status || undefined })
       .eq("id", id || "");
     if (error) return { error: error.message };
     await logAudit({
