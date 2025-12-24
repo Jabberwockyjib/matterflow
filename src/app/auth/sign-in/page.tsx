@@ -46,23 +46,26 @@ export default function SignInPage() {
 
   // Handle form submission
   const onSubmit = async (data: SignInFormData) => {
-    const { error } = await supabase.auth.signInWithPassword({
+    console.log('[Sign-in] Attempting sign in...');
+    const { data: authData, error } = await supabase.auth.signInWithPassword({
       email: data.email,
       password: data.password,
     });
 
+    console.log('[Sign-in] Result:', { error, session: !!authData?.session });
+
     if (error) {
+      console.error('[Sign-in] Error:', error);
       showError(error.message, {
         onRetry: () => handleSubmit(onSubmit)(),
       });
     } else {
+      console.log('[Sign-in] Success! Session:', authData.session);
       // Clear draft on successful login
       clearDraft();
       showSuccess("Signed in successfully");
-      // Small delay to show toast before redirect
-      setTimeout(() => {
-        window.location.assign(redirect);
-      }, 500);
+      // AuthListener will handle the redirect, just let it know we're done
+      console.log('[Sign-in] Sign-in successful, AuthListener will handle redirect');
     }
   };
 

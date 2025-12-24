@@ -27,25 +27,43 @@ export function AuthListener() {
   useEffect(() => {
     const supabase = supabaseBrowser();
 
+    console.log('[AuthListener] Setting up auth state listener');
+
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((event) => {
+    } = supabase.auth.onAuthStateChange((event, session) => {
+      console.log('[AuthListener] Auth state change:', {
+        event,
+        hasSession: !!session,
+        isInitialMount: initialMount.current
+      });
+
       // Skip reload on initial mount - session is already loaded by server
       if (initialMount.current) {
         initialMount.current = false;
+        console.log('[AuthListener] Skipping reload on initial mount');
         return;
       }
 
       // Handle auth state changes that require a page reload
       // to synchronize server and client state
       if (event === "SIGNED_IN" || event === "SIGNED_OUT") {
-        // Use window.location.assign() to trigger a full page reload,
-        // ensuring server components re-fetch with updated session
-        window.location.assign(window.location.pathname);
+        console.log('[AuthListener] Reloading page for event:', event);
+
+        // Special handling for sign-in page: redirect to home instead of reloading
+        if (window.location.pathname === "/auth/sign-in" && event === "SIGNED_IN") {
+          console.log('[AuthListener] On sign-in page, redirecting to home');
+          window.location.assign("/");
+        } else {
+          // Use window.location.assign() to trigger a full page reload,
+          // ensuring server components re-fetch with updated session
+          window.location.assign(window.location.pathname);
+        }
       }
     });
 
     return () => {
+      console.log('[AuthListener] Unsubscribing from auth state changes');
       subscription.unsubscribe();
     };
   }, []);
