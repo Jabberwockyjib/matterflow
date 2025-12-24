@@ -37,7 +37,7 @@ export async function getSessionWithProfile(): Promise<SessionWithProfile> {
     return { session: null, profile: null };
   }
 
-  const cookieStore = cookies();
+  const cookieStore = await cookies();
   const safeGet = (name: string): string | undefined => {
     try {
       const store = cookieStore as unknown as { get?: (key: string) => unknown };
@@ -72,7 +72,7 @@ export async function getSessionWithProfile(): Promise<SessionWithProfile> {
         }
       },
     },
-    headers,
+    headers: await headers(),
   });
 
   const {
