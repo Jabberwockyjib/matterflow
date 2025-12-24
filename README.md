@@ -70,7 +70,15 @@ The setup guide walks you through:
 | Intake Forms | ✅ Complete | `INTAKE_FORMS.md` |
 | Conflict Checking | ⏳ Planned | `project.md` |
 
-**Current MVP Completion**: ~95%
+**Current MVP Completion**: ~97%
+
+**Latest Updates** (Dec 24, 2025):
+- ✅ Intake form UI complete (dynamic forms, client submission, admin review)
+- ✅ Authentication system fixed and working
+- ✅ Live Supabase data integration (no more mock data)
+- ✅ All critical bugs resolved
+
+See [SESSION_NOTES.md](SESSION_NOTES.md) for detailed session summary.
 
 ---
 
@@ -303,6 +311,8 @@ See [EMAIL_INTEGRATION.md](EMAIL_INTEGRATION.md) for alternative cron setups.
 - [x] Comprehensive documentation
 
 ### In Progress 🚧
+- [ ] Re-enable timer functionality (temporarily disabled)
+- [ ] Fix user display in header after sign-in
 - [ ] Invoice auto-generation from time entries
 - [ ] Conflict checking workflow
 
