@@ -36,19 +36,21 @@ export function middleware(req: NextRequest) {
       pathname.startsWith("/time") ||
       pathname.startsWith("/billing"));
 
-  const accessToken = req.cookies.get("sb-access-token")?.value;
-  const refreshToken = req.cookies.get("sb-refresh-token")?.value;
-  const hasSessionCookie = Boolean(accessToken || refreshToken);
+  // Check for Supabase auth tokens (new auth-helpers use pattern: sb-{project-ref}-auth-token)
+  const allCookies = req.cookies.getAll();
+  const authCookie = allCookies.find(c => c.name.startsWith("sb-") && c.name.endsWith("-auth-token"));
+  const accessToken = authCookie?.value;
+  const hasSessionCookie = Boolean(accessToken);
 
   // Debug logging for cookie presence/absence
   if (DEBUG_AUTH) {
     console.log("[middleware]", pathname, {
       isPublic,
       isProtected,
-      hasAccessToken: Boolean(accessToken),
-      hasRefreshToken: Boolean(refreshToken),
+      hasAuthCookie: Boolean(authCookie),
+      authCookieName: authCookie?.name,
       hasSessionCookie,
-      allCookies: req.cookies.getAll().map((c) => c.name),
+      allCookies: allCookies.map((c) => c.name),
     });
   }
 
