@@ -28,6 +28,7 @@
     "react-email": "^5.1.0",
     "react-hook-form": "^7.69.0",
     "resend": "^6.6.0",
+    "sonner": "^2.0.7",
     "square": "^43.2.1",
     "tailwind-merge": "3.4.0",
     "zod": "^4.2.1"
