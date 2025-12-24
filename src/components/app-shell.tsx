@@ -6,10 +6,11 @@ import { usePathname } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { AuthWidget } from "@/components/auth-widget";
-import { FloatingTimerButton } from "@/components/timer/floating-timer-button";
-import { HeaderTimerDisplay } from "@/components/timer/header-timer-display";
-import { KeyboardShortcuts } from "@/components/keyboard-shortcuts";
-import { TimerModal } from "@/components/timer/timer-modal";
+// Timer components temporarily disabled for MVP testing
+// import { FloatingTimerButton } from "@/components/timer/floating-timer-button";
+// import { HeaderTimerDisplay } from "@/components/timer/header-timer-display";
+// import { KeyboardShortcuts } from "@/components/keyboard-shortcuts";
+// import { TimerModal } from "@/components/timer/timer-modal";
 import type { MatterSummary } from "@/lib/data/queries";
 
 const links = [
@@ -77,8 +78,8 @@ export function AppShell({ children, profileName, role, email, matters = [] }: A
                 );
               })}
             </nav>
-            {/* Header timer display - only shown for authenticated users when timer is running */}
-            {isAuthenticated && <HeaderTimerDisplay matters={matters} />}
+            {/* Header timer display - temporarily disabled for MVP testing */}
+            {/* {isAuthenticated && <HeaderTimerDisplay matters={matters} />} */}
             <div className="text-right">
               <p className="text-sm font-semibold text-slate-900">
                 {profileName || "Guest"}
@@ -93,14 +94,14 @@ export function AppShell({ children, profileName, role, email, matters = [] }: A
       </header>
       <main>{children}</main>
 
-      {/* Timer components - only shown for authenticated users */}
-      {isAuthenticated && (
+      {/* Timer components - temporarily disabled for MVP testing */}
+      {/* {isAuthenticated && (
         <>
           <KeyboardShortcuts />
           <FloatingTimerButton />
           <TimerModal matters={matters} />
         </>
-      )}
+      )} */}
     </div>
   );
 }

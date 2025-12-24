@@ -3,9 +3,9 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { AppShell } from "@/components/app-shell";
 import { AuthListener } from "@/components/auth-listener";
-import { TimerProvider } from "@/contexts/timer-context";
+// import { TimerProvider } from "@/contexts/timer-context";
 import { getSessionWithProfile } from "@/lib/auth/server";
-import { fetchMatters, fetchRecentTimerActivity } from "@/lib/data/queries";
+import { fetchMatters } from "@/lib/data/queries";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -27,18 +27,18 @@ export default async function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  // Fetch session, matters, and recent activity in parallel for better performance
-  const [{ profile, session }, { data: matters }, { data: recentActivity }] = await Promise.all([
+  // Fetch session and matters in parallel for better performance
+  const [{ profile, session }, { data: matters }] = await Promise.all([
     getSessionWithProfile(),
     fetchMatters(),
-    fetchRecentTimerActivity(),
   ]);
 
-  // Convert recent activity to the format expected by TimerProvider
-  const recentEntries = recentActivity.map((entry) => ({
-    matter_id: entry.matterId,
-    started_at: entry.startedAt,
-  }));
+  // Timer functionality temporarily disabled for MVP testing
+  // const { data: recentActivity } = await fetchRecentTimerActivity();
+  // const recentEntries = recentActivity.map((entry) => ({
+  //   matter_id: entry.matterId,
+  //   started_at: entry.startedAt,
+  // }));
 
   return (
     <html lang="en">
@@ -46,16 +46,15 @@ export default async function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased bg-slate-50 text-slate-900`}
       >
         <AuthListener />
-        <TimerProvider recentEntries={recentEntries}>
-          <AppShell
-            profileName={profile?.full_name}
-            role={profile?.role}
-            email={session?.user.email}
-            matters={matters}
-          >
-            {children}
-          </AppShell>
-        </TimerProvider>
+        {/* TimerProvider temporarily disabled for MVP testing */}
+        <AppShell
+          profileName={profile?.full_name}
+          role={profile?.role}
+          email={session?.user.email}
+          matters={matters}
+        >
+          {children}
+        </AppShell>
       </body>
     </html>
   );
