@@ -8,6 +8,75 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **Stack**: Next.js 15+ (App Router), Supabase (Postgres + RLS + Auth), Tailwind CSS 3, shadcn/ui components, pnpm.
 
+## Available MCP Servers
+
+This project has several MCP (Model Context Protocol) servers configured that provide extended capabilities:
+
+### GitHub MCP
+**Purpose**: GitHub repository operations, PR management, issue tracking
+
+**Key Capabilities**:
+- Create repositories (`create_repository`)
+- Create/update files (`create_or_update_file`)
+- Create pull requests (`create_pull_request`)
+- Manage issues (`issue_read`, `issue_write`)
+- Search code, repos, users (`search_code`, `search_repositories`, `search_users`)
+- Get file contents (`get_file_contents`)
+- List commits, branches, releases (`list_commits`, `list_branches`, `list_releases`)
+
+**When to Use**:
+- Creating/pushing to GitHub repositories
+- Managing pull requests and code reviews
+- Searching for code examples across GitHub
+- Issue and project management
+
+### Context7 MCP
+**Purpose**: Fetch up-to-date library documentation
+
+**Key Capabilities**:
+- `resolve-library-id` - Find the correct Context7 library ID for a package
+- `get-library-docs` - Fetch comprehensive documentation for a library
+
+**When to Use**:
+- Looking up API documentation for npm packages, frameworks, or libraries
+- Understanding how to use specific library features
+- Finding code examples for third-party dependencies
+- Always call `resolve-library-id` first, then use the returned ID with `get-library-docs`
+
+**Example Flow**:
+```typescript
+// 1. Resolve library ID
+resolve-library-id({ libraryName: "next.js" })
+// Returns: { id: "/vercel/next.js/v14.x", ... }
+
+// 2. Get documentation
+get-library-docs({
+  context7CompatibleLibraryID: "/vercel/next.js/v14.x",
+  topic: "server actions"
+})
+```
+
+### Playwright MCP (Browser Automation)
+**Purpose**: Web browser automation and testing
+
+**Key Capabilities**:
+- Navigate to URLs (`browser_navigate`)
+- Take screenshots (`browser_take_screenshot`)
+- Click elements (`browser_click`)
+- Fill forms (`browser_fill_form`, `browser_type`)
+- Capture page snapshots (`browser_snapshot`)
+- Run Playwright code (`browser_run_code`)
+- Handle dialogs, file uploads, drag and drop
+
+**When to Use**:
+- Testing web application flows
+- Debugging UI issues
+- Generating screenshots for documentation
+- Automating browser-based tasks
+- Visual regression testing
+
+**Important**: Always use `browser_snapshot` (accessibility tree) instead of screenshots for interacting with pages. Screenshots are for visual reference only.
+
 ## Essential Commands
 
 ```bash
