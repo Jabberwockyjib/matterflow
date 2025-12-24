@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { getSessionWithProfile } from "@/lib/auth/server";
 import { supabaseAdmin, supabaseEnvReady } from "@/lib/supabase/server";
 import type { Json } from "@/types/database.types";
+import { sendMatterCreatedEmail, sendTaskAssignedEmail, sendInvoiceEmail } from "@/lib/email/actions";
 
 type ActionResult = { error?: string; ok?: boolean };
 
@@ -79,7 +80,7 @@ export async function createMatter(formData: FormData): Promise<ActionResult> {
       return { error: "Next Action Due Date is required" };
     }
 
-    const { error } = await supabase.from("matters").insert({
+    const { data: newMatter, error } = await supabase.from("matters").insert({
       title,
       owner_id: ownerId,
       client_id: clientId,
@@ -88,17 +89,59 @@ export async function createMatter(formData: FormData): Promise<ActionResult> {
       responsible_party: responsible,
       next_action: nextAction,
       next_action_due_date: nextActionDueDate,
-    });
+    }).select("id").single();
 
     if (error) return { error: error.message };
+
+    const matterId = newMatter?.id;
+
     await logAudit({
       supabase,
       actorId: roleCheck.session.user.id,
       eventType: "matter_created",
       entityType: "matter",
-      entityId: null,
+      entityId: matterId,
       metadata: { title, nextAction, nextActionDueDate },
     });
+
+    // Send email notification to client if client is specified
+    if (clientId && matterId) {
+      try {
+        // Fetch client and owner profiles
+        const { data: clientProfile } = await supabase
+          .from("profiles")
+          .select("full_name, user_id")
+          .eq("user_id", clientId)
+          .maybeSingle();
+
+        const { data: ownerProfile } = await supabase
+          .from("profiles")
+          .select("full_name")
+          .eq("user_id", ownerId)
+          .maybeSingle();
+
+        // Get client email from auth.users
+        const { data: { user: clientUser } } = await supabase.auth.admin.getUserById(clientId);
+
+        if (clientUser?.email && clientProfile) {
+          const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+          await sendMatterCreatedEmail({
+            to: clientUser.email,
+            clientName: clientProfile.full_name || "Client",
+            matterTitle: title,
+            matterId,
+            matterType,
+            lawyerName: ownerProfile?.full_name || "Your Attorney",
+            nextAction,
+            matterLink: `${appUrl}/matters/${matterId}`,
+          });
+        }
+      } catch (emailError) {
+        // Don't fail the matter creation if email fails
+        console.error("Failed to send matter created email:", emailError);
+      }
+    }
+
     revalidatePath("/");
     revalidatePath("/matters");
     return { ok: true };
@@ -451,23 +494,66 @@ export async function createTask(formData: FormData): Promise<ActionResult> {
       return { error: "Matter ID is required" };
     }
 
-    const { error } = await supabase.from("tasks").insert({
+    const { data: newTask, error } = await supabase.from("tasks").insert({
       title,
       matter_id: matterId,
       due_date: dueDate,
       responsible_party: responsible,
       status: "open",
-    });
+    }).select("id").single();
 
     if (error) return { error: error.message };
+
+    const taskId = newTask?.id;
+
     await logAudit({
       supabase,
       actorId: roleCheck.session.user.id,
       eventType: "task_created",
       entityType: "task",
-      entityId: null,
+      entityId: taskId,
       metadata: { title, matterId },
     });
+
+    // Send email notification if task is assigned to client
+    if (responsible === "client" && taskId) {
+      try {
+        // Fetch matter to get client and matter details
+        const { data: matter } = await supabase
+          .from("matters")
+          .select("client_id, title")
+          .eq("id", matterId)
+          .maybeSingle();
+
+        if (matter?.client_id) {
+          const { data: clientProfile } = await supabase
+            .from("profiles")
+            .select("full_name")
+            .eq("user_id", matter.client_id)
+            .maybeSingle();
+
+          const { data: { user: clientUser } } = await supabase.auth.admin.getUserById(matter.client_id);
+
+          if (clientUser?.email && clientProfile) {
+            const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+            await sendTaskAssignedEmail({
+              to: clientUser.email,
+              recipientName: clientProfile.full_name || "Client",
+              taskTitle: title,
+              taskId,
+              matterTitle: matter.title,
+              matterId,
+              dueDate: dueDate || undefined,
+              taskLink: `${appUrl}/tasks/${taskId}`,
+              isClientTask: true,
+            });
+          }
+        }
+      } catch (emailError) {
+        console.error("Failed to send task assigned email:", emailError);
+      }
+    }
+
     revalidatePath("/");
     revalidatePath("/tasks");
     return { ok: true };
@@ -643,6 +729,82 @@ export async function updateInvoiceStatus(formData: FormData): Promise<ActionRes
       entityId: id,
       metadata: { status },
     });
+
+    // Sync to Square and send email notification when invoice is marked as 'sent'
+    if (status === "sent" && id) {
+      try {
+        // Fetch invoice and matter details
+        const { data: invoice } = await supabase
+          .from("invoices")
+          .select("matter_id, total_cents, due_date, square_invoice_id")
+          .eq("id", id)
+          .maybeSingle();
+
+        if (invoice) {
+          // Sync to Square if not already synced
+          let squarePaymentUrl: string | undefined;
+          if (!invoice.square_invoice_id) {
+            try {
+              const { syncInvoiceToSquare } = await import("@/lib/square");
+              const syncResult = await syncInvoiceToSquare(id);
+              if (syncResult.ok && syncResult.data?.paymentUrl) {
+                squarePaymentUrl = syncResult.data.paymentUrl;
+              }
+            } catch (squareError) {
+              console.error("Failed to sync invoice to Square:", squareError);
+              // Continue with email even if Square sync fails
+            }
+          } else {
+            // Get payment URL for already-synced invoice
+            try {
+              const { getSquarePaymentUrl } = await import("@/lib/square");
+              const urlResult = await getSquarePaymentUrl(id);
+              if (urlResult.ok && urlResult.data?.paymentUrl) {
+                squarePaymentUrl = urlResult.data.paymentUrl;
+              }
+            } catch (squareError) {
+              console.error("Failed to get Square payment URL:", squareError);
+            }
+          }
+
+          const { data: matter } = await supabase
+            .from("matters")
+            .select("client_id, title")
+            .eq("id", invoice.matter_id)
+            .maybeSingle();
+
+          if (matter?.client_id) {
+            const { data: clientProfile } = await supabase
+              .from("profiles")
+              .select("full_name")
+              .eq("user_id", matter.client_id)
+              .maybeSingle();
+
+            const { data: { user: clientUser } } = await supabase.auth.admin.getUserById(matter.client_id);
+
+            if (clientUser?.email && clientProfile) {
+              const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+              const amount = (invoice.total_cents / 100).toFixed(2);
+
+              await sendInvoiceEmail({
+                to: clientUser.email,
+                clientName: clientProfile.full_name || "Client",
+                matterTitle: matter.title,
+                matterId: invoice.matter_id,
+                invoiceId: id,
+                invoiceAmount: `$${amount}`,
+                dueDate: invoice.due_date || "Upon receipt",
+                paymentLink: squarePaymentUrl,
+                invoiceNumber: id.substring(0, 8).toUpperCase(),
+              });
+            }
+          }
+        }
+      } catch (emailError) {
+        console.error("Failed to send invoice email:", emailError);
+      }
+    }
+
     revalidatePath("/billing");
     revalidatePath("/");
     return { ok: true };

@@ -3,6 +3,9 @@ import { NextResponse, type NextRequest } from "next/server";
 const PUBLIC_PATHS = ["/auth/sign-in", "/auth", "/"];
 const MUTATING_METHODS = ["POST", "PUT", "PATCH", "DELETE"];
 
+// Debug logging for auth troubleshooting (only in development)
+const DEBUG_AUTH = process.env.NODE_ENV === "development";
+
 type TokenPayload = {
   role?: string;
 };
@@ -34,9 +37,25 @@ export function middleware(req: NextRequest) {
       pathname.startsWith("/billing"));
 
   const accessToken = req.cookies.get("sb-access-token")?.value;
-  const hasSessionCookie = Boolean(accessToken || req.cookies.get("sb-refresh-token"));
+  const refreshToken = req.cookies.get("sb-refresh-token")?.value;
+  const hasSessionCookie = Boolean(accessToken || refreshToken);
+
+  // Debug logging for cookie presence/absence
+  if (DEBUG_AUTH) {
+    console.log("[middleware]", pathname, {
+      isPublic,
+      isProtected,
+      hasAccessToken: Boolean(accessToken),
+      hasRefreshToken: Boolean(refreshToken),
+      hasSessionCookie,
+      allCookies: req.cookies.getAll().map((c) => c.name),
+    });
+  }
 
   if (isProtected && !hasSessionCookie) {
+    if (DEBUG_AUTH) {
+      console.log("[middleware] Redirecting to sign-in:", pathname, "→ /auth/sign-in");
+    }
     const url = req.nextUrl.clone();
     url.pathname = "/auth/sign-in";
     url.searchParams.set("redirect", pathname);

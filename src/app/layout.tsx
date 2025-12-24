@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { AppShell } from "@/components/app-shell";
+import { AuthListener } from "@/components/auth-listener";
 import { TimerProvider } from "@/contexts/timer-context";
 import { getSessionWithProfile } from "@/lib/auth/server";
 import { fetchMatters, fetchRecentTimerActivity } from "@/lib/data/queries";
@@ -44,6 +45,7 @@ export default async function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased bg-slate-50 text-slate-900`}
       >
+        <AuthListener />
         <TimerProvider recentEntries={recentEntries}>
           <AppShell
             profileName={profile?.full_name}
