@@ -59,7 +59,7 @@ interface SendMatterCreatedEmailParams {
   matterType: string;
   lawyerName: string;
   nextAction: string;
-  matterLink: string;
+  intakeLink: string;
 }
 
 export async function sendMatterCreatedEmail(
@@ -71,7 +71,7 @@ export async function sendMatterCreatedEmail(
     matterType: params.matterType,
     lawyerName: params.lawyerName,
     nextAction: params.nextAction,
-    matterLink: params.matterLink,
+    intakeLink: params.intakeLink,
   });
 
   return sendTemplateEmail(

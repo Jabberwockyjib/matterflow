@@ -151,7 +151,7 @@ export async function createMatter(formData: FormData): Promise<ActionResult> {
             matterType,
             lawyerName: ownerProfile?.full_name || "Your Attorney",
             nextAction,
-            matterLink: `${appUrl}/matters/${matterId}`,
+            intakeLink: `${appUrl}/intake/${matterId}`,
           });
         }
       } catch (emailError) {

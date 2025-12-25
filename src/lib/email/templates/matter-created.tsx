@@ -8,7 +8,7 @@ interface MatterCreatedEmailProps {
   matterType: string;
   lawyerName: string;
   nextAction: string;
-  matterLink: string;
+  intakeLink: string;
 }
 
 export const MatterCreatedEmail = ({
@@ -17,51 +17,41 @@ export const MatterCreatedEmail = ({
   matterType,
   lawyerName,
   nextAction,
-  matterLink,
+  intakeLink,
 }: MatterCreatedEmailProps) => (
   <BaseLayout
-    preview={`New matter created: ${matterTitle}`}
-    heading="Welcome! Your Matter Has Been Created"
+    preview={`Complete your intake form for ${matterTitle}`}
+    heading="Complete Your Intake Form"
   >
     <Text style={paragraph}>Hi {clientName},</Text>
     <Text style={paragraph}>
-      We&apos;re excited to work with you! Your matter has been created in our system and we&apos;re
-      ready to get started.
+      Welcome! We&apos;re ready to start working on your {matterType}.
     </Text>
-
-    <div style={matterDetails}>
-      <Text style={detailRow}>
-        <strong>Matter:</strong> {matterTitle}
-      </Text>
-      <Text style={detailRow}>
-        <strong>Type:</strong> {matterType}
-      </Text>
-      <Text style={detailRow}>
-        <strong>Your Attorney:</strong> {lawyerName}
-      </Text>
-      <Text style={detailRow}>
-        <strong>Next Step:</strong> {nextAction}
-      </Text>
-    </div>
 
     <Text style={paragraph}>
-      You can track the progress of your matter, upload documents, and communicate with us through
-      your client portal.
+      To get started, please complete your intake form. This helps us understand your situation
+      and provide the best possible service.
     </Text>
 
-    <Button href={matterLink} style={button}>
-      View Your Matter
+    <div style={infoBox}>
+      <Text style={infoTitle}>What to expect:</Text>
+      <Text style={infoItem}>• Takes about 10-15 minutes</Text>
+      <Text style={infoItem}>• You can save your progress anytime</Text>
+      <Text style={infoItem}>• We&apos;ll review it within 2 business days</Text>
+    </div>
+
+    <Button href={intakeLink} style={button}>
+      Complete Intake Form
     </Button>
 
     <Text style={paragraph}>
-      If you have any questions or need assistance, please don&apos;t hesitate to reach out to{" "}
-      {lawyerName}.
+      Questions? Reply to this email or contact {lawyerName} directly.
     </Text>
 
     <Text style={paragraph}>
-      Thank you for choosing us,
+      Thank you,
       <br />
-      Your Legal Team
+      {lawyerName}
     </Text>
   </BaseLayout>
 );
@@ -76,19 +66,25 @@ const paragraph = {
   margin: "16px 0",
 };
 
-const matterDetails = {
-  backgroundColor: "#f8fafc",
+const infoBox = {
+  backgroundColor: "#f1f5f9",
   borderRadius: "6px",
-  padding: "20px",
-  margin: "24px 0",
-  borderLeft: "4px solid #2563eb",
+  padding: "16px",
+  margin: "20px 0",
 };
 
-const detailRow = {
-  color: "#334155",
+const infoTitle = {
+  color: "#1e293b",
   fontSize: "14px",
-  lineHeight: "24px",
-  margin: "8px 0",
+  fontWeight: "600",
+  margin: "0 0 8px 0",
+};
+
+const infoItem = {
+  color: "#475569",
+  fontSize: "14px",
+  lineHeight: "20px",
+  margin: "4px 0",
 };
 
 const button = {
