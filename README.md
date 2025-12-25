@@ -25,11 +25,12 @@ The setup guide walks you through:
 ## ✨ Features
 
 ### Core Functionality ✅
+- **Automated Intake**: Email clients intake forms, auto-advance on submission
+- **Dashboard Clarity**: "Needs Attention" and "Waiting on Client" sections
 - **Matter Pipeline Management**: Track matters through 11 defined stages (Lead Created → Completed)
 - **Time Tracking**: Effortless timer-based and manual time entry
 - **Task Management**: Assign tasks to clients or staff with due dates
-- **Billing & Invoicing**: Create and manage invoices (Square integration coming soon)
-- **Dashboard**: Clear visibility of what's stuck and who's responsible
+- **Billing & Invoicing**: Create and manage invoices with Square integration
 
 ### Email Integration ✅ (NEW)
 - **Transactional Emails**: Automatic emails when matters are created, invoices sent, tasks assigned

@@ -325,6 +325,25 @@ See `SQUARE_INTEGRATION.md` for complete setup guide and API reference.
 
 See `INTAKE_FORMS.md` for complete template creation guide and API reference.
 
+### Intake Automation Flow
+
+**Automatic intake workflow** for solo practitioners:
+
+1. **Matter Creation** → Auto-sets stage to "Intake Sent" when client specified
+2. **Client Email** → Automatic email with intake form link
+3. **Form Submission** → Auto-advances to "Intake Received", notifies lawyer
+4. **Dashboard** → "Needs Review" section shows pending intakes
+5. **Approval** → One-click advance to "Under Review"
+
+**Key Features:**
+- Auto-save every 30 seconds (prevent data loss)
+- Thank you page after submission
+- Stage badges with color coding
+- Responsibility indicators (client vs lawyer)
+- Overdue tracking and alerts
+
+**Important:** Matter creation with client automatically triggers intake flow. To skip intake, create matter without clientId or manually change stage.
+
 ## Common Pitfalls
 
 1. **Don't bypass RLS**: Always use authenticated Supabase client or service-role client with proper auth checks.
