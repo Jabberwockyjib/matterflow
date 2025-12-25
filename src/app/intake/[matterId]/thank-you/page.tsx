@@ -2,6 +2,11 @@ import { CheckCircle } from "lucide-react";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { CloseButton } from "./close-button";
 
+interface MatterWithOwner {
+  title: string | null;
+  profiles: { full_name: string | null } | null;
+}
+
 interface ThankYouPageProps {
   params: Promise<{ matterId: string }>;
 }
@@ -11,13 +16,19 @@ export default async function ThankYouPage({ params }: ThankYouPageProps) {
 
   // Get matter and lawyer details
   const supabase = supabaseAdmin();
-  const { data: matter } = await supabase
+  const { data: matter, error } = await supabase
     .from("matters")
     .select("title, profiles:owner_id(full_name)")
     .eq("id", matterId)
     .single();
 
-  const lawyerName = (matter?.profiles as any)?.full_name || "your attorney";
+  if (error) {
+    console.error("Error fetching matter details:", error);
+    // Still render page with fallback values - submission already succeeded
+  }
+
+  const lawyerName =
+    (matter as unknown as MatterWithOwner)?.profiles?.full_name || "your attorney";
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-50 to-blue-50 dark:from-gray-900 dark:to-gray-800 flex items-center justify-center p-4">

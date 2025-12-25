@@ -33,7 +33,7 @@ export function IntakeFormClient({
       setError(result.error || "Failed to submit form. Please try again.");
     } else {
       // Redirect to thank you page
-      window.location.href = `/intake/${matterId}/thank-you`;
+      router.push(`/intake/${matterId}/thank-you`);
     }
   };
 
