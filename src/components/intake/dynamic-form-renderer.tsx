@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import type {
   IntakeFormTemplate,
   IntakeFormField,
@@ -18,6 +18,7 @@ interface DynamicFormRendererProps {
   onSaveDraft?: (values: Record<string, any>) => Promise<void>;
   readOnly?: boolean;
   submitButtonText?: string;
+  matterId?: string;
 }
 
 export function DynamicFormRenderer({
@@ -27,11 +28,31 @@ export function DynamicFormRenderer({
   onSaveDraft,
   readOnly = false,
   submitButtonText = "Submit",
+  matterId,
 }: DynamicFormRendererProps) {
   const [values, setValues] = useState<Record<string, any>>(initialValues);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSavingDraft, setIsSavingDraft] = useState(false);
+  const [lastSaved, setLastSaved] = useState<Date | null>(null);
+
+  // Auto-save draft every 30 seconds
+  useEffect(() => {
+    if (readOnly || !onSaveDraft) return;
+
+    const interval = setInterval(async () => {
+      if (Object.keys(values).length > 0) {
+        try {
+          await onSaveDraft(values);
+          setLastSaved(new Date());
+        } catch (error) {
+          console.error("Auto-save error:", error);
+        }
+      }
+    }, 30000); // 30 seconds
+
+    return () => clearInterval(interval);
+  }, [values, onSaveDraft, readOnly]);
 
   const shouldDisplayField = (field: IntakeFormField): boolean => {
     if (!field.conditionalDisplay) return true;
@@ -466,6 +487,14 @@ export function DynamicFormRenderer({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-8">
+      {!readOnly && lastSaved && (
+        <div className="text-right">
+          <p className="text-xs text-muted-foreground">
+            Last saved: {lastSaved.toLocaleTimeString()}
+          </p>
+        </div>
+      )}
+
       {template.sections.map((section) => (
         <div key={section.id} className="space-y-6">
           {section.title && (

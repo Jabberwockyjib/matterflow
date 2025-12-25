@@ -84,6 +84,7 @@ export function IntakeFormClient({
         onSaveDraft={isReadOnly ? undefined : handleSaveDraft}
         readOnly={isReadOnly}
         submitButtonText="Submit Intake Form"
+        matterId={matterId}
       />
     </div>
   );
