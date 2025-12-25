@@ -3,12 +3,12 @@ import { ReceiptText, Wallet2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+  ContentCard,
+  ContentCardContent,
+  ContentCardDescription,
+  ContentCardHeader,
+  ContentCardTitle,
+} from "@/components/cards/content-card";
 import { createInvoice, updateInvoiceStatus } from "@/lib/data/actions";
 import { getSessionWithProfile } from "@/lib/auth/server";
 import { fetchInvoices, fetchMatters } from "@/lib/data/queries";
@@ -28,14 +28,14 @@ export default async function BillingPage() {
   const canEdit = supabaseReady && profile?.role !== "client";
 
   return (
-    <div className="bg-slate-50">
-      <header className="border-b border-slate-200 bg-white">
+    <div className="bg-background">
+      <header className="border-b-2 border-border bg-white">
         <div className="container flex flex-col gap-3 py-8 md:flex-row md:items-center md:justify-between">
           <div>
-            <p className="text-xs uppercase tracking-[0.2em] text-slate-500">
+            <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground font-semibold">
               MatterFlow
             </p>
-            <h1 className="text-3xl font-semibold leading-tight text-slate-900">
+            <h1 className="font-lora text-4xl font-bold leading-tight text-foreground">
               Billing & Invoices
             </h1>
             <p className="text-sm text-slate-600">
@@ -57,12 +57,12 @@ export default async function BillingPage() {
       </header>
 
       <main className="container py-8 space-y-4">
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle>Create invoice</CardTitle>
-            <CardDescription>Billing stays here; Square handles payment.</CardDescription>
-          </CardHeader>
-          <CardContent>
+        <ContentCard>
+          <ContentCardHeader className="pb-2">
+            <ContentCardTitle>Create invoice</ContentCardTitle>
+            <ContentCardDescription>Billing stays here; Square handles payment.</ContentCardDescription>
+          </ContentCardHeader>
+          <ContentCardContent>
             {canEdit ? (
               <form action={createInvoice} className="grid gap-3 md:grid-cols-3">
                 <label className="text-sm text-slate-700">
@@ -125,25 +125,25 @@ export default async function BillingPage() {
                   : "Supabase env vars not set; creation disabled."}
               </p>
             )}
-          </CardContent>
-        </Card>
+          </ContentCardContent>
+        </ContentCard>
 
         <div className="grid gap-4">
           {invoices.map((invoice) => (
-            <Card
+            <ContentCard
               key={invoice.id}
               className="border-slate-200 bg-white transition hover:shadow-sm"
             >
-              <CardHeader className="pb-2">
-                <CardTitle className="flex items-center gap-2 text-base text-slate-900">
+              <ContentCardHeader className="pb-2">
+                <ContentCardTitle className="flex items-center gap-2 text-base text-slate-900">
                   <Wallet2 className="h-4 w-4 text-slate-500" />
                   Invoice {invoice.id.slice(0, 8)}
-                </CardTitle>
-                <CardDescription className="text-xs text-slate-600">
+                </ContentCardTitle>
+                <ContentCardDescription className="text-xs text-slate-600">
                   Matter ID: {invoice.matterId}
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="flex flex-wrap items-center gap-3 text-sm text-slate-700">
+                </ContentCardDescription>
+              </ContentCardHeader>
+              <ContentCardContent className="flex flex-wrap items-center gap-3 text-sm text-slate-700">
                 <Badge variant="outline" className="capitalize">
                   {invoice.status}
                 </Badge>
@@ -176,8 +176,8 @@ export default async function BillingPage() {
                     </Button>
                   </form>
                 ) : null}
-              </CardContent>
-            </Card>
+              </ContentCardContent>
+            </ContentCard>
           ))}
         </div>
       </main>

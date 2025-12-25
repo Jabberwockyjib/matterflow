@@ -2,12 +2,12 @@ import { Clock4 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+  ContentCard,
+  ContentCardContent,
+  ContentCardDescription,
+  ContentCardHeader,
+  ContentCardTitle,
+} from "@/components/cards/content-card";
 import { TimeEntryForm } from "@/components/forms/TimeEntryForm";
 import { StopTimerForm } from "@/components/forms/StopTimerForm";
 import { getSessionWithProfile } from "@/lib/auth/server";
@@ -31,14 +31,14 @@ export default async function TimePage() {
   const canEdit = supabaseReady && profile?.role !== "client";
 
   return (
-    <div className="bg-slate-50">
-      <header className="border-b border-slate-200 bg-white">
+    <div className="bg-background">
+      <header className="border-b-2 border-border bg-white">
         <div className="container flex flex-col gap-3 py-8 md:flex-row md:items-center md:justify-between">
           <div>
-            <p className="text-xs uppercase tracking-[0.2em] text-slate-500">
+            <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground font-semibold">
               MatterFlow
             </p>
-            <h1 className="text-3xl font-semibold leading-tight text-slate-900">
+            <h1 className="font-lora text-4xl font-bold leading-tight text-foreground">
               Time Tracking
             </h1>
             <p className="text-sm text-slate-600">
@@ -60,12 +60,12 @@ export default async function TimePage() {
       </header>
 
       <main className="container py-8 space-y-4">
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle>Manual time entry</CardTitle>
-            <CardDescription>Log minutes or leave blank to represent a running timer.</CardDescription>
-          </CardHeader>
-          <CardContent>
+        <ContentCard>
+          <ContentCardHeader className="pb-2">
+            <ContentCardTitle>Manual time entry</ContentCardTitle>
+            <ContentCardDescription>Log minutes or leave blank to represent a running timer.</ContentCardDescription>
+          </ContentCardHeader>
+          <ContentCardContent>
             {canEdit ? (
               <TimeEntryForm matters={matters} tasks={tasks} />
             ) : (
@@ -75,22 +75,22 @@ export default async function TimePage() {
                   : "Supabase env vars not set; creation disabled."}
               </p>
             )}
-          </CardContent>
-        </Card>
+          </ContentCardContent>
+        </ContentCard>
 
         <div className="grid gap-4">
           {entries.map((entry) => (
-            <Card key={entry.id} className="border-slate-200 bg-white">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-base text-slate-900">
+            <ContentCard key={entry.id} className="border-slate-200 bg-white">
+              <ContentCardHeader className="pb-2">
+                <ContentCardTitle className="text-base text-slate-900">
                   {entry.description || "Untitled entry"}
-                </CardTitle>
-                <CardDescription className="text-xs text-slate-600">
+                </ContentCardTitle>
+                <ContentCardDescription className="text-xs text-slate-600">
                   Matter ID: {entry.matterId}
                   {entry.taskId ? ` • Task: ${entry.taskId}` : null}
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="flex flex-wrap items-center gap-3 text-sm text-slate-700">
+                </ContentCardDescription>
+              </ContentCardHeader>
+              <ContentCardContent className="flex flex-wrap items-center gap-3 text-sm text-slate-700">
                 <Badge variant="outline" className="capitalize">
                   {entry.status}
                 </Badge>
@@ -113,8 +113,8 @@ export default async function TimePage() {
                     ) : null}
                   </>
                 )}
-              </CardContent>
-            </Card>
+              </ContentCardContent>
+            </ContentCard>
           ))}
         </div>
       </main>
