@@ -68,9 +68,26 @@ export async function createMatter(formData: FormData): Promise<ActionResult> {
     const clientId = (formData.get("clientId") as string) || null;
     const matterType = (formData.get("matterType") as string) || "General";
     const billingModel = (formData.get("billingModel") as string) || "hourly";
-    const responsible = (formData.get("responsibleParty") as string) || "lawyer";
-    const nextAction = (formData.get("nextAction") as string) || null;
-    const nextActionDueDate = (formData.get("nextActionDueDate") as string) || null;
+
+    // Auto-populate intake fields when client is specified
+    let stage = "Lead Created";
+    let responsible = (formData.get("responsibleParty") as string) || "lawyer";
+    let nextAction = (formData.get("nextAction") as string) || null;
+    let nextActionDueDate = (formData.get("nextActionDueDate") as string) || null;
+
+    if (clientId) {
+      // Client specified - set up for intake automation
+      stage = "Intake Sent";
+      responsible = "client";
+      nextAction = nextAction || "Complete intake form";
+
+      // Default due date: 3 days from now
+      if (!nextActionDueDate) {
+        const dueDate = new Date();
+        dueDate.setDate(dueDate.getDate() + 3);
+        nextActionDueDate = dueDate.toISOString().split("T")[0];
+      }
+    }
 
     // Validation: Next Action and Due Date are required
     if (!nextAction) {
@@ -86,6 +103,7 @@ export async function createMatter(formData: FormData): Promise<ActionResult> {
       client_id: clientId,
       matter_type: matterType,
       billing_model: billingModel,
+      stage,
       responsible_party: responsible,
       next_action: nextAction,
       next_action_due_date: nextActionDueDate,
