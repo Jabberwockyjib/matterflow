@@ -2,13 +2,14 @@ import Link from "next/link";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { StatCard, MatterCard } from "@/components/cards";
 import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+  ContentCard,
+  ContentCardContent,
+  ContentCardDescription,
+  ContentCardHeader,
+  ContentCardTitle,
+} from "@/components/cards/content-card";
 import {
   ArrowRight,
   CheckCircle2,
@@ -181,42 +182,45 @@ export default async function Home() {
               label: "Active Matters",
               value: matters.length,
               helper: `${waitingOnClient} waiting on client`,
+              icon: FileText,
             },
             {
               label: "Unpaid Invoices",
               value: currency(unpaidTotal),
               helper: `${unpaidInvoices.length} invoices open`,
+              icon: Wallet2,
             },
             {
               label: "Timers Running",
               value: timersRunning,
               helper: timersRunning ? "stop before billing" : "none running",
+              icon: Timer,
             },
-          ].map((stat) => (
-            <Card key={stat.label} className="animate-fade-in">
-              <CardHeader className="pb-2">
-                <CardDescription>{stat.label}</CardDescription>
-                <CardTitle className="text-2xl">{stat.value}</CardTitle>
-              </CardHeader>
-              <CardContent className="pt-0 text-sm text-slate-600 dark:text-slate-400">
-                {stat.helper}
-              </CardContent>
-            </Card>
+          ].map((stat, index) => (
+            <StatCard
+              key={stat.label}
+              label={stat.label}
+              value={stat.value}
+              helper={stat.helper}
+              icon={stat.icon}
+              className="animate-fade-in"
+              style={{ animationDelay: `${index * 50}ms` }}
+            />
           ))}
         </div>
 
         <div className="mt-6 grid gap-6 lg:grid-cols-3">
-          <Card className="lg:col-span-2 animate-fade-in">
-            <CardHeader className="pb-0">
-              <CardTitle className="flex items-center gap-2">
+          <ContentCard className="lg:col-span-2 animate-fade-in">
+            <ContentCardHeader className="pb-0">
+              <ContentCardTitle className="flex items-center gap-2">
                 Next actions by responsible party
                 <Clock4 className="h-4 w-4 text-slate-500" />
-              </CardTitle>
-              <CardDescription>
+              </ContentCardTitle>
+              <ContentCardDescription>
                 Every matter has one next action with a responsible party (lawyer, client, or staff) and a due date.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
+              </ContentCardDescription>
+            </ContentCardHeader>
+            <ContentCardContent>
               <div className="space-y-3">
                 {sortedMatters.slice(0, 8).length === 0 ? (
                   <div className="rounded-lg border border-dashed border-slate-300 bg-white p-8 text-center dark:border-slate-700 dark:bg-slate-900">
@@ -225,110 +229,38 @@ export default async function Home() {
                     </p>
                   </div>
                 ) : (
-                  sortedMatters.slice(0, 8).map((matter) => (
-                    <div
+                  sortedMatters.slice(0, 8).map((matter, index) => (
+                    <MatterCard
                       key={matter.id}
-                      className={cn(
-                        "rounded-lg border bg-white p-4 transition-colors dark:bg-slate-900",
-                        isOverdue(matter.nextActionDueDate)
-                          ? "border-red-300 bg-red-50 dark:border-red-700 dark:bg-red-950"
-                          : "border-slate-200 dark:border-slate-700"
-                      )}
-                    >
-                      {/* Matter Header */}
-                      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-                        <div className="flex-1">
-                          <h2 className="font-medium text-slate-900 dark:text-slate-100">
-                            {matter.title}
-                          </h2>
-                          <p className="mt-0.5 text-sm text-slate-600 dark:text-slate-400">
-                            {matter.matterType && `${matter.matterType} • `}
-                            {matter.stage}
-                          </p>
-                        </div>
-
-                        {/* Due Date Badge */}
-                        <span
-                          className={cn(
-                            "inline-flex w-fit items-center rounded-full px-2.5 py-0.5 text-xs font-medium",
-                            isOverdue(matter.nextActionDueDate)
-                              ? "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200"
-                              : "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300"
-                          )}
-                        >
-                          {isOverdue(matter.nextActionDueDate) && (
-                            <svg
-                              className="mr-1 h-3 w-3"
-                              fill="currentColor"
-                              viewBox="0 0 20 20"
-                            >
-                              <path
-                                fillRule="evenodd"
-                                d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z"
-                                clipRule="evenodd"
-                              />
-                            </svg>
-                          )}
-                          Due: {formatDueDate(matter.nextActionDueDate)}
-                        </span>
-                      </div>
-
-                      {/* Next Action */}
-                      <div className="mt-3 rounded-md bg-slate-50 p-3 dark:bg-slate-800">
-                        <div className="flex items-start gap-3">
-                          <div className="flex-1">
-                            <p className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                              Next Action
-                            </p>
-                            <p className="mt-1 text-sm text-slate-900 dark:text-slate-100">
-                              {matter.nextAction}
-                            </p>
-                          </div>
-                          <div className="text-right">
-                            <p className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                              Responsible
-                            </p>
-                            <span
-                              className={cn(
-                                "mt-1 inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium capitalize",
-                                responsiblePartyColor(matter.responsibleParty)
-                              )}
-                            >
-                              {matter.responsibleParty}
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Footer Metadata */}
-                      <div className="mt-3 flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
-                        <span>{matter.billingModel && `${matter.billingModel} fee`}</span>
-                        <span>
-                          Updated{" "}
-                          {new Date(matter.updatedAt).toLocaleDateString("en-US", {
-                            month: "short",
-                            day: "numeric",
-                          })}
-                        </span>
-                      </div>
-                    </div>
+                      id={matter.id}
+                      title={matter.title}
+                      matterType={matter.matterType}
+                      stage={matter.stage}
+                      billingModel={matter.billingModel}
+                      nextAction={matter.nextAction}
+                      nextActionDueDate={matter.nextActionDueDate}
+                      responsibleParty={matter.responsibleParty}
+                      updatedAt={matter.updatedAt}
+                      className="animate-fade-in"
+                      style={{ animationDelay: `${index * 50}ms` }}
+                    />
                   ))
                 )}
               </div>
-            </CardContent>
-          </Card>
+            </ContentCardContent>
+          </ContentCard>
 
-          <Card className="animate-fade-in">
-            <CardHeader className="pb-3">
-              <CardTitle className="flex items-center gap-2">
+          <ContentCard className="animate-fade-in" style={{ animationDelay: "100ms" }}>
+            <ContentCardHeader className="pb-3">
+              <ContentCardTitle className="flex items-center gap-2">
                 Pipeline stages
                 <Badge variant="outline" className="text-xs">
                   11 fixed
                 </Badge>
-              </CardTitle>
-              <CardDescription>Matters by stage and owner.</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-2">
+              </ContentCardTitle>
+              <ContentCardDescription>Matters by stage and owner.</ContentCardDescription>
+            </ContentCardHeader>
+            <ContentCardContent className="space-y-2">
               {stageCounts.slice(0, 6).map((item) => (
                 <div
                   key={item.stage}
@@ -347,22 +279,22 @@ export default async function Home() {
                   </div>
                 </div>
               ))}
-            </CardContent>
-          </Card>
+            </ContentCardContent>
+          </ContentCard>
         </div>
 
         <div className="mt-6 grid gap-6 lg:grid-cols-2">
-          <Card className="animate-fade-in">
-            <CardHeader className="pb-3">
-              <CardTitle className="flex items-center gap-2">
+          <ContentCard className="animate-fade-in" style={{ animationDelay: "150ms" }}>
+            <ContentCardHeader className="pb-3">
+              <ContentCardTitle className="flex items-center gap-2">
                 Billing & payments
                 <Wallet2 className="h-4 w-4 text-slate-500" />
-              </CardTitle>
-              <CardDescription>
+              </ContentCardTitle>
+              <ContentCardDescription>
                 Square sync is the payment rail; billing stays in MatterFlow.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-3">
+              </ContentCardDescription>
+            </ContentCardHeader>
+            <ContentCardContent className="space-y-3">
               {billingRows.map((row) => (
                 <div
                   key={row.id}
@@ -394,19 +326,19 @@ export default async function Home() {
                 No invoice can be created outside MatterFlow. Sync failures must
                 be visible and retryable.
               </p>
-            </CardContent>
-          </Card>
+            </ContentCardContent>
+          </ContentCard>
 
-          <Card className="animate-fade-in">
-            <CardHeader className="pb-3">
-              <CardTitle className="flex items-center gap-2">
+          <ContentCard className="animate-fade-in" style={{ animationDelay: "200ms" }}>
+            <ContentCardHeader className="pb-3">
+              <ContentCardTitle className="flex items-center gap-2">
                 Time, docs, and automations
-              </CardTitle>
-              <CardDescription>
+              </ContentCardTitle>
+              <ContentCardDescription>
                 Guardrails for the MVP while AI hooks are stubbed.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
+              </ContentCardDescription>
+            </ContentCardHeader>
+            <ContentCardContent className="space-y-4">
               <div className="flex items-center gap-3 rounded-lg border border-slate-200 px-4 py-3 dark:border-slate-700">
                 <Timer className="h-4 w-4 text-slate-500" />
                 <div className="flex-1">
@@ -453,8 +385,8 @@ Documents
                 Human approval remains required for AI decisions and conflict
                 checks.
               </div>
-            </CardContent>
-          </Card>
+            </ContentCardContent>
+          </ContentCard>
         </div>
       </main>
     </div>
