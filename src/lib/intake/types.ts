@@ -80,7 +80,7 @@ export interface IntakeFormResponse {
   id: string;
   matterId: string;
   formType: string;
-  responses: Record<string, any>; // JSONB field
+  responses: Record<string, unknown>; // JSONB field - dynamic form data
   status: "draft" | "submitted" | "approved";
   submittedAt?: string;
   createdAt: string;
@@ -109,7 +109,7 @@ export type FormValidationResult = {
 export interface IntakeFormSubmission {
   formType: string;
   matterId: string;
-  responses: Record<string, any>;
+  responses: Record<string, unknown>;
   files?: IntakeFileUpload[];
 }
 

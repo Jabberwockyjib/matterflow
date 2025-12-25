@@ -12,6 +12,7 @@
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { approveIntakeForm } from "@/lib/intake/actions";
+import { supabaseAdmin } from "@/lib/supabase/server";
 
 // Mock dependencies
 vi.mock("@/lib/supabase/server", () => ({
@@ -103,7 +104,7 @@ describe("approveIntakeForm", () => {
       };
     });
 
-    (supabaseAdmin as any).mockReturnValue({ from: mockFrom });
+    vi.mocked(supabaseAdmin).mockReturnValue({ from: mockFrom } as unknown as ReturnType<typeof supabaseAdmin>);
 
     const result = await approveIntakeForm("mock-intake-id");
 
@@ -166,7 +167,7 @@ describe("approveIntakeForm", () => {
       };
     });
 
-    (supabaseAdmin as any).mockReturnValue({ from: mockFrom });
+    vi.mocked(supabaseAdmin).mockReturnValue({ from: mockFrom } as unknown as ReturnType<typeof supabaseAdmin>);
 
     const result = await approveIntakeForm("mock-intake-id");
 
@@ -236,7 +237,7 @@ describe("approveIntakeForm", () => {
       };
     });
 
-    (supabaseAdmin as any).mockReturnValue({ from: mockFrom });
+    vi.mocked(supabaseAdmin).mockReturnValue({ from: mockFrom } as unknown as ReturnType<typeof supabaseAdmin>);
 
     const result = await approveIntakeForm("mock-intake-id");
 
@@ -303,7 +304,7 @@ describe("approveIntakeForm", () => {
       };
     });
 
-    (supabaseAdmin as any).mockReturnValue({ from: mockFrom });
+    vi.mocked(supabaseAdmin).mockReturnValue({ from: mockFrom } as unknown as ReturnType<typeof supabaseAdmin>);
 
     const result = await approveIntakeForm("mock-intake-id");
 
@@ -359,7 +360,7 @@ describe("approveIntakeForm", () => {
       };
     });
 
-    (supabaseAdmin as any).mockReturnValue({ from: mockFrom });
+    vi.mocked(supabaseAdmin).mockReturnValue({ from: mockFrom } as unknown as ReturnType<typeof supabaseAdmin>);
 
     const result = await approveIntakeForm("mock-intake-id");
 

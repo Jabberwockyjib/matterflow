@@ -11,14 +11,17 @@ import { supabaseAdmin } from "@/lib/supabase/server";
 import { getSessionWithProfile } from "@/lib/auth/server";
 import { getTemplateForMatterType } from "./templates";
 import { validateFormResponse } from "./validation";
+import type { Database } from "@/types/database.types";
 import type {
   IntakeFormResponse,
   IntakeFormSubmission,
   Result,
 } from "./types";
 
+type Json = Database["public"]["Tables"]["intake_responses"]["Row"]["responses"];
+
 export type ActionResult =
-  | { ok: true; data?: any }
+  | { ok: true; data?: unknown }
   | { error: string };
 
 /**
@@ -93,7 +96,7 @@ export async function getIntakeForm(
 export async function saveIntakeFormDraft(
   matterId: string,
   formType: string,
-  responses: Record<string, any>,
+  responses: Record<string, unknown>,
 ): Promise<ActionResult> {
   try {
     const supabase = supabaseAdmin();
@@ -110,7 +113,7 @@ export async function saveIntakeFormDraft(
       const { error } = await supabase
         .from("intake_responses")
         .update({
-          responses,
+          responses: responses as Json,
           updated_at: new Date().toISOString(),
         })
         .eq("id", existing.id);
@@ -126,7 +129,7 @@ export async function saveIntakeFormDraft(
         .insert({
           matter_id: matterId,
           form_type: formType,
-          responses,
+          responses: responses as Json,
           status: "draft",
         })
         .select("id")
@@ -153,7 +156,7 @@ export async function saveIntakeFormDraft(
 export async function submitIntakeForm(
   matterId: string,
   formType: string,
-  responses: Record<string, any>,
+  responses: Record<string, unknown>,
 ): Promise<ActionResult> {
   try {
     const supabase = supabaseAdmin();
@@ -196,7 +199,7 @@ export async function submitIntakeForm(
       const { error } = await supabase
         .from("intake_responses")
         .update({
-          responses,
+          responses: responses as Json,
           status: "submitted",
           submitted_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
@@ -211,7 +214,7 @@ export async function submitIntakeForm(
         .insert({
           matter_id: matterId,
           form_type: formType,
-          responses,
+          responses: responses as Json,
           status: "submitted",
           submitted_at: new Date().toISOString(),
         });
@@ -359,7 +362,7 @@ export async function approveIntakeForm(
         metadata: {
           intake_response_id: intakeResponseId,
           approved_at: new Date().toISOString(),
-        } as any,
+        },
       });
     }
 
@@ -410,7 +413,7 @@ export async function getAllIntakeResponses(): Promise<{
       return { error: error.message };
     }
 
-    return { data: data as any };
+    return { data };
   } catch (error) {
     console.error("Error fetching intake responses:", error);
     return {

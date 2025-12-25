@@ -21,12 +21,12 @@ export default async function IntakeReviewPage({
     .select(
       `
       *,
-      matters:matter_id (
+      matters!intake_responses_matter_id_fkey (
         id,
         title,
         matter_type,
         stage,
-        profiles:client_id (
+        client:profiles!matters_client_id_fkey (
           full_name,
           users:user_id (email)
         )
@@ -99,7 +99,7 @@ export default async function IntakeReviewPage({
             <div>
               <p className="text-sm font-medium text-gray-500">Client</p>
               <p className="text-base text-gray-900 mt-1">
-                {matter.profiles?.full_name || "Unknown"}
+                {matter.client?.full_name || "Unknown"}
               </p>
             </div>
             <div>

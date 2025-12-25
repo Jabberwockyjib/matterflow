@@ -16,7 +16,7 @@ import type {
  */
 export function validateFormResponse(
   template: IntakeFormTemplate,
-  responses: Record<string, any>,
+  responses: Record<string, unknown>,
 ): FormValidationResult {
   const errors: FormValidationError[] = [];
 
@@ -33,7 +33,7 @@ export function validateFormResponse(
 
         // If condition not met, skip validation
         if (Array.isArray(expectedValue)) {
-          if (!expectedValue.some((v) => conditionField?.includes?.(v))) {
+          if (typeof conditionField === "string" && !expectedValue.includes(conditionField)) {
             continue;
           }
         } else {
@@ -84,12 +84,12 @@ export function validateFormResponse(
  */
 function validateFieldValue(
   field: IntakeFormField,
-  value: any,
+  value: unknown,
   errors: FormValidationError[],
 ): void {
   switch (field.type) {
     case "email":
-      if (!isValidEmail(value)) {
+      if (typeof value === "string" && !isValidEmail(value)) {
         errors.push({
           field: field.id,
           message: `${field.label} must be a valid email address`,
@@ -98,7 +98,7 @@ function validateFieldValue(
       break;
 
     case "phone":
-      if (!isValidPhone(value)) {
+      if (typeof value === "string" && !isValidPhone(value)) {
         errors.push({
           field: field.id,
           message: `${field.label} must be a valid phone number`,
@@ -169,7 +169,7 @@ function validateFieldValue(
       break;
 
     case "select":
-      if (field.options) {
+      if (field.options && typeof value === "string") {
         const validValues = field.options.map((opt) => opt.value);
         if (!validValues.includes(value)) {
           errors.push({
@@ -201,7 +201,7 @@ function validateFieldValue(
       break;
 
     case "radio":
-      if (field.options) {
+      if (field.options && typeof value === "string") {
         const validValues = field.options.map((opt) => opt.value);
         if (!validValues.includes(value)) {
           errors.push({
@@ -213,7 +213,7 @@ function validateFieldValue(
       break;
 
     case "date":
-      if (!isValidDate(value)) {
+      if (typeof value === "string" && !isValidDate(value)) {
         errors.push({
           field: field.id,
           message: `${field.label} must be a valid date`,

@@ -16,7 +16,6 @@ export const MatterCreatedEmail = ({
   matterTitle,
   matterType,
   lawyerName,
-  nextAction,
   intakeLink,
 }: MatterCreatedEmailProps) => (
   <BaseLayout

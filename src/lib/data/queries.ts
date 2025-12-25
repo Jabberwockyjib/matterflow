@@ -1,5 +1,6 @@
 import { supabaseAdmin, supabaseEnvReady } from "@/lib/supabase/server";
 import { getSessionWithProfile } from "@/lib/auth/server";
+import type { Database } from "@/types/database.types";
 
 export type MatterSummary = {
   id: string;
@@ -338,7 +339,19 @@ export async function fetchTimeEntries(): Promise<{
 /**
  * Helper function to map database row to MatterSummary
  */
-function mapMatter(row: any): MatterSummary {
+function mapMatter(row: {
+  id: string;
+  title: string;
+  stage: string;
+  next_action: string;
+  next_action_due_date: string;
+  responsible_party: string;
+  billing_model: string;
+  matter_type: string;
+  updated_at: string;
+  created_at: string;
+  client?: { full_name: string } | null;
+}): MatterSummary {
   return {
     id: row.id,
     title: row.title,
