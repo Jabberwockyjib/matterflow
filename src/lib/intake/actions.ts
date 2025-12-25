@@ -8,6 +8,7 @@
 
 import { revalidatePath } from "next/cache";
 import { supabaseAdmin } from "@/lib/supabase/server";
+import { getSessionWithProfile } from "@/lib/auth/server";
 import { getTemplateForMatterType } from "./templates";
 import { validateFormResponse } from "./validation";
 import type {
@@ -317,21 +318,29 @@ export async function approveIntakeForm(
       return { error: error?.message || "Intake response not found" };
     }
 
+    const matterId = intakeResponse.matter_id;
+
     // Update matter stage to "Under Review" if still in "Intake Received"
     const { data: matter } = await supabase
       .from("matters")
       .select("stage")
-      .eq("id", intakeResponse.matter_id)
+      .eq("id", matterId)
       .single();
 
     if (matter?.stage === "Intake Received") {
+      const dueDate = new Date();
+      dueDate.setDate(dueDate.getDate() + 2);
+
       const { error: updateError } = await supabase
         .from("matters")
         .update({
           stage: "Under Review",
+          responsible_party: "lawyer",
+          next_action: "Begin document review",
+          next_action_due_date: dueDate.toISOString().split("T")[0],
           updated_at: new Date().toISOString(),
         })
-        .eq("id", intakeResponse.matter_id);
+        .eq("id", matterId);
 
       if (updateError) {
         console.error("Failed to update matter stage:", updateError);
@@ -339,7 +348,22 @@ export async function approveIntakeForm(
       }
     }
 
-    revalidatePath(`/intake/${intakeResponse.matter_id}`);
+    // Log approval to audit trail
+    const { session } = await getSessionWithProfile();
+    if (session) {
+      await supabase.from("audit_logs").insert({
+        actor_id: session.user.id,
+        event_type: "intake_form_approved",
+        entity_type: "matter",
+        entity_id: matterId,
+        metadata: {
+          intake_response_id: intakeResponseId,
+          approved_at: new Date().toISOString(),
+        } as any,
+      });
+    }
+
+    revalidatePath(`/intake/${matterId}`);
     revalidatePath("/matters");
     revalidatePath("/");
 
