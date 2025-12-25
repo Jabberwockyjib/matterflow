@@ -32,10 +32,8 @@ export function IntakeFormClient({
     if ("error" in result) {
       setError(result.error || "Failed to submit form. Please try again.");
     } else {
-      setSuccessMessage(
-        "Your intake form has been submitted successfully! Your lawyer will review it shortly."
-      );
-      router.refresh();
+      // Redirect to thank you page
+      window.location.href = `/intake/${matterId}/thank-you`;
     }
   };
 
