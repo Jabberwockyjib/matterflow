@@ -225,12 +225,18 @@ export async function submitIntakeForm(
       .eq("id", matterId)
       .single();
 
+    const now = new Date().toISOString();
+
     if (currentMatter?.stage === "Intake Sent") {
       await supabase
         .from("matters")
         .update({
           stage: "Intake Received",
-          updated_at: new Date().toISOString(),
+          responsible_party: "lawyer",
+          next_action: "Review intake form",
+          next_action_due_date: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
+          intake_received_at: now,
+          updated_at: now,
         })
         .eq("id", matterId);
     }
