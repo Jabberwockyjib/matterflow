@@ -10,6 +10,8 @@ interface WaitingOnClientProps {
 }
 
 export function WaitingOnClient({ awaitingIntake }: WaitingOnClientProps) {
+  const today = new Date();
+
   if (awaitingIntake.length === 0) {
     return null;
   }
@@ -30,7 +32,7 @@ export function WaitingOnClient({ awaitingIntake }: WaitingOnClientProps) {
           <div className="space-y-3">
             {awaitingIntake.map((matter) => {
               const daysWaiting = Math.floor(
-                (Date.now() - new Date(matter.createdAt).getTime()) / (1000 * 60 * 60 * 24)
+                (today.getTime() - new Date(matter.createdAt).getTime()) / (1000 * 60 * 60 * 24)
               );
 
               return (

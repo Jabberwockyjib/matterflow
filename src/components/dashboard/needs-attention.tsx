@@ -4,7 +4,7 @@ import { ContentCard, ContentCardHeader, ContentCardTitle, ContentCardContent } 
 import { Button } from "@/components/ui/button";
 import { StageBadge } from "@/components/ui/stage-badge";
 import type { Matter } from "@/lib/data/queries";
-import { formatDueDate, isOverdue } from "@/lib/utils";
+import { formatDueDate } from "@/lib/utils";
 
 interface NeedsAttentionProps {
   awaitingReview: Matter[];
@@ -12,6 +12,7 @@ interface NeedsAttentionProps {
 }
 
 export function NeedsAttention({ awaitingReview, overdue }: NeedsAttentionProps) {
+  const today = new Date();
   const totalItems = awaitingReview.length + overdue.length;
 
   if (totalItems === 0) {
@@ -84,7 +85,7 @@ export function NeedsAttention({ awaitingReview, overdue }: NeedsAttentionProps)
                         Next: {matter.nextAction}
                       </p>
                       <p className="text-xs text-red-600 dark:text-red-400 font-medium">
-                        Overdue by {Math.abs(Math.floor((new Date(matter.nextActionDueDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24)))} days
+                        Overdue by {Math.abs(Math.floor((new Date(matter.nextActionDueDate).getTime() - today.getTime()) / (1000 * 60 * 60 * 24)))} days
                       </p>
                     </div>
                     <Link href={`/matters/${matter.id}`}>
