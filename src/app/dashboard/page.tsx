@@ -1,5 +1,5 @@
 import { Suspense } from "react";
-import { fetchMattersWithFilters } from "@/lib/data/queries";
+import { fetchMattersWithFilters, fetchMattersAwaitingReview, fetchMattersAwaitingIntake, fetchOverdueMatters } from "@/lib/data/queries";
 import type { MatterFilters } from "@/lib/data/queries";
 import {
   groupAndSortMatters,
@@ -8,6 +8,8 @@ import {
 } from "@/lib/utils/matter-helpers";
 import { DashboardColumn } from "@/components/dashboard-column";
 import { DashboardFilters } from "@/components/dashboard-filters";
+import { NeedsAttention } from "@/components/dashboard/needs-attention";
+import { WaitingOnClient } from "@/components/dashboard/waiting-on-client";
 
 export const metadata = {
   title: "Matter Status Dashboard",
@@ -123,6 +125,9 @@ function FiltersSkeleton() {
  */
 async function DashboardContent({ filters }: { filters: MatterFilters }) {
   const { data: matters, source, error } = await fetchMattersWithFilters(filters);
+  const { data: awaitingReview } = await fetchMattersAwaitingReview();
+  const { data: awaitingIntake } = await fetchMattersAwaitingIntake();
+  const { data: overdue } = await fetchOverdueMatters();
   const groupedMatters = groupAndSortMatters(matters);
 
   // Check if any filters are active
@@ -139,6 +144,12 @@ async function DashboardContent({ filters }: { filters: MatterFilters }) {
 
   return (
     <>
+      {/* Needs Attention Section */}
+      <NeedsAttention awaitingReview={awaitingReview} overdue={overdue} />
+
+      {/* Waiting on Client Section */}
+      <WaitingOnClient awaitingIntake={awaitingIntake} />
+
       {/* Data source indicator (development info) */}
       {source === "mock" && (
         <div

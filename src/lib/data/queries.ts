@@ -1,4 +1,5 @@
 import { supabaseAdmin, supabaseEnvReady } from "@/lib/supabase/server";
+import { getSessionWithProfile } from "@/lib/auth/server";
 
 export type MatterSummary = {
   id: string;
@@ -10,7 +11,12 @@ export type MatterSummary = {
   billingModel: string;
   matterType: string;
   updatedAt: string;
+  createdAt: string;
+  clientName: string | null;
 };
+
+// Alias for consistency with intake components
+export type Matter = MatterSummary;
 
 export type TaskSummary = {
   id: string;
@@ -64,6 +70,8 @@ const matterFallback: MatterSummary[] = [
     billingModel: "flat",
     matterType: "Policy Review",
     updatedAt: new Date().toISOString(),
+    createdAt: getDateFromTodayISO(-10),
+    clientName: "Evergreen Counseling",
   },
   {
     id: "mock-2",
@@ -75,6 +83,8 @@ const matterFallback: MatterSummary[] = [
     billingModel: "hourly",
     matterType: "Contract Review",
     updatedAt: new Date().toISOString(),
+    createdAt: getDateFromTodayISO(-7),
+    clientName: "Lotus Clinic",
   },
   {
     id: "mock-3",
@@ -86,6 +96,34 @@ const matterFallback: MatterSummary[] = [
     billingModel: "flat",
     matterType: "Employment Agreement",
     updatedAt: new Date().toISOString(),
+    createdAt: getDateFromTodayISO(-5),
+    clientName: "Sunrise Therapy",
+  },
+  {
+    id: "mock-4",
+    title: "Intake Form - Parker Therapy",
+    stage: "Intake Received",
+    nextAction: "Review intake responses",
+    nextActionDueDate: getTodayISO(),
+    responsibleParty: "lawyer",
+    billingModel: "flat",
+    matterType: "Contract Review",
+    updatedAt: new Date().toISOString(),
+    createdAt: getDateFromTodayISO(-2),
+    clientName: "Parker Therapy",
+  },
+  {
+    id: "mock-5",
+    title: "Policy Update - Wellness Center",
+    stage: "Intake Sent",
+    nextAction: "Complete intake form",
+    nextActionDueDate: getDateFromTodayISO(2),
+    responsibleParty: "client",
+    billingModel: "hourly",
+    matterType: "Policy Review",
+    updatedAt: new Date().toISOString(),
+    createdAt: getDateFromTodayISO(-4),
+    clientName: "Wellness Center",
   },
 ];
 
@@ -146,7 +184,7 @@ export async function fetchMatters(): Promise<{
     const { data, error } = await supabase
       .from("matters")
       .select(
-        "id,title,stage,next_action,next_action_due_date,responsible_party,billing_model,matter_type,updated_at",
+        "id,title,stage,next_action,next_action_due_date,responsible_party,billing_model,matter_type,updated_at,created_at,client:profiles!matters_client_id_fkey(full_name)",
       )
       .order("next_action_due_date", { ascending: true });
 
@@ -159,17 +197,7 @@ export async function fetchMatters(): Promise<{
     }
 
     return {
-      data: data.map((row) => ({
-        id: row.id,
-        title: row.title,
-        stage: row.stage,
-        nextAction: row.next_action,
-        nextActionDueDate: row.next_action_due_date,
-        responsibleParty: row.responsible_party,
-        billingModel: row.billing_model,
-        matterType: row.matter_type,
-        updatedAt: row.updated_at,
-      })),
+      data: data.map(mapMatter),
       source: "supabase",
     };
   } catch (err) {
@@ -305,4 +333,232 @@ export async function fetchTimeEntries(): Promise<{
     const message = err instanceof Error ? err.message : "Unknown error";
     return { data: timeFallback, source: "mock", error: message };
   }
+}
+
+/**
+ * Helper function to map database row to MatterSummary
+ */
+function mapMatter(row: any): MatterSummary {
+  return {
+    id: row.id,
+    title: row.title,
+    stage: row.stage,
+    nextAction: row.next_action,
+    nextActionDueDate: row.next_action_due_date,
+    responsibleParty: row.responsible_party,
+    billingModel: row.billing_model,
+    matterType: row.matter_type,
+    updatedAt: row.updated_at,
+    createdAt: row.created_at,
+    clientName: row.client?.full_name || null,
+  };
+}
+
+export type MatterFilters = {
+  stages?: string[];
+  matterTypes?: string[];
+  searchQuery?: string;
+};
+
+export async function fetchMattersWithFilters(
+  filters: MatterFilters = {},
+): Promise<{
+  data: MatterSummary[];
+  source: DataSource;
+  error?: string;
+}> {
+  const { stages, matterTypes, searchQuery } = filters;
+
+  if (!supabaseEnvReady()) {
+    // Apply filters to mock data
+    let filtered = [...matterFallback];
+
+    if (stages && stages.length > 0) {
+      filtered = filtered.filter((m) => stages.includes(m.stage));
+    }
+
+    if (matterTypes && matterTypes.length > 0) {
+      filtered = filtered.filter((m) => matterTypes.includes(m.matterType));
+    }
+
+    if (searchQuery && searchQuery.trim()) {
+      const query = searchQuery.toLowerCase().trim();
+      filtered = filtered.filter(
+        (m) =>
+          m.title.toLowerCase().includes(query) ||
+          (m.clientName && m.clientName.toLowerCase().includes(query)) ||
+          (m.nextAction && m.nextAction.toLowerCase().includes(query)),
+      );
+    }
+
+    return { data: filtered, source: "mock" };
+  }
+
+  try {
+    const supabase = supabaseAdmin();
+    let query = supabase.from("matters").select(
+      `id,title,stage,next_action,next_action_due_date,responsible_party,billing_model,matter_type,updated_at,created_at,client:profiles!matters_client_id_fkey(full_name)`,
+    );
+
+    // Apply stage filter
+    if (stages && stages.length > 0) {
+      query = query.in("stage", stages);
+    }
+
+    // Apply matter type filter
+    if (matterTypes && matterTypes.length > 0) {
+      query = query.in("matter_type", matterTypes);
+    }
+
+    // Apply search filter (searches title for now, client name is filtered post-query)
+    // Note: Supabase ilike can be used for server-side text search
+    if (searchQuery && searchQuery.trim()) {
+      const searchTerm = `%${searchQuery.trim()}%`;
+      query = query.or(`title.ilike.${searchTerm},next_action.ilike.${searchTerm}`);
+    }
+
+    const { data, error } = await query;
+
+    if (error || !data) {
+      return {
+        data: matterFallback,
+        source: "mock",
+        error: error?.message || "No matter data returned",
+      };
+    }
+
+    let mapped = data.map(mapMatter);
+
+    // Apply client name search filter post-query (since it's from joined table)
+    if (searchQuery && searchQuery.trim()) {
+      const query = searchQuery.toLowerCase().trim();
+      mapped = mapped.filter(
+        (m) =>
+          m.title.toLowerCase().includes(query) ||
+          (m.clientName && m.clientName.toLowerCase().includes(query)) ||
+          (m.nextAction && m.nextAction.toLowerCase().includes(query)),
+      );
+    }
+
+    return {
+      data: mapped,
+      source: "supabase",
+    };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Unknown error";
+    return { data: matterFallback, source: "mock", error: message };
+  }
+}
+
+/**
+ * Fetch matters awaiting intake review (stage = "Intake Received")
+ */
+export async function fetchMattersAwaitingReview() {
+  const { session } = await getSessionWithProfile();
+
+  if (!session) {
+    return { data: [], source: "mock" as const };
+  }
+
+  if (!supabaseEnvReady()) {
+    return {
+      data: matterFallback.filter((m) => m.stage === "Intake Received"),
+      source: "mock" as const,
+    };
+  }
+
+  const supabase = supabaseAdmin();
+  const { data, error } = await supabase
+    .from("matters")
+    .select("*, client:profiles!matters_client_id_fkey(full_name)")
+    .eq("stage", "Intake Received")
+    .order("updated_at", { ascending: false });
+
+  if (error) {
+    console.error("Error fetching matters awaiting review:", error);
+    return { data: [], source: "supabase" as const, error: error.message };
+  }
+
+  return {
+    data: (data || []).map(mapMatter),
+    source: "supabase" as const,
+  };
+}
+
+/**
+ * Fetch matters awaiting client intake (stage = "Intake Sent")
+ */
+export async function fetchMattersAwaitingIntake() {
+  const { session } = await getSessionWithProfile();
+
+  if (!session) {
+    return { data: [], source: "mock" as const };
+  }
+
+  if (!supabaseEnvReady()) {
+    return {
+      data: matterFallback.filter((m) => m.stage === "Intake Sent"),
+      source: "mock" as const,
+    };
+  }
+
+  const supabase = supabaseAdmin();
+  const { data, error } = await supabase
+    .from("matters")
+    .select("*, client:profiles!matters_client_id_fkey(full_name)")
+    .eq("stage", "Intake Sent")
+    .order("created_at", { ascending: true });
+
+  if (error) {
+    console.error("Error fetching matters awaiting intake:", error);
+    return { data: [], source: "supabase" as const, error: error.message };
+  }
+
+  return {
+    data: (data || []).map(mapMatter),
+    source: "supabase" as const,
+  };
+}
+
+/**
+ * Fetch overdue matters where responsible_party = lawyer/staff
+ */
+export async function fetchOverdueMatters() {
+  const { session } = await getSessionWithProfile();
+
+  if (!session) {
+    return { data: [], source: "mock" as const };
+  }
+
+  if (!supabaseEnvReady()) {
+    const today = new Date().toISOString().split("T")[0];
+    return {
+      data: matterFallback.filter(
+        (m) => m.nextActionDueDate < today && m.responsibleParty !== "client"
+      ),
+      source: "mock" as const,
+    };
+  }
+
+  const supabase = supabaseAdmin();
+  const today = new Date().toISOString().split("T")[0];
+
+  const { data, error } = await supabase
+    .from("matters")
+    .select("*, client:profiles!matters_client_id_fkey(full_name)")
+    .lt("next_action_due_date", today)
+    .neq("responsible_party", "client")
+    .neq("stage", "Completed")
+    .neq("stage", "Archived")
+    .order("next_action_due_date", { ascending: true });
+
+  if (error) {
+    console.error("Error fetching overdue matters:", error);
+    return { data: [], source: "supabase" as const, error: error.message };
+  }
+
+  return {
+    data: (data || []).map(mapMatter),
+    source: "supabase" as const,
+  };
 }
