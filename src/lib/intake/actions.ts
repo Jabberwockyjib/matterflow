@@ -228,7 +228,7 @@ export async function submitIntakeForm(
     const now = new Date().toISOString();
 
     if (currentMatter?.stage === "Intake Sent") {
-      await supabase
+      const { error: updateError } = await supabase
         .from("matters")
         .update({
           stage: "Intake Received",
@@ -239,6 +239,11 @@ export async function submitIntakeForm(
           updated_at: now,
         })
         .eq("id", matterId);
+
+      if (updateError) {
+        console.error("Failed to update matter stage:", updateError);
+        return { error: "Failed to update matter status. Please try again." };
+      }
     }
 
     // Send email notification to lawyer
@@ -320,13 +325,18 @@ export async function approveIntakeForm(
       .single();
 
     if (matter?.stage === "Intake Received") {
-      await supabase
+      const { error: updateError } = await supabase
         .from("matters")
         .update({
           stage: "Under Review",
           updated_at: new Date().toISOString(),
         })
         .eq("id", intakeResponse.matter_id);
+
+      if (updateError) {
+        console.error("Failed to update matter stage:", updateError);
+        return { error: "Failed to update matter status. Please try again." };
+      }
     }
 
     revalidatePath(`/intake/${intakeResponse.matter_id}`);
