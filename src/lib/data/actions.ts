@@ -12,6 +12,7 @@ import { resend, FROM_EMAIL } from "@/lib/email/client";
 import UserInvitationEmail from "@/lib/email/templates/user-invitation";
 import AdminPasswordResetEmail from "@/lib/email/templates/admin-password-reset";
 import { inviteUserSchema } from "@/lib/validation/schemas";
+import { z } from "zod";
 
 type ActionResult = { error?: string; ok?: boolean };
 type InviteUserResult = { success: boolean; data?: { userId: string }; error?: string };
@@ -1274,5 +1275,55 @@ export async function adminResetPassword(userId: string): Promise<{
   } catch (error) {
     console.error("adminResetPassword error:", error);
     return { success: false, error: "An unexpected error occurred" };
+  }
+}
+
+/**
+ * Request password reset (self-service)
+ * Always returns success to prevent email enumeration
+ */
+export async function requestPasswordReset(email: string): Promise<{
+  success: boolean;
+  error?: string;
+}> {
+  // Validate email format (outside try-catch to return validation errors)
+  const emailSchema = z.string().email("Invalid email address");
+  const validated = emailSchema.safeParse(email);
+
+  if (!validated.success) {
+    const errorMessage = validated.error.issues?.[0]?.message || "Invalid email address";
+    return {
+      success: false,
+      error: errorMessage,
+    };
+  }
+
+  try {
+    const supabase = supabaseAdmin();
+
+    // Use Supabase's built-in password reset
+    // This sends an email with a magic link to /auth/reset-password?token=xxx
+    await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/auth/reset-password`,
+    });
+
+    // Log the attempt (not whether email exists)
+    await supabase.from("audit_logs").insert({
+      actor_id: null, // No authenticated user for self-service
+      event_type: "user.password_reset_requested",
+      entity_type: "user",
+      entity_id: null, // Don't reveal if user exists
+      metadata: {
+        email, // Log the email for admin tracking
+      } as Json,
+    });
+
+    // Always return success to prevent email enumeration
+    // Even if email doesn't exist, we return success
+    return { success: true };
+  } catch (error) {
+    console.error("requestPasswordReset error:", error);
+    // Still return success to prevent enumeration via timing attacks
+    return { success: true };
   }
 }

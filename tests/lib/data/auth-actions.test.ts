@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { inviteUser, getAllUsers, updateUserRole, deactivateUser, reactivateUser, adminResetPassword } from '@/lib/data/actions'
+import { inviteUser, getAllUsers, updateUserRole, deactivateUser, reactivateUser, adminResetPassword, requestPasswordReset } from '@/lib/data/actions'
 import * as auth from '@/lib/auth/server'
 import * as server from '@/lib/supabase/server'
 
@@ -465,5 +465,65 @@ describe('adminResetPassword', () => {
 
     expect(result.success).toBe(false)
     expect(result.error).toContain('admin')
+  })
+})
+
+describe('requestPasswordReset', () => {
+  it('returns success for valid email', async () => {
+    const mockSupabaseWithReset = {
+      from: vi.fn((table: string) => {
+        if (table === 'audit_logs') {
+          return {
+            insert: vi.fn().mockResolvedValue({ error: null }),
+          }
+        }
+        return {}
+      }),
+      auth: {
+        resetPasswordForEmail: vi.fn().mockResolvedValue({ error: null }),
+      },
+    }
+
+    vi.spyOn(server, 'supabaseAdmin').mockReturnValue(
+      mockSupabaseWithReset as unknown as ReturnType<typeof server.supabaseAdmin>
+    )
+
+    const result = await requestPasswordReset('user@example.com')
+
+    expect(result.success).toBe(true)
+  })
+
+  it('returns success for non-existent email (prevents enumeration)', async () => {
+    const mockSupabaseWithReset = {
+      from: vi.fn((table: string) => {
+        if (table === 'audit_logs') {
+          return {
+            insert: vi.fn().mockResolvedValue({ error: null }),
+          }
+        }
+        return {}
+      }),
+      auth: {
+        resetPasswordForEmail: vi.fn().mockResolvedValue({
+          error: { message: 'User not found' }
+        }),
+      },
+    }
+
+    vi.spyOn(server, 'supabaseAdmin').mockReturnValue(
+      mockSupabaseWithReset as unknown as ReturnType<typeof server.supabaseAdmin>
+    )
+
+    const result = await requestPasswordReset('nonexistent@example.com')
+
+    // Still returns success to prevent enumeration
+    expect(result.success).toBe(true)
+  })
+
+  it('validates email format', async () => {
+    const result = await requestPasswordReset('invalid-email')
+
+    expect(result.success).toBe(false)
+    expect(result.error).toMatch(/email/i)
   })
 })
