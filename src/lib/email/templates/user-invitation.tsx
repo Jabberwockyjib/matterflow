@@ -35,7 +35,7 @@ export const UserInvitationEmail = ({
           <Text style={heading}>Welcome to MatterFlow™</Text>
           <Text style={paragraph}>Hi {fullName},</Text>
           <Text style={paragraph}>
-            You've been invited to join MatterFlow™ as a <strong>{role}</strong>.
+            You&apos;ve been invited to join MatterFlow™ as a <strong>{role}</strong>.
           </Text>
           <Text style={paragraph}>Your login credentials:</Text>
           <Section style={codeBox}>
@@ -48,7 +48,7 @@ export const UserInvitationEmail = ({
             </Link>
           </Text>
           <Text style={paragraph}>
-            You'll be required to change your password on first login.
+            You&apos;ll be required to change your password on first login.
           </Text>
           <Hr style={hr} />
           <Text style={footer}>MatterFlow™ - Control Center</Text>

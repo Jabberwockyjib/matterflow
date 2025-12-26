@@ -35,7 +35,7 @@ export const PasswordResetEmail = ({ resetLink }: PasswordResetEmailProps) => (
             This link expires in 1 hour.
           </Text>
           <Text style={paragraph}>
-            If you didn't request this, you can safely ignore this email.
+            If you didn&apos;t request this, you can safely ignore this email.
           </Text>
           <Hr style={hr} />
           <Text style={footer}>MatterFlow™ - Control Center</Text>

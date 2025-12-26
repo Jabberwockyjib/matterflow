@@ -42,7 +42,7 @@ export const AdminPasswordResetEmail = ({
             </Link>
           </Text>
           <Text style={paragraph}>
-            You'll be required to change this password on your next login.
+            You&apos;ll be required to change this password on your next login.
           </Text>
           <Hr style={hr} />
           <Text style={footer}>MatterFlow™ - Control Center</Text>
