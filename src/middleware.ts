@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { getSessionWithProfile } from "@/lib/auth/server";
 
-const PUBLIC_PATHS = ["/auth/sign-in", "/auth", "/"];
+const PUBLIC_PATHS = ["/auth/sign-in", "/auth/sign-out", "/auth/inactive", "/auth/change-password", "/auth", "/"];
 const MUTATING_METHODS = ["POST", "PUT", "PATCH", "DELETE"];
 
 // Debug logging for auth troubleshooting (only in development)
@@ -25,7 +26,7 @@ const decodeRole = (token: string | undefined) => {
   }
 };
 
-export function middleware(req: NextRequest) {
+export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
   const isPublic = PUBLIC_PATHS.some((path) => pathname === path || pathname.startsWith(`${path}/`));
@@ -62,6 +63,38 @@ export function middleware(req: NextRequest) {
     url.pathname = "/auth/sign-in";
     url.searchParams.set("redirect", pathname);
     return NextResponse.redirect(url);
+  }
+
+  // Check for inactive users and password change requirements
+  if (isProtected && hasSessionCookie) {
+    const { profile } = await getSessionWithProfile();
+
+    if (profile) {
+      // Check if user is inactive
+      if (profile.status === "inactive") {
+        if (pathname !== "/auth/inactive") {
+          if (DEBUG_AUTH) {
+            console.log("[middleware] User is inactive, redirecting:", pathname, "→ /auth/inactive");
+          }
+          const url = req.nextUrl.clone();
+          url.pathname = "/auth/inactive";
+          return NextResponse.redirect(url);
+        }
+      }
+
+      // Check if password must be changed
+      if (profile.password_must_change) {
+        // Allow only change-password and sign-out routes
+        if (pathname !== "/auth/change-password" && pathname !== "/auth/sign-out") {
+          if (DEBUG_AUTH) {
+            console.log("[middleware] Password change required, redirecting:", pathname, "→ /auth/change-password");
+          }
+          const url = req.nextUrl.clone();
+          url.pathname = "/auth/change-password";
+          return NextResponse.redirect(url);
+        }
+      }
+    }
   }
 
   const role = decodeRole(accessToken);

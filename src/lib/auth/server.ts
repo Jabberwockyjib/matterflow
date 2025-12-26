@@ -1,11 +1,13 @@
-import { cookies, headers } from "next/headers";
-import { createServerClient, type CookieOptions } from "@supabase/auth-helpers-nextjs";
+import { cookies } from "next/headers";
+import { createServerClient } from "@supabase/ssr";
 
 import type { Database } from "@/types/database.types";
 
 export type SessionProfile = {
   full_name: string | null;
   role: Database["public"]["Enums"]["user_role"] | null;
+  status: string | null;
+  password_must_change: boolean | null;
 };
 
 export type SessionWithProfile = {
@@ -38,41 +40,24 @@ export async function getSessionWithProfile(): Promise<SessionWithProfile> {
   }
 
   const cookieStore = await cookies();
-  const safeGet = (name: string): string | undefined => {
-    try {
-      const store = cookieStore as unknown as { get?: (key: string) => unknown };
-      const value = store?.get?.(name);
-      if (typeof value === "string") return value;
-      if (value && typeof value === "object" && "value" in value) {
-        return (value as { value: string }).value;
-      }
-      return undefined;
-    } catch {
-      return undefined;
-    }
-  };
 
   const supabase = createServerClient<Database>(supabaseUrl, supabaseAnonKey, {
     cookies: {
-      get: (name: string) => safeGet(name),
-      set: (name: string, value: string, options: CookieOptions) => {
-        try {
-          const store = cookieStore as unknown as { set?: (input: unknown) => void };
-          store?.set?.({ name, value, ...options });
-        } catch {
-          // noop in environments without mutable cookies (e.g., during SSR preview)
-        }
+      getAll() {
+        return cookieStore.getAll();
       },
-      remove: (name: string, options: CookieOptions) => {
+      setAll(cookiesToSet) {
         try {
-          const store = cookieStore as unknown as { set?: (input: unknown) => void };
-          store?.set?.({ name, value: "", ...options });
+          cookiesToSet.forEach(({ name, value, options }) =>
+            cookieStore.set(name, value, options)
+          );
         } catch {
-          // noop
+          // The `setAll` method was called from a Server Component.
+          // This can be ignored if you have middleware refreshing
+          // user sessions.
         }
       },
     },
-    headers: await headers(),
   });
 
   const {
@@ -83,7 +68,7 @@ export async function getSessionWithProfile(): Promise<SessionWithProfile> {
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("full_name, role")
+    .select("full_name, role, status, password_must_change")
     .eq("user_id", session.user.id)
     .maybeSingle();
 
