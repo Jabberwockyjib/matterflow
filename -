@@ -1,0 +1,898 @@
+
+
+
+SET statement_timeout = 0;
+SET lock_timeout = 0;
+SET idle_in_transaction_session_timeout = 0;
+SET client_encoding = 'UTF8';
+SET standard_conforming_strings = on;
+SELECT pg_catalog.set_config('search_path', '', false);
+SET check_function_bodies = false;
+SET xmloption = content;
+SET client_min_messages = warning;
+SET row_security = off;
+
+
+CREATE EXTENSION IF NOT EXISTS "pg_net" WITH SCHEMA "extensions";
+
+
+
+
+
+
+COMMENT ON SCHEMA "public" IS 'standard public schema';
+
+
+
+CREATE EXTENSION IF NOT EXISTS "pg_graphql" WITH SCHEMA "graphql";
+
+
+
+
+
+
+CREATE EXTENSION IF NOT EXISTS "pg_stat_statements" WITH SCHEMA "extensions";
+
+
+
+
+
+
+CREATE EXTENSION IF NOT EXISTS "pgcrypto" WITH SCHEMA "extensions";
+
+
+
+
+
+
+CREATE EXTENSION IF NOT EXISTS "supabase_vault" WITH SCHEMA "vault";
+
+
+
+
+
+
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp" WITH SCHEMA "extensions";
+
+
+
+
+
+
+CREATE TYPE "public"."user_role" AS ENUM (
+    'admin',
+    'staff',
+    'client'
+);
+
+
+ALTER TYPE "public"."user_role" OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."current_user_role"() RETURNS "public"."user_role"
+    LANGUAGE "sql" STABLE
+    AS $$
+  select role from public.profiles where user_id = auth.uid();
+$$;
+
+
+ALTER FUNCTION "public"."current_user_role"() OWNER TO "postgres";
+
+SET default_tablespace = '';
+
+SET default_table_access_method = "heap";
+
+
+CREATE TABLE IF NOT EXISTS "public"."audit_logs" (
+    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+    "actor_id" "uuid",
+    "event_type" "text" NOT NULL,
+    "entity_type" "text",
+    "entity_id" "uuid",
+    "metadata" "jsonb" DEFAULT '{}'::"jsonb",
+    "created_at" timestamp with time zone DEFAULT "now"() NOT NULL
+);
+
+
+ALTER TABLE "public"."audit_logs" OWNER TO "postgres";
+
+
+COMMENT ON TABLE "public"."audit_logs" IS 'Audit trail for all system events including: user.invited, user.first_login, user.password_changed, user.password_reset_requested, user.password_reset_completed, user.role_changed, user.deactivated, user.reactivated, auth.failed_login';
+
+
+
+CREATE TABLE IF NOT EXISTS "public"."documents" (
+    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+    "matter_id" "uuid" NOT NULL,
+    "title" "text" NOT NULL,
+    "drive_file_id" "text",
+    "folder_path" "text",
+    "version" integer DEFAULT 1 NOT NULL,
+    "status" "text" DEFAULT 'uploaded'::"text" NOT NULL,
+    "summary" "text",
+    "metadata" "jsonb" DEFAULT '{}'::"jsonb",
+    "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    "mime_type" "text",
+    "file_size" bigint,
+    "web_view_link" "text"
+);
+
+
+ALTER TABLE "public"."documents" OWNER TO "postgres";
+
+
+CREATE TABLE IF NOT EXISTS "public"."intake_responses" (
+    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+    "matter_id" "uuid" NOT NULL,
+    "form_type" "text" NOT NULL,
+    "responses" "jsonb" DEFAULT '{}'::"jsonb",
+    "status" "text" DEFAULT 'draft'::"text" NOT NULL,
+    "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    "submitted_at" timestamp with time zone
+);
+
+
+ALTER TABLE "public"."intake_responses" OWNER TO "postgres";
+
+
+CREATE TABLE IF NOT EXISTS "public"."invoices" (
+    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+    "matter_id" "uuid" NOT NULL,
+    "status" "text" DEFAULT 'draft'::"text" NOT NULL,
+    "total_cents" integer DEFAULT 0 NOT NULL,
+    "due_date" "date",
+    "square_invoice_id" "text",
+    "line_items" "jsonb" DEFAULT '[]'::"jsonb" NOT NULL,
+    "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    "updated_at" timestamp with time zone DEFAULT "now"() NOT NULL
+);
+
+
+ALTER TABLE "public"."invoices" OWNER TO "postgres";
+
+
+CREATE TABLE IF NOT EXISTS "public"."matter_folders" (
+    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+    "matter_id" "uuid" NOT NULL,
+    "client_folder_id" "text" NOT NULL,
+    "matter_folder_id" "text" NOT NULL,
+    "folder_structure" "jsonb" DEFAULT '{}'::"jsonb" NOT NULL,
+    "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    "updated_at" timestamp with time zone DEFAULT "now"() NOT NULL
+);
+
+
+ALTER TABLE "public"."matter_folders" OWNER TO "postgres";
+
+
+COMMENT ON TABLE "public"."matter_folders" IS 'Stores Google Drive folder IDs and structure for each matter';
+
+
+
+CREATE TABLE IF NOT EXISTS "public"."matters" (
+    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+    "title" "text" NOT NULL,
+    "client_id" "uuid",
+    "owner_id" "uuid" NOT NULL,
+    "matter_type" "text" NOT NULL,
+    "billing_model" "text" NOT NULL,
+    "stage" "text" DEFAULT 'Lead Created'::"text" NOT NULL,
+    "next_action" "text" NOT NULL,
+    "responsible_party" "text" NOT NULL,
+    "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    "updated_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    "next_action_due_date" "date" DEFAULT CURRENT_DATE NOT NULL,
+    "intake_received_at" timestamp with time zone,
+    CONSTRAINT "matters_responsible_party_check" CHECK (("responsible_party" = ANY (ARRAY['lawyer'::"text", 'staff'::"text", 'client'::"text"])))
+);
+
+
+ALTER TABLE "public"."matters" OWNER TO "postgres";
+
+
+COMMENT ON COLUMN "public"."matters"."intake_received_at" IS 'Timestamp when client submitted intake form';
+
+
+
+CREATE TABLE IF NOT EXISTS "public"."packages" (
+    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+    "name" "text" NOT NULL,
+    "description" "text",
+    "price_cents" integer DEFAULT 0 NOT NULL,
+    "included_hours" numeric,
+    "active" boolean DEFAULT true NOT NULL,
+    "created_at" timestamp with time zone DEFAULT "now"() NOT NULL
+);
+
+
+ALTER TABLE "public"."packages" OWNER TO "postgres";
+
+
+CREATE TABLE IF NOT EXISTS "public"."profiles" (
+    "user_id" "uuid" NOT NULL,
+    "full_name" "text",
+    "role" "public"."user_role" DEFAULT 'client'::"public"."user_role" NOT NULL,
+    "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    "google_refresh_token" "text",
+    "google_connected_at" timestamp with time zone,
+    "password_must_change" boolean DEFAULT false,
+    "status" "text" DEFAULT 'active'::"text" NOT NULL,
+    "last_login" timestamp with time zone,
+    "invited_by" "uuid",
+    "invited_at" timestamp with time zone,
+    CONSTRAINT "profiles_status_check" CHECK (("status" = ANY (ARRAY['active'::"text", 'inactive'::"text"])))
+);
+
+
+ALTER TABLE "public"."profiles" OWNER TO "postgres";
+
+
+COMMENT ON COLUMN "public"."profiles"."google_refresh_token" IS 'Encrypted Google OAuth refresh token for Drive access';
+
+
+
+CREATE TABLE IF NOT EXISTS "public"."tasks" (
+    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+    "matter_id" "uuid" NOT NULL,
+    "title" "text" NOT NULL,
+    "due_date" "date",
+    "status" "text" DEFAULT 'open'::"text" NOT NULL,
+    "responsible_party" "text" NOT NULL,
+    "created_by" "uuid",
+    "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    "updated_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    CONSTRAINT "tasks_responsible_party_check" CHECK (("responsible_party" = ANY (ARRAY['lawyer'::"text", 'client'::"text"])))
+);
+
+
+ALTER TABLE "public"."tasks" OWNER TO "postgres";
+
+
+CREATE TABLE IF NOT EXISTS "public"."time_entries" (
+    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+    "matter_id" "uuid" NOT NULL,
+    "task_id" "uuid",
+    "started_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    "ended_at" timestamp with time zone,
+    "duration_minutes" integer,
+    "description" "text",
+    "rate_cents" integer,
+    "status" "text" DEFAULT 'draft'::"text" NOT NULL,
+    "created_by" "uuid",
+    "created_at" timestamp with time zone DEFAULT "now"() NOT NULL
+);
+
+
+ALTER TABLE "public"."time_entries" OWNER TO "postgres";
+
+
+ALTER TABLE ONLY "public"."audit_logs"
+    ADD CONSTRAINT "audit_logs_pkey" PRIMARY KEY ("id");
+
+
+
+ALTER TABLE ONLY "public"."documents"
+    ADD CONSTRAINT "documents_pkey" PRIMARY KEY ("id");
+
+
+
+ALTER TABLE ONLY "public"."intake_responses"
+    ADD CONSTRAINT "intake_responses_pkey" PRIMARY KEY ("id");
+
+
+
+ALTER TABLE ONLY "public"."invoices"
+    ADD CONSTRAINT "invoices_pkey" PRIMARY KEY ("id");
+
+
+
+ALTER TABLE ONLY "public"."matter_folders"
+    ADD CONSTRAINT "matter_folders_matter_id_key" UNIQUE ("matter_id");
+
+
+
+ALTER TABLE ONLY "public"."matter_folders"
+    ADD CONSTRAINT "matter_folders_pkey" PRIMARY KEY ("id");
+
+
+
+ALTER TABLE ONLY "public"."matters"
+    ADD CONSTRAINT "matters_pkey" PRIMARY KEY ("id");
+
+
+
+ALTER TABLE ONLY "public"."packages"
+    ADD CONSTRAINT "packages_pkey" PRIMARY KEY ("id");
+
+
+
+ALTER TABLE ONLY "public"."profiles"
+    ADD CONSTRAINT "profiles_pkey" PRIMARY KEY ("user_id");
+
+
+
+ALTER TABLE ONLY "public"."tasks"
+    ADD CONSTRAINT "tasks_pkey" PRIMARY KEY ("id");
+
+
+
+ALTER TABLE ONLY "public"."time_entries"
+    ADD CONSTRAINT "time_entries_pkey" PRIMARY KEY ("id");
+
+
+
+CREATE INDEX "idx_documents_matter" ON "public"."documents" USING "btree" ("matter_id");
+
+
+
+CREATE INDEX "idx_invoices_matter" ON "public"."invoices" USING "btree" ("matter_id");
+
+
+
+CREATE INDEX "idx_matter_folders_matter" ON "public"."matter_folders" USING "btree" ("matter_id");
+
+
+
+CREATE INDEX "idx_matters_client" ON "public"."matters" USING "btree" ("client_id");
+
+
+
+CREATE INDEX "idx_matters_next_action_due_date" ON "public"."matters" USING "btree" ("next_action_due_date");
+
+
+
+CREATE INDEX "idx_matters_owner" ON "public"."matters" USING "btree" ("owner_id");
+
+
+
+CREATE INDEX "idx_profiles_google_connected" ON "public"."profiles" USING "btree" ("google_connected_at") WHERE ("google_refresh_token" IS NOT NULL);
+
+
+
+CREATE INDEX "idx_profiles_last_login" ON "public"."profiles" USING "btree" ("last_login");
+
+
+
+CREATE INDEX "idx_profiles_role" ON "public"."profiles" USING "btree" ("role");
+
+
+
+CREATE INDEX "idx_profiles_status" ON "public"."profiles" USING "btree" ("status");
+
+
+
+CREATE INDEX "idx_tasks_matter" ON "public"."tasks" USING "btree" ("matter_id");
+
+
+
+CREATE INDEX "idx_time_entries_matter" ON "public"."time_entries" USING "btree" ("matter_id");
+
+
+
+ALTER TABLE ONLY "public"."audit_logs"
+    ADD CONSTRAINT "audit_logs_actor_id_fkey" FOREIGN KEY ("actor_id") REFERENCES "public"."profiles"("user_id");
+
+
+
+ALTER TABLE ONLY "public"."documents"
+    ADD CONSTRAINT "documents_matter_id_fkey" FOREIGN KEY ("matter_id") REFERENCES "public"."matters"("id") ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."intake_responses"
+    ADD CONSTRAINT "intake_responses_matter_id_fkey" FOREIGN KEY ("matter_id") REFERENCES "public"."matters"("id") ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."invoices"
+    ADD CONSTRAINT "invoices_matter_id_fkey" FOREIGN KEY ("matter_id") REFERENCES "public"."matters"("id") ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."matter_folders"
+    ADD CONSTRAINT "matter_folders_matter_id_fkey" FOREIGN KEY ("matter_id") REFERENCES "public"."matters"("id") ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."matters"
+    ADD CONSTRAINT "matters_client_id_fkey" FOREIGN KEY ("client_id") REFERENCES "public"."profiles"("user_id");
+
+
+
+ALTER TABLE ONLY "public"."matters"
+    ADD CONSTRAINT "matters_owner_id_fkey" FOREIGN KEY ("owner_id") REFERENCES "public"."profiles"("user_id");
+
+
+
+ALTER TABLE ONLY "public"."profiles"
+    ADD CONSTRAINT "profiles_invited_by_fkey" FOREIGN KEY ("invited_by") REFERENCES "auth"."users"("id");
+
+
+
+ALTER TABLE ONLY "public"."profiles"
+    ADD CONSTRAINT "profiles_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "auth"."users"("id") ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."tasks"
+    ADD CONSTRAINT "tasks_created_by_fkey" FOREIGN KEY ("created_by") REFERENCES "public"."profiles"("user_id");
+
+
+
+ALTER TABLE ONLY "public"."tasks"
+    ADD CONSTRAINT "tasks_matter_id_fkey" FOREIGN KEY ("matter_id") REFERENCES "public"."matters"("id") ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."time_entries"
+    ADD CONSTRAINT "time_entries_created_by_fkey" FOREIGN KEY ("created_by") REFERENCES "public"."profiles"("user_id");
+
+
+
+ALTER TABLE ONLY "public"."time_entries"
+    ADD CONSTRAINT "time_entries_matter_id_fkey" FOREIGN KEY ("matter_id") REFERENCES "public"."matters"("id") ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."time_entries"
+    ADD CONSTRAINT "time_entries_task_id_fkey" FOREIGN KEY ("task_id") REFERENCES "public"."tasks"("id") ON DELETE SET NULL;
+
+
+
+CREATE POLICY "Admins and staff can manage all profiles" ON "public"."profiles" USING (("public"."current_user_role"() = ANY (ARRAY['admin'::"public"."user_role", 'staff'::"public"."user_role"]))) WITH CHECK (("public"."current_user_role"() = ANY (ARRAY['admin'::"public"."user_role", 'staff'::"public"."user_role"])));
+
+
+
+CREATE POLICY "Users can update own profile" ON "public"."profiles" FOR UPDATE USING (("auth"."uid"() = "user_id")) WITH CHECK (("auth"."uid"() = "user_id"));
+
+
+
+CREATE POLICY "Users can view own profile" ON "public"."profiles" FOR SELECT USING ((("auth"."uid"() = "user_id") OR ("public"."current_user_role"() = ANY (ARRAY['admin'::"public"."user_role", 'staff'::"public"."user_role"]))));
+
+
+
+CREATE POLICY "audit logs readable by staff/admin" ON "public"."audit_logs" FOR SELECT USING (("public"."current_user_role"() = ANY (ARRAY['admin'::"public"."user_role", 'staff'::"public"."user_role"])));
+
+
+
+ALTER TABLE "public"."audit_logs" ENABLE ROW LEVEL SECURITY;
+
+
+ALTER TABLE "public"."documents" ENABLE ROW LEVEL SECURITY;
+
+
+CREATE POLICY "documents editable by staff/admin" ON "public"."documents" USING ((("public"."current_user_role"() = ANY (ARRAY['admin'::"public"."user_role", 'staff'::"public"."user_role"])) OR ("auth"."uid"() IN ( SELECT "matters"."owner_id"
+   FROM "public"."matters"
+  WHERE ("matters"."id" = "documents"."matter_id"))))) WITH CHECK ((("public"."current_user_role"() = ANY (ARRAY['admin'::"public"."user_role", 'staff'::"public"."user_role"])) OR ("auth"."uid"() IN ( SELECT "matters"."owner_id"
+   FROM "public"."matters"
+  WHERE ("matters"."id" = "documents"."matter_id")))));
+
+
+
+CREATE POLICY "documents visible by matter context" ON "public"."documents" FOR SELECT USING ((EXISTS ( SELECT 1
+   FROM "public"."matters" "m"
+  WHERE (("m"."id" = "documents"."matter_id") AND (("m"."owner_id" = "auth"."uid"()) OR ("m"."client_id" = "auth"."uid"()) OR ("public"."current_user_role"() = ANY (ARRAY['admin'::"public"."user_role", 'staff'::"public"."user_role"])))))));
+
+
+
+CREATE POLICY "intake responses editable by staff/owner" ON "public"."intake_responses" USING ((("public"."current_user_role"() = ANY (ARRAY['admin'::"public"."user_role", 'staff'::"public"."user_role"])) OR ("auth"."uid"() IN ( SELECT "matters"."client_id"
+   FROM "public"."matters"
+  WHERE ("matters"."id" = "intake_responses"."matter_id"))))) WITH CHECK (true);
+
+
+
+CREATE POLICY "intake responses follow matter visibility" ON "public"."intake_responses" FOR SELECT USING ((EXISTS ( SELECT 1
+   FROM "public"."matters" "m"
+  WHERE (("m"."id" = "intake_responses"."matter_id") AND (("m"."owner_id" = "auth"."uid"()) OR ("m"."client_id" = "auth"."uid"()) OR ("public"."current_user_role"() = ANY (ARRAY['admin'::"public"."user_role", 'staff'::"public"."user_role"])))))));
+
+
+
+ALTER TABLE "public"."intake_responses" ENABLE ROW LEVEL SECURITY;
+
+
+ALTER TABLE "public"."invoices" ENABLE ROW LEVEL SECURITY;
+
+
+CREATE POLICY "invoices editable by staff/admin" ON "public"."invoices" USING ((("public"."current_user_role"() = ANY (ARRAY['admin'::"public"."user_role", 'staff'::"public"."user_role"])) OR ("auth"."uid"() IN ( SELECT "matters"."owner_id"
+   FROM "public"."matters"
+  WHERE ("matters"."id" = "invoices"."matter_id"))))) WITH CHECK ((("public"."current_user_role"() = ANY (ARRAY['admin'::"public"."user_role", 'staff'::"public"."user_role"])) OR ("auth"."uid"() IN ( SELECT "matters"."owner_id"
+   FROM "public"."matters"
+  WHERE ("matters"."id" = "invoices"."matter_id")))));
+
+
+
+CREATE POLICY "invoices visible by matter context" ON "public"."invoices" FOR SELECT USING ((EXISTS ( SELECT 1
+   FROM "public"."matters" "m"
+  WHERE (("m"."id" = "invoices"."matter_id") AND (("m"."owner_id" = "auth"."uid"()) OR ("m"."client_id" = "auth"."uid"()) OR ("public"."current_user_role"() = ANY (ARRAY['admin'::"public"."user_role", 'staff'::"public"."user_role"])))))));
+
+
+
+CREATE POLICY "matter visibility by owner, staff, or client" ON "public"."matters" FOR SELECT USING ((("owner_id" = "auth"."uid"()) OR ("client_id" = "auth"."uid"()) OR ("public"."current_user_role"() = ANY (ARRAY['admin'::"public"."user_role", 'staff'::"public"."user_role"]))));
+
+
+
+CREATE POLICY "matter writes for staff and owner" ON "public"."matters" USING ((("owner_id" = "auth"."uid"()) OR ("public"."current_user_role"() = ANY (ARRAY['admin'::"public"."user_role", 'staff'::"public"."user_role"])))) WITH CHECK ((("owner_id" = "auth"."uid"()) OR ("public"."current_user_role"() = ANY (ARRAY['admin'::"public"."user_role", 'staff'::"public"."user_role"]))));
+
+
+
+ALTER TABLE "public"."matter_folders" ENABLE ROW LEVEL SECURITY;
+
+
+CREATE POLICY "matter_folders editable by staff/owner" ON "public"."matter_folders" USING ((("public"."current_user_role"() = ANY (ARRAY['admin'::"public"."user_role", 'staff'::"public"."user_role"])) OR ("auth"."uid"() IN ( SELECT "matters"."owner_id"
+   FROM "public"."matters"
+  WHERE ("matters"."id" = "matter_folders"."matter_id"))))) WITH CHECK ((("public"."current_user_role"() = ANY (ARRAY['admin'::"public"."user_role", 'staff'::"public"."user_role"])) OR ("auth"."uid"() IN ( SELECT "matters"."owner_id"
+   FROM "public"."matters"
+  WHERE ("matters"."id" = "matter_folders"."matter_id")))));
+
+
+
+CREATE POLICY "matter_folders follow matter visibility" ON "public"."matter_folders" FOR SELECT USING ((EXISTS ( SELECT 1
+   FROM "public"."matters" "m"
+  WHERE (("m"."id" = "matter_folders"."matter_id") AND (("m"."owner_id" = "auth"."uid"()) OR ("m"."client_id" = "auth"."uid"()) OR ("public"."current_user_role"() = ANY (ARRAY['admin'::"public"."user_role", 'staff'::"public"."user_role"])))))));
+
+
+
+ALTER TABLE "public"."matters" ENABLE ROW LEVEL SECURITY;
+
+
+ALTER TABLE "public"."packages" ENABLE ROW LEVEL SECURITY;
+
+
+CREATE POLICY "packages are visible to authenticated users" ON "public"."packages" FOR SELECT USING (("auth"."role"() = 'authenticated'::"text"));
+
+
+
+CREATE POLICY "packages manageable by staff/admin" ON "public"."packages" USING (("public"."current_user_role"() = ANY (ARRAY['admin'::"public"."user_role", 'staff'::"public"."user_role"]))) WITH CHECK (("public"."current_user_role"() = ANY (ARRAY['admin'::"public"."user_role", 'staff'::"public"."user_role"])));
+
+
+
+ALTER TABLE "public"."profiles" ENABLE ROW LEVEL SECURITY;
+
+
+CREATE POLICY "profiles are viewable to owners and staff" ON "public"."profiles" FOR SELECT USING ((("auth"."uid"() = "user_id") OR ("public"."current_user_role"() = ANY (ARRAY['admin'::"public"."user_role", 'staff'::"public"."user_role"]))));
+
+
+
+CREATE POLICY "staff and admin can manage profiles" ON "public"."profiles" USING (("public"."current_user_role"() = ANY (ARRAY['admin'::"public"."user_role", 'staff'::"public"."user_role"]))) WITH CHECK (("public"."current_user_role"() = ANY (ARRAY['admin'::"public"."user_role", 'staff'::"public"."user_role"])));
+
+
+
+ALTER TABLE "public"."tasks" ENABLE ROW LEVEL SECURITY;
+
+
+CREATE POLICY "tasks are editable by staff/owner" ON "public"."tasks" USING ((("public"."current_user_role"() = ANY (ARRAY['admin'::"public"."user_role", 'staff'::"public"."user_role"])) OR ("created_by" = "auth"."uid"()))) WITH CHECK ((("public"."current_user_role"() = ANY (ARRAY['admin'::"public"."user_role", 'staff'::"public"."user_role"])) OR ("created_by" = "auth"."uid"())));
+
+
+
+CREATE POLICY "tasks follow matter visibility" ON "public"."tasks" FOR SELECT USING ((EXISTS ( SELECT 1
+   FROM "public"."matters" "m"
+  WHERE (("m"."id" = "tasks"."matter_id") AND (("m"."owner_id" = "auth"."uid"()) OR ("m"."client_id" = "auth"."uid"()) OR ("public"."current_user_role"() = ANY (ARRAY['admin'::"public"."user_role", 'staff'::"public"."user_role"])))))));
+
+
+
+CREATE POLICY "time entries editable by staff/owner" ON "public"."time_entries" USING ((("public"."current_user_role"() = ANY (ARRAY['admin'::"public"."user_role", 'staff'::"public"."user_role"])) OR ("created_by" = "auth"."uid"()))) WITH CHECK ((("public"."current_user_role"() = ANY (ARRAY['admin'::"public"."user_role", 'staff'::"public"."user_role"])) OR ("created_by" = "auth"."uid"())));
+
+
+
+CREATE POLICY "time entries visible by matter context" ON "public"."time_entries" FOR SELECT USING ((EXISTS ( SELECT 1
+   FROM "public"."matters" "m"
+  WHERE (("m"."id" = "time_entries"."matter_id") AND (("m"."owner_id" = "auth"."uid"()) OR ("m"."client_id" = "auth"."uid"()) OR ("public"."current_user_role"() = ANY (ARRAY['admin'::"public"."user_role", 'staff'::"public"."user_role"])))))));
+
+
+
+ALTER TABLE "public"."time_entries" ENABLE ROW LEVEL SECURITY;
+
+
+
+
+ALTER PUBLICATION "supabase_realtime" OWNER TO "postgres";
+
+
+
+
+
+GRANT USAGE ON SCHEMA "public" TO "postgres";
+GRANT USAGE ON SCHEMA "public" TO "anon";
+GRANT USAGE ON SCHEMA "public" TO "authenticated";
+GRANT USAGE ON SCHEMA "public" TO "service_role";
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+GRANT ALL ON FUNCTION "public"."current_user_role"() TO "anon";
+GRANT ALL ON FUNCTION "public"."current_user_role"() TO "authenticated";
+GRANT ALL ON FUNCTION "public"."current_user_role"() TO "service_role";
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+GRANT ALL ON TABLE "public"."audit_logs" TO "anon";
+GRANT ALL ON TABLE "public"."audit_logs" TO "authenticated";
+GRANT ALL ON TABLE "public"."audit_logs" TO "service_role";
+
+
+
+GRANT ALL ON TABLE "public"."documents" TO "anon";
+GRANT ALL ON TABLE "public"."documents" TO "authenticated";
+GRANT ALL ON TABLE "public"."documents" TO "service_role";
+
+
+
+GRANT ALL ON TABLE "public"."intake_responses" TO "anon";
+GRANT ALL ON TABLE "public"."intake_responses" TO "authenticated";
+GRANT ALL ON TABLE "public"."intake_responses" TO "service_role";
+
+
+
+GRANT ALL ON TABLE "public"."invoices" TO "anon";
+GRANT ALL ON TABLE "public"."invoices" TO "authenticated";
+GRANT ALL ON TABLE "public"."invoices" TO "service_role";
+
+
+
+GRANT ALL ON TABLE "public"."matter_folders" TO "anon";
+GRANT ALL ON TABLE "public"."matter_folders" TO "authenticated";
+GRANT ALL ON TABLE "public"."matter_folders" TO "service_role";
+
+
+
+GRANT ALL ON TABLE "public"."matters" TO "anon";
+GRANT ALL ON TABLE "public"."matters" TO "authenticated";
+GRANT ALL ON TABLE "public"."matters" TO "service_role";
+
+
+
+GRANT ALL ON TABLE "public"."packages" TO "anon";
+GRANT ALL ON TABLE "public"."packages" TO "authenticated";
+GRANT ALL ON TABLE "public"."packages" TO "service_role";
+
+
+
+GRANT ALL ON TABLE "public"."profiles" TO "anon";
+GRANT ALL ON TABLE "public"."profiles" TO "authenticated";
+GRANT ALL ON TABLE "public"."profiles" TO "service_role";
+
+
+
+GRANT ALL ON TABLE "public"."tasks" TO "anon";
+GRANT ALL ON TABLE "public"."tasks" TO "authenticated";
+GRANT ALL ON TABLE "public"."tasks" TO "service_role";
+
+
+
+GRANT ALL ON TABLE "public"."time_entries" TO "anon";
+GRANT ALL ON TABLE "public"."time_entries" TO "authenticated";
+GRANT ALL ON TABLE "public"."time_entries" TO "service_role";
+
+
+
+
+
+
+
+
+
+ALTER DEFAULT PRIVILEGES FOR ROLE "postgres" IN SCHEMA "public" GRANT ALL ON SEQUENCES TO "postgres";
+ALTER DEFAULT PRIVILEGES FOR ROLE "postgres" IN SCHEMA "public" GRANT ALL ON SEQUENCES TO "anon";
+ALTER DEFAULT PRIVILEGES FOR ROLE "postgres" IN SCHEMA "public" GRANT ALL ON SEQUENCES TO "authenticated";
+ALTER DEFAULT PRIVILEGES FOR ROLE "postgres" IN SCHEMA "public" GRANT ALL ON SEQUENCES TO "service_role";
+
+
+
+
+
+
+ALTER DEFAULT PRIVILEGES FOR ROLE "postgres" IN SCHEMA "public" GRANT ALL ON FUNCTIONS TO "postgres";
+ALTER DEFAULT PRIVILEGES FOR ROLE "postgres" IN SCHEMA "public" GRANT ALL ON FUNCTIONS TO "anon";
+ALTER DEFAULT PRIVILEGES FOR ROLE "postgres" IN SCHEMA "public" GRANT ALL ON FUNCTIONS TO "authenticated";
+ALTER DEFAULT PRIVILEGES FOR ROLE "postgres" IN SCHEMA "public" GRANT ALL ON FUNCTIONS TO "service_role";
+
+
+
+
+
+
+ALTER DEFAULT PRIVILEGES FOR ROLE "postgres" IN SCHEMA "public" GRANT ALL ON TABLES TO "postgres";
+ALTER DEFAULT PRIVILEGES FOR ROLE "postgres" IN SCHEMA "public" GRANT ALL ON TABLES TO "anon";
+ALTER DEFAULT PRIVILEGES FOR ROLE "postgres" IN SCHEMA "public" GRANT ALL ON TABLES TO "authenticated";
+ALTER DEFAULT PRIVILEGES FOR ROLE "postgres" IN SCHEMA "public" GRANT ALL ON TABLES TO "service_role";
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

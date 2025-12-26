@@ -870,7 +870,7 @@ export async function inviteUser(data: {
   role: "admin" | "staff" | "client";
 }): Promise<InviteUserResult> {
   // Validate admin permission
-  const { profile } = await getSessionWithProfile();
+  const { session, profile } = await getSessionWithProfile();
   if (profile?.role !== "admin") {
     return { success: false, error: "Only admins can invite users" };
   }
@@ -923,7 +923,7 @@ export async function inviteUser(data: {
         role,
         password_must_change: true,
         status: "active",
-        invited_by: profile?.user_id,
+        invited_by: session?.user.id || null,
         invited_at: new Date().toISOString(),
       })
       .select()
@@ -962,7 +962,7 @@ export async function inviteUser(data: {
 
     // Log to audit trail
     await supabase.from("audit_logs").insert({
-      actor_id: profile?.user_id,
+      actor_id: session?.user.id || null,
       event_type: "user.invited",
       entity_type: "user",
       entity_id: authUser.user.id,
@@ -993,7 +993,7 @@ export async function getAllUsers(): Promise<{
   error?: string;
 }> {
   try {
-    const { profile } = await getSessionWithProfile();
+    const { session, profile } = await getSessionWithProfile();
     if (profile?.role !== "admin") {
       return { success: false, error: "Only admins can view all users" };
     }
@@ -1053,7 +1053,7 @@ export async function updateUserRole(
   error?: string;
 }> {
   try {
-    const { profile } = await getSessionWithProfile();
+    const { session, profile } = await getSessionWithProfile();
     if (profile?.role !== "admin") {
       return { success: false, error: "Only admins can update user roles" };
     }
@@ -1078,7 +1078,7 @@ export async function updateUserRole(
 
     // Log to audit trail
     await supabase.from("audit_logs").insert({
-      actor_id: profile?.user_id,
+      actor_id: session?.user.id || null,
       event_type: "user.role_changed",
       entity_type: "user",
       entity_id: userId,
@@ -1103,7 +1103,7 @@ export async function deactivateUser(userId: string): Promise<{
   error?: string;
 }> {
   try {
-    const { profile } = await getSessionWithProfile();
+    const { session, profile } = await getSessionWithProfile();
     if (profile?.role !== "admin") {
       return { success: false, error: "Only admins can deactivate users" };
     }
@@ -1123,7 +1123,7 @@ export async function deactivateUser(userId: string): Promise<{
 
     // Log to audit trail
     await supabase.from("audit_logs").insert({
-      actor_id: profile?.user_id,
+      actor_id: session?.user.id || null,
       event_type: "user.deactivated",
       entity_type: "user",
       entity_id: userId,
@@ -1147,7 +1147,7 @@ export async function reactivateUser(userId: string): Promise<{
   error?: string;
 }> {
   try {
-    const { profile } = await getSessionWithProfile();
+    const { session, profile } = await getSessionWithProfile();
     if (profile?.role !== "admin") {
       return { success: false, error: "Only admins can reactivate users" };
     }
@@ -1167,7 +1167,7 @@ export async function reactivateUser(userId: string): Promise<{
 
     // Log to audit trail
     await supabase.from("audit_logs").insert({
-      actor_id: profile?.user_id,
+      actor_id: session?.user.id || null,
       event_type: "user.reactivated",
       entity_type: "user",
       entity_id: userId,
@@ -1192,7 +1192,7 @@ export async function adminResetPassword(userId: string): Promise<{
   error?: string;
 }> {
   try {
-    const { profile } = await getSessionWithProfile();
+    const { session, profile } = await getSessionWithProfile();
     if (profile?.role !== "admin") {
       return { success: false, error: "Only admins can reset passwords" };
     }
@@ -1264,7 +1264,7 @@ export async function adminResetPassword(userId: string): Promise<{
 
     // Log to audit trail
     await supabase.from("audit_logs").insert({
-      actor_id: profile?.user_id,
+      actor_id: session?.user.id || null,
       event_type: "user.password_reset_by_admin",
       entity_type: "user",
       entity_id: userId,
@@ -1487,4 +1487,103 @@ export async function changePassword(
     console.error('changePassword error:', error);
     return { success: false, error: 'An unexpected error occurred' };
   }
+}
+
+// Timer Actions (stub implementations - TODO: implement full functionality)
+export type MatterSearchResult = {
+  id: string;
+  title: string;
+  clientName: string | null;
+};
+
+export async function searchMatters(query: string): Promise<{ data: MatterSearchResult[] }> {
+  try {
+    const supabase = supabaseAdmin();
+    const { data: matters } = await supabase
+      .from("matters")
+      .select("id, title, profiles:client_id (full_name)")
+      .or(`title.ilike.%${query}%`)
+      .limit(10);
+
+    const results = (matters || []).map((m: any) => ({
+      id: m.id,
+      title: m.title,
+      clientName: m.profiles?.full_name || null,
+    }));
+
+    return { data: results };
+  } catch (error) {
+    console.error("searchMatters error:", error);
+    return { data: [] };
+  }
+}
+
+export async function startTimer(
+  matterId: string,
+  notes?: string
+): Promise<{ error?: string; entryId?: string }> {
+  try {
+    const supabase = supabaseAdmin();
+    const { session, profile } = await getSessionWithProfile();
+
+    if (!profile) {
+      return { error: "Not authenticated" };
+    }
+
+    // Create a new time entry in draft status with started_at timestamp
+    const { data, error } = await supabase
+      .from("time_entries")
+      .insert({
+        matter_id: matterId,
+        status: "draft",
+        description: notes || null,
+        started_at: new Date().toISOString(),
+        created_by: session?.user.id || "",
+      })
+      .select("id")
+      .single();
+
+    if (error) {
+      return { error: error.message };
+    }
+
+    revalidatePath("/time");
+    return { entryId: data.id };
+  } catch (error) {
+    console.error("startTimer error:", error);
+    return { error: "Failed to start timer" };
+  }
+}
+
+export async function stopTimer(
+  entryId: string,
+  notes?: string
+): Promise<{ error?: string }> {
+  try {
+    const supabase = supabaseAdmin();
+
+    // Update the time entry with ended_at timestamp
+    const { error } = await supabase
+      .from("time_entries")
+      .update({
+        ended_at: new Date().toISOString(),
+        description: notes || undefined,
+      })
+      .eq("id", entryId);
+
+    if (error) {
+      return { error: error.message };
+    }
+
+    revalidatePath("/time");
+    return {};
+  } catch (error) {
+    console.error("stopTimer error:", error);
+    return { error: "Failed to stop timer" };
+  }
+}
+
+export async function createQuickTimeEntry(formData: FormData): Promise<ActionResult> {
+  // Alias for createTimeEntry for backwards compatibility
+  return createTimeEntry(formData);
 }

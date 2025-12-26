@@ -51,7 +51,7 @@ const automations = [
 const badgeVariant = (badge: string) => {
   if (badge === "client") return "warning";
   if (badge === "lawyer") return "default";
-  if (badge === "staff") return "secondary";
+  if (badge === "staff") return "success";
   return "outline";
 };
 

@@ -8,6 +8,7 @@ export type MatterSummary = {
   stage: string;
   nextAction: string;
   nextActionDueDate: string;
+  dueDate: string; // Alias for nextActionDueDate for backwards compatibility
   responsibleParty: string;
   billingModel: string;
   matterType: string;
@@ -67,6 +68,7 @@ const matterFallback: MatterSummary[] = [
     stage: "Under Review",
     nextAction: "Draft review pack",
     nextActionDueDate: getDateFromTodayISO(-2), // Overdue by 2 days
+    dueDate: getDateFromTodayISO(-2),
     responsibleParty: "lawyer",
     billingModel: "flat",
     matterType: "Policy Review",
@@ -80,6 +82,7 @@ const matterFallback: MatterSummary[] = [
     stage: "Waiting on Client",
     nextAction: "Nudge client",
     nextActionDueDate: getTodayISO(), // Due today
+    dueDate: getTodayISO(),
     responsibleParty: "client",
     billingModel: "hourly",
     matterType: "Contract Review",
@@ -93,6 +96,7 @@ const matterFallback: MatterSummary[] = [
     stage: "Drafting",
     nextAction: "Send initial draft",
     nextActionDueDate: getDateFromTodayISO(3), // Due in 3 days
+    dueDate: getDateFromTodayISO(3),
     responsibleParty: "staff",
     billingModel: "flat",
     matterType: "Employment Agreement",
@@ -106,6 +110,7 @@ const matterFallback: MatterSummary[] = [
     stage: "Intake Received",
     nextAction: "Review intake responses",
     nextActionDueDate: getTodayISO(),
+    dueDate: getTodayISO(),
     responsibleParty: "lawyer",
     billingModel: "flat",
     matterType: "Contract Review",
@@ -119,6 +124,7 @@ const matterFallback: MatterSummary[] = [
     stage: "Intake Sent",
     nextAction: "Complete intake form",
     nextActionDueDate: getDateFromTodayISO(2),
+    dueDate: getDateFromTodayISO(2),
     responsibleParty: "client",
     billingModel: "hourly",
     matterType: "Policy Review",
@@ -358,6 +364,7 @@ function mapMatter(row: {
     stage: row.stage,
     nextAction: row.next_action,
     nextActionDueDate: row.next_action_due_date,
+    dueDate: row.next_action_due_date, // Alias for backwards compatibility
     responsibleParty: row.responsible_party,
     billingModel: row.billing_model,
     matterType: row.matter_type,

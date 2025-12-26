@@ -64,7 +64,7 @@ export default async function BillingPage() {
           </ContentCardHeader>
           <ContentCardContent>
             {canEdit ? (
-              <form action={createInvoice} className="grid gap-3 md:grid-cols-3">
+              <form action={createInvoice as unknown as (formData: FormData) => void} className="grid gap-3 md:grid-cols-3">
                 <label className="text-sm text-slate-700">
                   <span className="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-500">
                     Matter ID
@@ -159,7 +159,7 @@ export default async function BillingPage() {
                   <Badge variant="warning">Not synced to Square</Badge>
                 )}
                 {canEdit ? (
-                  <form action={updateInvoiceStatus} className="flex items-center gap-2 text-xs">
+                  <form action={updateInvoiceStatus as unknown as (formData: FormData) => void} className="flex items-center gap-2 text-xs">
                     <input type="hidden" name="id" value={invoice.id} />
                     <select
                       name="status"

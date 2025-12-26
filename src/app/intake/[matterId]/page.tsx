@@ -24,7 +24,7 @@ export default async function IntakeFormPage({ params }: IntakeFormPageProps) {
     );
   }
 
-  const { response, template } = result.data || {};
+  const { response, template } = (result.data || {}) as { response: any; template: any };
 
   // Get matter details for display
   const supabase = supabaseAdmin();
@@ -32,7 +32,7 @@ export default async function IntakeFormPage({ params }: IntakeFormPageProps) {
     .from("matters")
     .select("title, matter_type, profiles:client_id (full_name)")
     .eq("id", matterId)
-    .single();
+    .single() as { data: { title: string; matter_type: string; profiles?: { full_name: string } } | null };
 
   if (!matter) {
     return (
