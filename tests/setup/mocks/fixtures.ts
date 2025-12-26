@@ -45,6 +45,13 @@ export function mockProfile(overrides: Partial<Profile> = {}): Profile {
     full_name: 'Test User',
     role: 'staff' as UserRole,
     created_at: now,
+    google_connected_at: null,
+    google_refresh_token: null,
+    invited_at: null,
+    invited_by: null,
+    last_login: null,
+    password_must_change: null,
+    status: 'active',
     ...overrides,
   }
 }
@@ -137,6 +144,7 @@ export function mockSessionWithProfile(
  */
 export function mockMatter(overrides: Partial<Matter> = {}): Matter {
   const now = timestamp()
+  const futureDate = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
   return {
     id: DEFAULT_MATTER_ID,
     title: 'Test Matter',
@@ -146,7 +154,9 @@ export function mockMatter(overrides: Partial<Matter> = {}): Matter {
     owner_id: DEFAULT_USER_ID,
     client_id: null,
     responsible_party: 'attorney',
-    next_action: null,
+    next_action: 'Review and respond',
+    next_action_due_date: futureDate,
+    intake_received_at: null,
     created_at: now,
     updated_at: now,
     ...overrides,
@@ -236,7 +246,10 @@ export function mockDocument(overrides: Partial<Document> = {}): Document {
     version: 1,
     drive_file_id: null,
     folder_path: null,
-    metadata: null,
+    metadata: {},
+    file_size: null,
+    mime_type: null,
+    web_view_link: null,
     created_at: now,
     ...overrides,
   }

@@ -16,7 +16,11 @@ import AdminPasswordResetEmail from "@/lib/email/templates/admin-password-reset"
 import { inviteUserSchema, passwordResetSchema, changePasswordSchema } from "@/lib/validation/schemas";
 import { z } from "zod";
 
-type ActionResult = { error?: string; ok?: boolean };
+type ActionResult = {
+  ok?: boolean;
+  error?: string;
+  data?: unknown;
+};
 type InviteUserResult = { success: boolean; data?: { userId: string }; error?: string };
 
 export type UserWithProfile = {
@@ -786,7 +790,7 @@ export async function updateInvoiceStatus(formData: FormData): Promise<ActionRes
             try {
               const { syncInvoiceToSquare } = await import("@/lib/square");
               const syncResult = await syncInvoiceToSquare(id);
-              if (syncResult.ok && syncResult.data?.paymentUrl) {
+              if (!("error" in syncResult) && syncResult.data?.paymentUrl) {
                 squarePaymentUrl = syncResult.data.paymentUrl;
               }
             } catch (squareError) {
@@ -798,7 +802,7 @@ export async function updateInvoiceStatus(formData: FormData): Promise<ActionRes
             try {
               const { getSquarePaymentUrl } = await import("@/lib/square");
               const urlResult = await getSquarePaymentUrl(id);
-              if (urlResult.ok && urlResult.data?.paymentUrl) {
+              if (!("error" in urlResult) && urlResult.data?.paymentUrl) {
                 squarePaymentUrl = urlResult.data.paymentUrl;
               }
             } catch (squareError) {
@@ -878,7 +882,7 @@ export async function inviteUser(data: {
   // Validate input
   const validated = inviteUserSchema.safeParse(data);
   if (!validated.success) {
-    const errors = validated.error.errors;
+    const errors = validated.error.issues;
     const firstError = errors && errors.length > 0 ? errors[0].message : "Validation failed";
     return { success: false, error: firstError };
   }
@@ -939,7 +943,7 @@ export async function inviteUser(data: {
     // Send invitation email
     try {
       const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
-      const emailHtml = render(
+      const emailHtml = await render(
         UserInvitationEmail({
           fullName,
           email,
@@ -1243,7 +1247,7 @@ export async function adminResetPassword(userId: string): Promise<{
     // Send email notification
     try {
       const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
-      const emailHtml = render(
+      const emailHtml = await render(
         AdminPasswordResetEmail({
           fullName: userProfile.full_name || authUser.user.email || "User",
           temporaryPassword,
@@ -1348,7 +1352,7 @@ export async function resetPassword(
     });
 
     if (!validated.success) {
-      const errorMessage = validated.error.errors?.[0]?.message || "Invalid password";
+      const errorMessage = validated.error.issues?.[0]?.message || "Invalid password";
       return { success: false, error: errorMessage };
     }
 
@@ -1494,6 +1498,7 @@ export type MatterSearchResult = {
   id: string;
   title: string;
   clientName: string | null;
+  matterType: string;
 };
 
 export async function searchMatters(query: string): Promise<{ data: MatterSearchResult[] }> {
@@ -1501,7 +1506,7 @@ export async function searchMatters(query: string): Promise<{ data: MatterSearch
     const supabase = supabaseAdmin();
     const { data: matters } = await supabase
       .from("matters")
-      .select("id, title, profiles:client_id (full_name)")
+      .select("id, title, matter_type, profiles:client_id (full_name)")
       .or(`title.ilike.%${query}%`)
       .limit(10);
 
@@ -1509,6 +1514,7 @@ export async function searchMatters(query: string): Promise<{ data: MatterSearch
       id: m.id,
       title: m.title,
       clientName: m.profiles?.full_name || null,
+      matterType: m.matter_type,
     }));
 
     return { data: results };
@@ -1583,7 +1589,22 @@ export async function stopTimer(
   }
 }
 
-export async function createQuickTimeEntry(formData: FormData): Promise<ActionResult> {
-  // Alias for createTimeEntry for backwards compatibility
+export async function createQuickTimeEntry(data: {
+  matterId: string;
+  minutes: number;
+  description?: string;
+  date?: string;
+}): Promise<ActionResult> {
+  // Convert object to FormData for createTimeEntry
+  const formData = new FormData();
+  formData.append("matterId", data.matterId);
+  formData.append("minutes", data.minutes.toString());
+  if (data.description) {
+    formData.append("description", data.description);
+  }
+  if (data.date) {
+    formData.append("date", data.date);
+  }
+
   return createTimeEntry(formData);
 }

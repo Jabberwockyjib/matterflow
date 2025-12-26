@@ -80,7 +80,7 @@ export async function createSquareInvoice(
     ];
 
     // Create the invoice
-    const response = await client.invoicesApi.createInvoice({
+    const response = await client.invoices.create({
       invoice: {
         locationId,
         primaryRecipient,
@@ -102,7 +102,7 @@ export async function createSquareInvoice(
       idempotencyKey: crypto.randomUUID(),
     });
 
-    const invoice = response.result.invoice;
+    const invoice = response.invoice;
 
     if (!invoice || !invoice.id) {
       return {
@@ -112,21 +112,19 @@ export async function createSquareInvoice(
     }
 
     // Publish the invoice to make it payable
-    const publishResponse = await client.invoicesApi.publishInvoice(
-      invoice.id,
-      {
-        version: invoice.version!,
-        idempotencyKey: crypto.randomUUID(),
-      },
-    );
+    const publishResponse = await client.invoices.publish({
+      invoiceId: invoice.id,
+      version: invoice.version!,
+      idempotencyKey: crypto.randomUUID(),
+    });
 
-    const publishedInvoice = publishResponse.result.invoice;
+    const publishedInvoice = publishResponse.invoice;
 
     return {
       success: true,
       invoiceId: publishedInvoice?.id,
-      invoiceNumber: publishedInvoice?.invoiceNumber,
-      publicUrl: publishedInvoice?.publicUrl,
+      invoiceNumber: publishedInvoice?.invoiceNumber ?? undefined,
+      publicUrl: publishedInvoice?.publicUrl ?? undefined,
       status: publishedInvoice?.status as any,
     };
   } catch (error) {
@@ -156,8 +154,8 @@ export async function getSquareInvoice(
 
   try {
     const client = createSquareClient();
-    const response = await client.invoicesApi.getInvoice(invoiceId);
-    const invoice = response.result.invoice;
+    const response = await client.invoices.get({ invoiceId });
+    const invoice = response.invoice;
 
     if (!invoice) {
       return {
@@ -169,8 +167,8 @@ export async function getSquareInvoice(
     return {
       success: true,
       invoiceId: invoice.id,
-      invoiceNumber: invoice.invoiceNumber,
-      publicUrl: invoice.publicUrl,
+      invoiceNumber: invoice.invoiceNumber ?? undefined,
+      publicUrl: invoice.publicUrl ?? undefined,
       status: invoice.status as any,
     };
   } catch (error) {
@@ -202,7 +200,8 @@ export async function cancelSquareInvoice(
 
   try {
     const client = createSquareClient();
-    await client.invoicesApi.cancelInvoice(invoiceId, {
+    await client.invoices.cancel({
+      invoiceId,
       version,
     });
 

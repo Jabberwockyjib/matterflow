@@ -5,7 +5,8 @@ import { supabaseAdmin } from "@/lib/supabase/server";
 import { getSessionWithProfile } from "@/lib/auth/server";
 import { createMatterFolders, getMatterFolders } from "./folders";
 import { uploadFileToDrive, deleteFileFromDrive, shareFileWithEmail } from "./documents";
-import type { FolderType } from "./types";
+import type { FolderType, DriveFolder } from "./types";
+import type { Json } from "@/types/database.types";
 
 /**
  * Server actions for document management
@@ -91,7 +92,7 @@ export async function initializeMatterFolders(
       matter_id: matterId,
       client_folder_id: folders.clientFolder.id,
       matter_folder_id: folders.matterFolder.id,
-      folder_structure: folders.subfolders,
+      folder_structure: folders.subfolders as unknown as Json,
       created_at: new Date().toISOString(),
     });
 
@@ -146,7 +147,8 @@ export async function uploadDocument(formData: FormData): Promise<ActionResult> 
       };
     }
 
-    const folderId = matterFolders.folder_structure[folderType]?.id;
+    const folderStructure = matterFolders.folder_structure as unknown as Record<FolderType, DriveFolder>;
+    const folderId = folderStructure[folderType]?.id;
     if (!folderId) {
       return { error: `Folder ${folderType} not found` };
     }
@@ -243,6 +245,10 @@ export async function deleteDocument(documentId: string): Promise<ActionResult> 
       return { error: "Document not found" };
     }
 
+    if (!document.drive_file_id) {
+      return { error: "Document has no Drive file ID" };
+    }
+
     // Get user's Google refresh token
     const refreshToken = await getUserRefreshToken(session.user.id);
     if (!refreshToken) {
@@ -281,7 +287,7 @@ export async function getMatterDocuments(matterId: string): Promise<{
   data?: Array<{
     id: string;
     title: string;
-    folderPath: string;
+    folderPath: string | null;
     version: number;
     status: string;
     metadata: unknown;
@@ -349,6 +355,10 @@ export async function shareDocumentWithClient(
 
     if (docError || !document) {
       return { error: "Document not found" };
+    }
+
+    if (!document.drive_file_id) {
+      return { error: "Document has no Drive file ID" };
     }
 
     // Get user's Google refresh token

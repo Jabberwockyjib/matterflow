@@ -1,5 +1,6 @@
 import { google, drive_v3 } from "googleapis";
-import { OAuth2Client } from "google-auth-library";
+
+type OAuth2Client = InstanceType<typeof google.auth.OAuth2>;
 
 /**
  * Google Drive API client for MatterFlow

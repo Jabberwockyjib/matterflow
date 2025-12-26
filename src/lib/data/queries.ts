@@ -356,7 +356,7 @@ function mapMatter(row: {
   matter_type: string;
   updated_at: string;
   created_at: string;
-  client?: { full_name: string } | null;
+  client?: { full_name: string | null } | null;
 }): MatterSummary {
   return {
     id: row.id,

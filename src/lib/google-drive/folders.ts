@@ -191,7 +191,7 @@ export async function listFilesInFolder(
     id: file.id!,
     name: file.name!,
     mimeType: file.mimeType!,
-    size: file.size,
+    size: file.size ?? undefined,
     modifiedTime: file.modifiedTime!,
   }));
 }

@@ -4,7 +4,7 @@
  * Sets up Square SDK client with proper authentication and configuration.
  */
 
-import { Client, Environment } from "square";
+import { SquareClient } from "square";
 
 // Environment variables
 const SQUARE_ACCESS_TOKEN = process.env.SQUARE_ACCESS_TOKEN;
@@ -19,31 +19,21 @@ export function isSquareConfigured(): boolean {
 }
 
 /**
- * Get Square environment from env var
- */
-function getSquareEnvironment(): Environment {
-  if (SQUARE_ENVIRONMENT === "production") {
-    return Environment.Production;
-  }
-  return Environment.Sandbox;
-}
-
-/**
  * Create authenticated Square client
  *
  * @returns Square Client instance
  * @throws Error if Square credentials are not configured
  */
-export function createSquareClient(): Client {
+export function createSquareClient(): SquareClient {
   if (!SQUARE_ACCESS_TOKEN) {
     throw new Error(
       "Square access token not configured. Set SQUARE_ACCESS_TOKEN in environment variables.",
     );
   }
 
-  const client = new Client({
-    accessToken: SQUARE_ACCESS_TOKEN,
-    environment: getSquareEnvironment(),
+  const client = new SquareClient({
+    token: SQUARE_ACCESS_TOKEN,
+    environment: SQUARE_ENVIRONMENT === "production" ? "production" : "sandbox",
   });
 
   return client;

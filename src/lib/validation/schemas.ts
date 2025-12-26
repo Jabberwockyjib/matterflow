@@ -146,9 +146,7 @@ export type SignInFormData = z.infer<typeof signInSchema>;
 export const inviteUserSchema = z.object({
   email: z.string().email('Invalid email address'),
   fullName: z.string().min(1, 'Full name is required').max(100, 'Full name too long'),
-  role: z.enum(['admin', 'staff', 'client'], {
-    errorMap: () => ({ message: 'Invalid role' }),
-  }),
+  role: z.enum(['admin', 'staff', 'client'], { message: 'Invalid role' }),
 });
 
 export type InviteUserFormData = z.infer<typeof inviteUserSchema>;

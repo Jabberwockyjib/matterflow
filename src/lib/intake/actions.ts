@@ -413,7 +413,19 @@ export async function getAllIntakeResponses(): Promise<{
       return { error: error.message };
     }
 
-    return { data };
+    // Map database response to IntakeFormResponse type
+    const mappedData: IntakeFormResponse[] = (data || []).map((row) => ({
+      id: row.id,
+      matterId: row.matter_id,
+      formType: row.form_type,
+      responses: row.responses as Record<string, unknown>,
+      status: row.status as "draft" | "submitted" | "approved",
+      submittedAt: row.submitted_at || undefined,
+      createdAt: row.created_at,
+      updatedAt: undefined, // Not fetched in query
+    }));
+
+    return { data: mappedData };
   } catch (error) {
     console.error("Error fetching intake responses:", error);
     return {
