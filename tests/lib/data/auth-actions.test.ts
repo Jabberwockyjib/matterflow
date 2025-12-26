@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { inviteUser, getAllUsers, updateUserRole, deactivateUser, reactivateUser, adminResetPassword, requestPasswordReset } from '@/lib/data/actions'
+import { inviteUser, getAllUsers, updateUserRole, deactivateUser, reactivateUser, adminResetPassword, requestPasswordReset, resetPassword } from '@/lib/data/actions'
 import * as auth from '@/lib/auth/server'
 import * as server from '@/lib/supabase/server'
 
@@ -525,5 +525,79 @@ describe('requestPasswordReset', () => {
 
     expect(result.success).toBe(false)
     expect(result.error).toMatch(/email/i)
+  })
+})
+
+describe('resetPassword', () => {
+  it('successfully resets password with valid token', async () => {
+    const mockSupabaseWithReset = {
+      from: vi.fn((table: string) => {
+        if (table === 'profiles') {
+          return {
+            update: vi.fn().mockReturnValue({
+              eq: vi.fn().mockResolvedValue({ data: null, error: null }),
+            }),
+          }
+        }
+        if (table === 'audit_logs') {
+          return {
+            insert: vi.fn().mockResolvedValue({ error: null }),
+          }
+        }
+        return {}
+      }),
+      auth: {
+        verifyOtp: vi.fn().mockResolvedValue({
+          data: { user: { id: 'user-123', email: 'user@example.com' } },
+          error: null,
+        }),
+        admin: {
+          updateUserById: vi.fn().mockResolvedValue({ error: null }),
+        },
+      },
+    }
+
+    vi.spyOn(server, 'supabaseAdmin').mockReturnValue(
+      mockSupabaseWithReset as unknown as ReturnType<typeof server.supabaseAdmin>
+    )
+
+    const result = await resetPassword('valid-token', 'NewSecure123')
+
+    expect(result.success).toBe(true)
+  })
+
+  it('validates password requirements', async () => {
+    const result = await resetPassword('valid-token', 'weak')
+
+    expect(result.success).toBe(false)
+    expect(result.error).toMatch(/password/i)
+  })
+
+  it('rejects invalid token', async () => {
+    const mockSupabaseWithInvalidToken = {
+      from: vi.fn((table: string) => {
+        if (table === 'audit_logs') {
+          return {
+            insert: vi.fn().mockResolvedValue({ error: null }),
+          }
+        }
+        return {}
+      }),
+      auth: {
+        verifyOtp: vi.fn().mockResolvedValue({
+          data: { user: null },
+          error: { message: 'Invalid or expired token' },
+        }),
+      },
+    }
+
+    vi.spyOn(server, 'supabaseAdmin').mockReturnValue(
+      mockSupabaseWithInvalidToken as unknown as ReturnType<typeof server.supabaseAdmin>
+    )
+
+    const result = await resetPassword('invalid-token', 'NewSecure123')
+
+    expect(result.success).toBe(false)
+    expect(result.error).toMatch(/token|invalid|expired/i)
   })
 })

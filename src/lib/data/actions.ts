@@ -11,7 +11,7 @@ import { sendMatterCreatedEmail, sendTaskAssignedEmail, sendInvoiceEmail } from 
 import { resend, FROM_EMAIL } from "@/lib/email/client";
 import UserInvitationEmail from "@/lib/email/templates/user-invitation";
 import AdminPasswordResetEmail from "@/lib/email/templates/admin-password-reset";
-import { inviteUserSchema } from "@/lib/validation/schemas";
+import { inviteUserSchema, passwordResetSchema } from "@/lib/validation/schemas";
 import { z } from "zod";
 
 type ActionResult = { error?: string; ok?: boolean };
@@ -1325,5 +1325,76 @@ export async function requestPasswordReset(email: string): Promise<{
     console.error("requestPasswordReset error:", error);
     // Still return success to prevent enumeration via timing attacks
     return { success: true };
+  }
+}
+
+/**
+ * Reset password using token from email (self-service)
+ */
+export async function resetPassword(
+  token: string,
+  newPassword: string
+): Promise<{
+  success: boolean;
+  error?: string;
+}> {
+  try {
+    // Validate password using existing schema
+    const validated = passwordResetSchema.safeParse({
+      password: newPassword,
+      confirmPassword: newPassword, // Self-confirming for server-side
+    });
+
+    if (!validated.success) {
+      const errorMessage = validated.error.errors?.[0]?.message || "Invalid password";
+      return { success: false, error: errorMessage };
+    }
+
+    const supabase = supabaseAdmin();
+
+    // Verify the token and update password
+    // Supabase's verifyOtp with type 'recovery' validates the reset token
+    const { data, error: verifyError } = await supabase.auth.verifyOtp({
+      token_hash: token,
+      type: "recovery",
+    });
+
+    if (verifyError || !data.user) {
+      console.error("resetPassword verify error:", verifyError);
+      return { success: false, error: "Invalid or expired reset token" };
+    }
+
+    // Update the password
+    const { error: updateError } = await supabase.auth.admin.updateUserById(
+      data.user.id,
+      { password: newPassword }
+    );
+
+    if (updateError) {
+      console.error("resetPassword update error:", updateError);
+      return { success: false, error: "Failed to reset password" };
+    }
+
+    // Clear password_must_change flag if it was set
+    await supabase
+      .from("profiles")
+      .update({ password_must_change: false })
+      .eq("user_id", data.user.id);
+
+    // Log to audit trail
+    await supabase.from("audit_logs").insert({
+      actor_id: data.user.id,
+      event_type: "user.password_reset_completed",
+      entity_type: "user",
+      entity_id: data.user.id,
+      metadata: {
+        method: "email_link",
+      } as Json,
+    });
+
+    return { success: true };
+  } catch (error) {
+    console.error("resetPassword error:", error);
+    return { success: false, error: "An unexpected error occurred" };
   }
 }
