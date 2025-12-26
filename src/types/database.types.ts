@@ -352,7 +352,7 @@ export type Database = {
           last_login: string | null
           password_must_change: boolean | null
           role: Database["public"]["Enums"]["user_role"]
-          status: string | null
+          status: string
           user_id: string
         }
         Insert: {
@@ -365,7 +365,7 @@ export type Database = {
           last_login?: string | null
           password_must_change?: boolean | null
           role?: Database["public"]["Enums"]["user_role"]
-          status?: string | null
+          status?: string
           user_id: string
         }
         Update: {
@@ -378,7 +378,7 @@ export type Database = {
           last_login?: string | null
           password_must_change?: boolean | null
           role?: Database["public"]["Enums"]["user_role"]
-          status?: string | null
+          status?: string
           user_id?: string
         }
         Relationships: []
