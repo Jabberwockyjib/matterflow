@@ -872,12 +872,10 @@ export async function inviteUser(data: {
     const { email, fullName, role } = validated.data;
     const supabase = supabaseAdmin();
 
-    // Check if user already exists
-    const { data: existingUser } = await supabase
-      .from("profiles")
-      .select("user_id")
-      .eq("user_id", email)
-      .single();
+    // Check if user already exists via Auth Admin API
+    const { data: existingAuthUsers } = await supabase.auth.admin.listUsers();
+
+    const existingUser = existingAuthUsers.users.find(u => u.email === email);
 
     if (existingUser) {
       return { success: false, error: "User with this email already exists" };

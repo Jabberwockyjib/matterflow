@@ -58,6 +58,7 @@ describe('inviteUser', () => {
       admin: {
         createUser: vi.fn().mockResolvedValue({ data: mockAuthUser, error: null }),
         deleteUser: vi.fn().mockResolvedValue({ error: null }),
+        listUsers: vi.fn().mockResolvedValue({ data: { users: [] }, error: null }),
       },
     },
   }
@@ -117,23 +118,17 @@ describe('inviteUser', () => {
   it('rejects duplicate email', async () => {
     const mockSupabaseWithExisting = {
       ...mockSupabase,
-      from: vi.fn((table: string) => {
-        if (table === 'profiles') {
-          return {
-            select: vi.fn().mockReturnValue({
-              eq: vi.fn().mockReturnValue({
-                single: vi.fn().mockResolvedValue({
-                  data: { user_id: 'existing-user-id' },
-                  error: null
-                }),
-              }),
-            }),
-            insert: vi.fn(),
-          }
-        }
-        return {}
-      }),
-      auth: mockSupabase.auth,
+      auth: {
+        admin: {
+          ...mockSupabase.auth.admin,
+          listUsers: vi.fn().mockResolvedValue({
+            data: {
+              users: [{ email: 'existing@example.com', id: 'existing-user-id' }]
+            },
+            error: null
+          }),
+        },
+      },
     }
 
     vi.spyOn(server, 'supabaseAdmin').mockReturnValue(
@@ -198,6 +193,7 @@ describe('inviteUser', () => {
         admin: {
           createUser: vi.fn().mockResolvedValue({ data: mockAuthUser, error: null }),
           deleteUser: vi.fn().mockResolvedValue({ error: null }),
+          listUsers: vi.fn().mockResolvedValue({ data: { users: [] }, error: null }),
         },
       },
     }
