@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { inviteUser, getAllUsers } from '@/lib/data/actions'
+import { inviteUser, getAllUsers, updateUserRole } from '@/lib/data/actions'
 import * as auth from '@/lib/auth/server'
 import * as server from '@/lib/supabase/server'
 
@@ -269,5 +269,55 @@ describe('getAllUsers', () => {
 
     expect(result.success).toBe(false)
     expect(result.error).toContain('admin')
+  })
+})
+
+describe('updateUserRole', () => {
+  it('successfully updates user role for admin', async () => {
+    const mockSupabaseWithUpdate = {
+      ...mockSupabase,
+      from: vi.fn((table: string) => {
+        if (table === 'profiles') {
+          return {
+            update: vi.fn().mockReturnValue({
+              eq: vi.fn().mockResolvedValue({ data: null, error: null }),
+            }),
+          }
+        }
+        if (table === 'audit_logs') {
+          return {
+            insert: vi.fn().mockResolvedValue({ error: null }),
+          }
+        }
+        return {}
+      }),
+    }
+
+    vi.spyOn(server, 'supabaseAdmin').mockReturnValue(
+      mockSupabaseWithUpdate as unknown as ReturnType<typeof server.supabaseAdmin>
+    )
+
+    const result = await updateUserRole('user-123', 'staff')
+
+    expect(result.success).toBe(true)
+  })
+
+  it('rejects role update from non-admin', async () => {
+    vi.spyOn(auth, 'getSessionWithProfile').mockResolvedValue({
+      session: { user: { id: 'staff-id' } },
+      profile: { full_name: 'Staff', role: 'staff' },
+    } as any)
+
+    const result = await updateUserRole('user-123', 'admin')
+
+    expect(result.success).toBe(false)
+    expect(result.error).toContain('admin')
+  })
+
+  it('validates role is valid', async () => {
+    const result = await updateUserRole('user-123', 'invalid-role' as any)
+
+    expect(result.success).toBe(false)
+    expect(result.error).toMatch(/role/i)
   })
 })

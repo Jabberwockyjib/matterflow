@@ -1037,3 +1037,56 @@ export async function getAllUsers(): Promise<{
     return { success: false, error: "An unexpected error occurred" };
   }
 }
+
+/**
+ * Update a user's role (admin only)
+ */
+export async function updateUserRole(
+  userId: string,
+  newRole: "admin" | "staff" | "client"
+): Promise<{
+  success: boolean;
+  error?: string;
+}> {
+  try {
+    const { profile } = await getSessionWithProfile();
+    if (profile?.role !== "admin") {
+      return { success: false, error: "Only admins can update user roles" };
+    }
+
+    // Validate role
+    if (!["admin", "staff", "client"].includes(newRole)) {
+      return { success: false, error: "Invalid role" };
+    }
+
+    const supabase = supabaseAdmin();
+
+    // Update profile
+    const { error } = await supabase
+      .from("profiles")
+      .update({ role: newRole })
+      .eq("user_id", userId);
+
+    if (error) {
+      console.error("updateUserRole error:", error);
+      return { success: false, error: "Failed to update user role" };
+    }
+
+    // Log to audit trail
+    await supabase.from("audit_logs").insert({
+      actor_id: profile?.user_id,
+      event_type: "user.role_changed",
+      entity_type: "user",
+      entity_id: userId,
+      metadata: {
+        newRole,
+        changedBy: profile?.full_name,
+      } as Json,
+    });
+
+    return { success: true };
+  } catch (error) {
+    console.error("updateUserRole error:", error);
+    return { success: false, error: "An unexpected error occurred" };
+  }
+}
