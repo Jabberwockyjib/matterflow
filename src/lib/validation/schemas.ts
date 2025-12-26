@@ -137,6 +137,77 @@ export const signInSchema = z.object({
 export type SignInFormData = z.infer<typeof signInSchema>;
 
 // ============================================================================
+// Auth Schemas
+// ============================================================================
+
+/**
+ * Schema for inviting a new user
+ */
+export const inviteUserSchema = z.object({
+  email: z.string().email('Invalid email address'),
+  fullName: z.string().min(1, 'Full name is required').max(100, 'Full name too long'),
+  role: z.enum(['admin', 'staff', 'client'], {
+    errorMap: () => ({ message: 'Invalid role' }),
+  }),
+});
+
+export type InviteUserFormData = z.infer<typeof inviteUserSchema>;
+
+/**
+ * Password requirements - minimum 8 characters with uppercase, lowercase, and number
+ */
+const passwordRequirements = z
+  .string()
+  .min(8, 'Password must be at least 8 characters')
+  .regex(/[A-Z]/, 'Password must contain at least one uppercase letter')
+  .regex(/[a-z]/, 'Password must contain at least one lowercase letter')
+  .regex(/[0-9]/, 'Password must contain at least one number');
+
+/**
+ * Schema for resetting password
+ */
+export const passwordResetSchema = z
+  .object({
+    password: passwordRequirements,
+    confirmPassword: z.string(),
+  })
+  .refine((data) => data.password === data.confirmPassword, {
+    message: 'Passwords do not match',
+    path: ['confirmPassword'],
+  });
+
+export type PasswordResetFormData = z.infer<typeof passwordResetSchema>;
+
+/**
+ * Schema for changing password
+ */
+export const changePasswordSchema = z
+  .object({
+    currentPassword: z.string().min(1, 'Current password is required'),
+    newPassword: passwordRequirements,
+    confirmPassword: z.string(),
+  })
+  .refine((data) => data.newPassword === data.confirmPassword, {
+    message: 'Passwords do not match',
+    path: ['confirmPassword'],
+  })
+  .refine((data) => data.currentPassword !== data.newPassword, {
+    message: 'New password must be different from current password',
+    path: ['newPassword'],
+  });
+
+export type ChangePasswordFormData = z.infer<typeof changePasswordSchema>;
+
+/**
+ * Schema for forgot password
+ */
+export const forgotPasswordSchema = z.object({
+  email: z.string().email('Invalid email address'),
+});
+
+export type ForgotPasswordFormData = z.infer<typeof forgotPasswordSchema>;
+
+// ============================================================================
 // Matter Schemas
 // ============================================================================
 
