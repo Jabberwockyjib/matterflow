@@ -347,7 +347,12 @@ export type Database = {
           full_name: string | null
           google_connected_at: string | null
           google_refresh_token: string | null
+          invited_at: string | null
+          invited_by: string | null
+          last_login: string | null
+          password_must_change: boolean | null
           role: Database["public"]["Enums"]["user_role"]
+          status: string | null
           user_id: string
         }
         Insert: {
@@ -355,7 +360,12 @@ export type Database = {
           full_name?: string | null
           google_connected_at?: string | null
           google_refresh_token?: string | null
+          invited_at?: string | null
+          invited_by?: string | null
+          last_login?: string | null
+          password_must_change?: boolean | null
           role?: Database["public"]["Enums"]["user_role"]
+          status?: string | null
           user_id: string
         }
         Update: {
@@ -363,7 +373,12 @@ export type Database = {
           full_name?: string | null
           google_connected_at?: string | null
           google_refresh_token?: string | null
+          invited_at?: string | null
+          invited_by?: string | null
+          last_login?: string | null
+          password_must_change?: boolean | null
           role?: Database["public"]["Enums"]["user_role"]
+          status?: string | null
           user_id?: string
         }
         Relationships: []
