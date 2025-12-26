@@ -1,13 +1,19 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { randomBytes } from "crypto";
+import { render } from "@react-email/components";
 
 import { getSessionWithProfile } from "@/lib/auth/server";
 import { supabaseAdmin, supabaseEnvReady } from "@/lib/supabase/server";
 import type { Json } from "@/types/database.types";
 import { sendMatterCreatedEmail, sendTaskAssignedEmail, sendInvoiceEmail } from "@/lib/email/actions";
+import { resend, FROM_EMAIL } from "@/lib/email/client";
+import UserInvitationEmail from "@/lib/email/templates/user-invitation";
+import { inviteUserSchema } from "@/lib/validation/schemas";
 
 type ActionResult = { error?: string; ok?: boolean };
+type InviteUserResult = { success: boolean; data?: { userId: string }; error?: string };
 
 const ensureSupabase = () => {
   if (!supabaseEnvReady()) {
@@ -828,5 +834,139 @@ export async function updateInvoiceStatus(formData: FormData): Promise<ActionRes
     return { ok: true };
   } catch (err) {
     return { error: err instanceof Error ? err.message : "Unknown error" };
+  }
+}
+
+// Auth Actions
+
+/**
+ * Generate a secure temporary password
+ */
+function generateTemporaryPassword(): string {
+  return randomBytes(12).toString("base64").slice(0, 12);
+}
+
+/**
+ * Invite a new user to the system (admin only)
+ */
+export async function inviteUser(data: {
+  email: string;
+  fullName: string;
+  role: "admin" | "staff" | "client";
+}): Promise<InviteUserResult> {
+  // Validate admin permission
+  const { profile } = await getSessionWithProfile();
+  if (profile?.role !== "admin") {
+    return { success: false, error: "Only admins can invite users" };
+  }
+
+  // Validate input
+  const validated = inviteUserSchema.safeParse(data);
+  if (!validated.success) {
+    const errors = validated.error.errors;
+    const firstError = errors && errors.length > 0 ? errors[0].message : "Validation failed";
+    return { success: false, error: firstError };
+  }
+
+  try {
+    const { email, fullName, role } = validated.data;
+    const supabase = supabaseAdmin();
+
+    // Check if user already exists
+    const { data: existingUser } = await supabase
+      .from("profiles")
+      .select("user_id")
+      .eq("user_id", email)
+      .single();
+
+    if (existingUser) {
+      return { success: false, error: "User with this email already exists" };
+    }
+
+    // Generate temporary password
+    const temporaryPassword = generateTemporaryPassword();
+
+    // Create user in Supabase Auth
+    const { data: authUser, error: authError } = await supabase.auth.admin.createUser({
+      email,
+      password: temporaryPassword,
+      email_confirm: true, // Skip email confirmation
+      user_metadata: {
+        full_name: fullName,
+      },
+    });
+
+    if (authError || !authUser.user) {
+      console.error("Auth user creation error:", authError);
+      return { success: false, error: authError?.message || "Failed to create user" };
+    }
+
+    // Create profile
+    const { error: profileError } = await supabase
+      .from("profiles")
+      .insert({
+        user_id: authUser.user.id,
+        full_name: fullName,
+        role,
+        password_must_change: true,
+        status: "active",
+        invited_by: profile?.user_id,
+        invited_at: new Date().toISOString(),
+      })
+      .select()
+      .single();
+
+    if (profileError) {
+      console.error("Profile creation error:", profileError);
+      // Clean up auth user if profile creation fails
+      await supabase.auth.admin.deleteUser(authUser.user.id);
+      return { success: false, error: "Failed to create user profile" };
+    }
+
+    // Send invitation email
+    try {
+      const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+      const emailHtml = render(
+        UserInvitationEmail({
+          fullName,
+          email,
+          temporaryPassword,
+          role,
+          appUrl,
+        })
+      );
+
+      await resend.emails.send({
+        from: FROM_EMAIL,
+        to: email,
+        subject: "Welcome to MatterFlow™",
+        html: emailHtml,
+      });
+    } catch (emailError) {
+      console.error("Email sending error:", emailError);
+      // Don't fail the invitation if email fails
+    }
+
+    // Log to audit trail
+    await supabase.from("audit_logs").insert({
+      actor_id: profile?.user_id,
+      event_type: "user.invited",
+      entity_type: "user",
+      entity_id: authUser.user.id,
+      metadata: {
+        email,
+        fullName,
+        role,
+        invitedBy: profile?.full_name,
+      } as Json,
+    });
+
+    return {
+      success: true,
+      data: { userId: authUser.user.id },
+    };
+  } catch (error) {
+    console.error("inviteUser error:", error);
+    return { success: false, error: "An unexpected error occurred" };
   }
 }

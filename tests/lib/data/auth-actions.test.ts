@@ -1,0 +1,218 @@
+import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { inviteUser } from '@/lib/data/actions'
+import * as auth from '@/lib/auth/server'
+import * as server from '@/lib/supabase/server'
+
+// Mock next/cache
+vi.mock('next/cache', () => ({
+  revalidatePath: vi.fn(),
+}))
+
+// Mock email client
+vi.mock('@/lib/email/client', () => ({
+  resend: {
+    emails: {
+      send: vi.fn().mockResolvedValue({ id: 'email-id' }),
+    },
+  },
+  FROM_EMAIL: 'test@example.com',
+}))
+
+// Mock @react-email/components
+vi.mock('@react-email/components', () => ({
+  render: vi.fn().mockReturnValue('<html>mock email</html>'),
+}))
+
+describe('inviteUser', () => {
+  const mockAuthUser = {
+    user: {
+      id: 'new-user-id',
+      email: 'newuser@example.com',
+    },
+  }
+
+  const mockSupabase = {
+    from: vi.fn((table: string) => {
+      if (table === 'profiles') {
+        return {
+          select: vi.fn().mockReturnValue({
+            eq: vi.fn().mockReturnValue({
+              single: vi.fn().mockResolvedValue({ data: null, error: null }),
+            }),
+          }),
+          insert: vi.fn().mockReturnValue({
+            select: vi.fn().mockReturnValue({
+              single: vi.fn().mockResolvedValue({ data: { user_id: 'new-user-id' }, error: null }),
+            }),
+          }),
+        }
+      }
+      if (table === 'audit_logs') {
+        return {
+          insert: vi.fn().mockResolvedValue({ error: null }),
+        }
+      }
+      return {}
+    }),
+    auth: {
+      admin: {
+        createUser: vi.fn().mockResolvedValue({ data: mockAuthUser, error: null }),
+        deleteUser: vi.fn().mockResolvedValue({ error: null }),
+      },
+    },
+  }
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    vi.spyOn(server, 'supabaseAdmin').mockReturnValue(
+      mockSupabase as unknown as ReturnType<typeof server.supabaseAdmin>
+    )
+    vi.spyOn(auth, 'getSessionWithProfile').mockResolvedValue({
+      session: { user: { id: 'admin-id', email: 'admin@example.com' } },
+      profile: { full_name: 'Admin', role: 'admin' },
+    } as unknown as Awaited<ReturnType<typeof auth.getSessionWithProfile>>)
+  })
+
+  it('successfully invites a new user', async () => {
+    const result = await inviteUser({
+      email: 'newuser@example.com',
+      fullName: 'New User',
+      role: 'staff',
+    })
+
+    expect(result.success).toBe(true)
+    expect(result.data).toHaveProperty('userId')
+    expect(result.data?.userId).toBe('new-user-id')
+  })
+
+  it('rejects invitation from non-admin', async () => {
+    vi.spyOn(auth, 'getSessionWithProfile').mockResolvedValue({
+      session: { user: { id: 'staff-id' } },
+      profile: { full_name: 'Staff', role: 'staff' },
+    } as unknown as Awaited<ReturnType<typeof auth.getSessionWithProfile>>)
+
+    const result = await inviteUser({
+      email: 'newuser@example.com',
+      fullName: 'New User',
+      role: 'staff',
+    })
+
+    expect(result.success).toBe(false)
+    expect(result.error).toContain('admin')
+  })
+
+  it('validates email format', async () => {
+    const result = await inviteUser({
+      email: 'invalid-email',
+      fullName: 'New User',
+      role: 'staff',
+    })
+
+    expect(result.success).toBe(false)
+    expect(result.error).toBeDefined()
+    // Should contain either 'email' or 'Invalid email'
+    expect(result.error?.toLowerCase()).toMatch(/email|validation/)
+  })
+
+  it('rejects duplicate email', async () => {
+    const mockSupabaseWithExisting = {
+      ...mockSupabase,
+      from: vi.fn((table: string) => {
+        if (table === 'profiles') {
+          return {
+            select: vi.fn().mockReturnValue({
+              eq: vi.fn().mockReturnValue({
+                single: vi.fn().mockResolvedValue({
+                  data: { user_id: 'existing-user-id' },
+                  error: null
+                }),
+              }),
+            }),
+            insert: vi.fn(),
+          }
+        }
+        return {}
+      }),
+      auth: mockSupabase.auth,
+    }
+
+    vi.spyOn(server, 'supabaseAdmin').mockReturnValue(
+      mockSupabaseWithExisting as unknown as ReturnType<typeof server.supabaseAdmin>
+    )
+
+    const result = await inviteUser({
+      email: 'existing@example.com',
+      fullName: 'Existing User',
+      role: 'staff',
+    })
+
+    expect(result.success).toBe(false)
+    expect(result.error).toContain('already exists')
+  })
+
+  it('validates full name is required', async () => {
+    const result = await inviteUser({
+      email: 'newuser@example.com',
+      fullName: '',
+      role: 'staff',
+    })
+
+    expect(result.success).toBe(false)
+    expect(result.error).toBeDefined()
+  })
+
+  it('validates role is valid', async () => {
+    const result = await inviteUser({
+      email: 'newuser@example.com',
+      fullName: 'New User',
+      role: 'invalid' as any,
+    })
+
+    expect(result.success).toBe(false)
+    expect(result.error).toBeDefined()
+  })
+
+  it('cleans up auth user if profile creation fails', async () => {
+    const mockSupabaseWithProfileError = {
+      from: vi.fn((table: string) => {
+        if (table === 'profiles') {
+          return {
+            select: vi.fn().mockReturnValue({
+              eq: vi.fn().mockReturnValue({
+                single: vi.fn().mockResolvedValue({ data: null, error: null }),
+              }),
+            }),
+            insert: vi.fn().mockReturnValue({
+              select: vi.fn().mockReturnValue({
+                single: vi.fn().mockResolvedValue({
+                  data: null,
+                  error: { message: 'Profile creation failed' }
+                }),
+              }),
+            }),
+          }
+        }
+        return {}
+      }),
+      auth: {
+        admin: {
+          createUser: vi.fn().mockResolvedValue({ data: mockAuthUser, error: null }),
+          deleteUser: vi.fn().mockResolvedValue({ error: null }),
+        },
+      },
+    }
+
+    vi.spyOn(server, 'supabaseAdmin').mockReturnValue(
+      mockSupabaseWithProfileError as unknown as ReturnType<typeof server.supabaseAdmin>
+    )
+
+    const result = await inviteUser({
+      email: 'newuser@example.com',
+      fullName: 'New User',
+      role: 'staff',
+    })
+
+    expect(result.success).toBe(false)
+    expect(mockSupabaseWithProfileError.auth.admin.deleteUser).toHaveBeenCalledWith('new-user-id')
+  })
+})
