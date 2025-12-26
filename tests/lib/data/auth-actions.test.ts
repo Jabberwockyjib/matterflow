@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { inviteUser, getAllUsers, updateUserRole, deactivateUser, reactivateUser } from '@/lib/data/actions'
+import { inviteUser, getAllUsers, updateUserRole, deactivateUser, reactivateUser, adminResetPassword } from '@/lib/data/actions'
 import * as auth from '@/lib/auth/server'
 import * as server from '@/lib/supabase/server'
 
@@ -402,6 +402,66 @@ describe('reactivateUser', () => {
     } as unknown as Awaited<ReturnType<typeof auth.getSessionWithProfile>>)
 
     const result = await reactivateUser('user-123')
+
+    expect(result.success).toBe(false)
+    expect(result.error).toContain('admin')
+  })
+})
+
+describe('adminResetPassword', () => {
+  it('successfully resets password for admin', async () => {
+    const mockSupabaseWithPasswordReset = {
+      ...mockSupabase,
+      from: vi.fn((table: string) => {
+        if (table === 'profiles') {
+          return {
+            select: vi.fn().mockReturnValue({
+              eq: vi.fn().mockReturnValue({
+                single: vi.fn().mockResolvedValue({
+                  data: { full_name: 'Test User' },
+                  error: null,
+                }),
+              }),
+            }),
+            update: vi.fn().mockReturnValue({
+              eq: vi.fn().mockResolvedValue({ data: null, error: null }),
+            }),
+          }
+        }
+        if (table === 'audit_logs') {
+          return {
+            insert: vi.fn().mockResolvedValue({ error: null }),
+          }
+        }
+        return {}
+      }),
+      auth: {
+        admin: {
+          getUserById: vi.fn().mockResolvedValue({
+            data: { user: { id: 'user-123', email: 'user@example.com' } },
+            error: null,
+          }),
+          updateUserById: vi.fn().mockResolvedValue({ error: null }),
+        },
+      },
+    }
+
+    vi.spyOn(server, 'supabaseAdmin').mockReturnValue(
+      mockSupabaseWithPasswordReset as unknown as ReturnType<typeof server.supabaseAdmin>
+    )
+
+    const result = await adminResetPassword('user-123')
+
+    expect(result.success).toBe(true)
+  })
+
+  it('rejects password reset from non-admin', async () => {
+    vi.spyOn(auth, 'getSessionWithProfile').mockResolvedValue({
+      session: { user: { id: 'staff-id' } },
+      profile: { full_name: 'Staff', role: 'staff' },
+    } as any)
+
+    const result = await adminResetPassword('user-123')
 
     expect(result.success).toBe(false)
     expect(result.error).toContain('admin')

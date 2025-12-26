@@ -10,6 +10,7 @@ import type { Json } from "@/types/database.types";
 import { sendMatterCreatedEmail, sendTaskAssignedEmail, sendInvoiceEmail } from "@/lib/email/actions";
 import { resend, FROM_EMAIL } from "@/lib/email/client";
 import UserInvitationEmail from "@/lib/email/templates/user-invitation";
+import AdminPasswordResetEmail from "@/lib/email/templates/admin-password-reset";
 import { inviteUserSchema } from "@/lib/validation/schemas";
 
 type ActionResult = { error?: string; ok?: boolean };
@@ -1175,6 +1176,103 @@ export async function reactivateUser(userId: string): Promise<{
     return { success: true };
   } catch (error) {
     console.error("reactivateUser error:", error);
+    return { success: false, error: "An unexpected error occurred" };
+  }
+}
+
+/**
+ * Admin-initiated password reset (admin only)
+ * Generates new temporary password and emails user
+ */
+export async function adminResetPassword(userId: string): Promise<{
+  success: boolean;
+  error?: string;
+}> {
+  try {
+    const { profile } = await getSessionWithProfile();
+    if (profile?.role !== "admin") {
+      return { success: false, error: "Only admins can reset passwords" };
+    }
+
+    const supabase = supabaseAdmin();
+
+    // Get user profile for email and name
+    const { data: userProfile, error: profileError } = await supabase
+      .from("profiles")
+      .select("full_name")
+      .eq("user_id", userId)
+      .single();
+
+    if (profileError || !userProfile) {
+      return { success: false, error: "User not found" };
+    }
+
+    // Get user email from auth
+    const { data: authUser, error: authError } = await supabase.auth.admin.getUserById(userId);
+
+    if (authError || !authUser.user) {
+      return { success: false, error: "User not found" };
+    }
+
+    // Generate new temporary password
+    const temporaryPassword = generateTemporaryPassword();
+
+    // Update password in Supabase Auth
+    const { error: updateError } = await supabase.auth.admin.updateUserById(userId, {
+      password: temporaryPassword,
+    });
+
+    if (updateError) {
+      console.error("adminResetPassword update error:", updateError);
+      return { success: false, error: "Failed to reset password" };
+    }
+
+    // Set password_must_change flag
+    const { error: flagError } = await supabase
+      .from("profiles")
+      .update({ password_must_change: true })
+      .eq("user_id", userId);
+
+    if (flagError) {
+      console.error("adminResetPassword flag error:", flagError);
+    }
+
+    // Send email notification
+    try {
+      const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+      const emailHtml = render(
+        AdminPasswordResetEmail({
+          fullName: userProfile.full_name || authUser.user.email || "User",
+          temporaryPassword,
+          appUrl,
+        })
+      );
+
+      await resend.emails.send({
+        from: FROM_EMAIL,
+        to: authUser.user.email || "",
+        subject: "Your MatterFlow™ password was reset",
+        html: emailHtml,
+      });
+    } catch (emailError) {
+      console.error("Email sending error:", emailError);
+      // Don't fail the password reset if email fails
+    }
+
+    // Log to audit trail
+    await supabase.from("audit_logs").insert({
+      actor_id: profile?.user_id,
+      event_type: "user.password_reset_by_admin",
+      entity_type: "user",
+      entity_id: userId,
+      metadata: {
+        resetBy: profile?.full_name,
+      } as Json,
+    });
+
+    return { success: true };
+  } catch (error) {
+    console.error("adminResetPassword error:", error);
     return { success: false, error: "An unexpected error occurred" };
   }
 }
