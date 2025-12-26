@@ -6,12 +6,14 @@ import { render } from "@react-email/components";
 
 import { getSessionWithProfile } from "@/lib/auth/server";
 import { supabaseAdmin, supabaseEnvReady } from "@/lib/supabase/server";
+import { createClient as createSupabaseClient } from "@supabase/supabase-js";
+import type { Database } from "@/types/database.types";
 import type { Json } from "@/types/database.types";
 import { sendMatterCreatedEmail, sendTaskAssignedEmail, sendInvoiceEmail } from "@/lib/email/actions";
 import { resend, FROM_EMAIL } from "@/lib/email/client";
 import UserInvitationEmail from "@/lib/email/templates/user-invitation";
 import AdminPasswordResetEmail from "@/lib/email/templates/admin-password-reset";
-import { inviteUserSchema, passwordResetSchema } from "@/lib/validation/schemas";
+import { inviteUserSchema, passwordResetSchema, changePasswordSchema } from "@/lib/validation/schemas";
 import { z } from "zod";
 
 type ActionResult = { error?: string; ok?: boolean };
@@ -1396,5 +1398,93 @@ export async function resetPassword(
   } catch (error) {
     console.error("resetPassword error:", error);
     return { success: false, error: "An unexpected error occurred" };
+  }
+}
+
+/**
+ * Change current password (authenticated users)
+ */
+export async function changePassword(
+  currentPassword: string,
+  newPassword: string
+): Promise<{
+  success: boolean;
+  error?: string;
+}> {
+  try {
+    // Get authenticated user
+    const { session, profile } = await getSessionWithProfile();
+    if (!session || !profile) {
+      return { success: false, error: 'You must be signed in to change your password' };
+    }
+
+    // Validate new password using existing schema
+    const validated = changePasswordSchema.safeParse({
+      currentPassword,
+      newPassword,
+      confirmPassword: newPassword, // Self-confirming for server-side
+    });
+
+    if (!validated.success) {
+      // Return the first validation error message
+      const firstError = validated.error.issues?.[0];
+      const errorMessage = firstError?.message || "Invalid password";
+      return { success: false, error: errorMessage };
+    }
+
+    const supabase = supabaseAdmin();
+
+    // Verify current password by attempting to sign in
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+    if (!supabaseUrl || !supabaseAnonKey) {
+      return { success: false, error: 'Authentication service not configured' };
+    }
+
+    const userClient = createSupabaseClient<Database>(supabaseUrl, supabaseAnonKey);
+
+    const { error: verifyError } = await userClient.auth.signInWithPassword({
+      email: session.user.email || '',
+      password: currentPassword,
+    });
+
+    if (verifyError) {
+      console.error('changePassword verify error:', verifyError);
+      return { success: false, error: 'Current password is incorrect' };
+    }
+
+    // Update password using admin client
+    const { error: updateError } = await supabase.auth.admin.updateUserById(
+      session.user.id,
+      { password: newPassword }
+    );
+
+    if (updateError) {
+      console.error('changePassword error:', updateError);
+      return { success: false, error: updateError.message || 'Failed to change password' };
+    }
+
+    // Clear password_must_change flag if it was set
+    await supabase
+      .from('profiles')
+      .update({ password_must_change: false })
+      .eq('user_id', session.user.id);
+
+    // Log to audit trail
+    await supabase.from('audit_logs').insert({
+      actor_id: session.user.id,
+      event_type: 'user.password_changed',
+      entity_type: 'user',
+      entity_id: session.user.id,
+      metadata: {
+        changedBy: profile?.full_name,
+      } as Json,
+    });
+
+    return { success: true };
+  } catch (error) {
+    console.error('changePassword error:', error);
+    return { success: false, error: 'An unexpected error occurred' };
   }
 }

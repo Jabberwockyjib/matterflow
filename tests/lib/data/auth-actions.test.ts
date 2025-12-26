@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { inviteUser, getAllUsers, updateUserRole, deactivateUser, reactivateUser, adminResetPassword, requestPasswordReset, resetPassword } from '@/lib/data/actions'
+import { inviteUser, getAllUsers, updateUserRole, deactivateUser, reactivateUser, adminResetPassword, requestPasswordReset, resetPassword, changePassword } from '@/lib/data/actions'
 import * as auth from '@/lib/auth/server'
 import * as server from '@/lib/supabase/server'
 
@@ -21,6 +21,15 @@ vi.mock('@/lib/email/client', () => ({
 // Mock @react-email/components
 vi.mock('@react-email/components', () => ({
   render: vi.fn().mockReturnValue('<html>mock email</html>'),
+}))
+
+// Mock @supabase/supabase-js for user client
+vi.mock('@supabase/supabase-js', () => ({
+  createClient: vi.fn(() => ({
+    auth: {
+      signInWithPassword: vi.fn().mockResolvedValue({ error: null }),
+    },
+  })),
 }))
 
 // Shared test data and mocks
@@ -101,6 +110,11 @@ const mockSupabase = {
 
 beforeEach(() => {
   vi.clearAllMocks()
+
+  // Set up default environment variables
+  process.env.NEXT_PUBLIC_SUPABASE_URL = 'http://localhost:54321'
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = 'test-anon-key'
+
   vi.spyOn(server, 'supabaseAdmin').mockReturnValue(
     mockSupabase as unknown as ReturnType<typeof server.supabaseAdmin>
   )
@@ -599,5 +613,87 @@ describe('resetPassword', () => {
 
     expect(result.success).toBe(false)
     expect(result.error).toMatch(/token|invalid|expired/i)
+  })
+})
+
+describe('changePassword', () => {
+  it('successfully changes password for authenticated user', async () => {
+    // Set up environment variables for user client creation
+    process.env.NEXT_PUBLIC_SUPABASE_URL = 'http://localhost:54321'
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = 'test-anon-key'
+
+    const mockSupabaseWithPasswordChange = {
+      from: vi.fn((table: string) => {
+        if (table === 'profiles') {
+          return {
+            update: vi.fn().mockReturnValue({
+              eq: vi.fn().mockResolvedValue({ data: null, error: null }),
+            }),
+          }
+        }
+        if (table === 'audit_logs') {
+          return {
+            insert: vi.fn().mockResolvedValue({ error: null }),
+          }
+        }
+        return {}
+      }),
+      auth: {
+        admin: {
+          updateUserById: vi.fn().mockResolvedValue({ error: null }),
+        },
+      },
+    }
+
+    vi.spyOn(server, 'supabaseAdmin').mockReturnValue(
+      mockSupabaseWithPasswordChange as unknown as ReturnType<typeof server.supabaseAdmin>
+    )
+
+    const result = await changePassword('OldPassword123', 'NewPassword123')
+
+    expect(result.success).toBe(true)
+  })
+
+  it('validates new password requirements', async () => {
+    const result = await changePassword('OldPassword123', 'weak')
+
+    expect(result.success).toBe(false)
+    expect(result.error).toMatch(/password/i)
+  })
+
+  it('rejects unauthenticated requests', async () => {
+    vi.spyOn(auth, 'getSessionWithProfile').mockResolvedValue({
+      session: null,
+      profile: null,
+    } as any)
+
+    const result = await changePassword('OldPassword123', 'NewPassword123')
+
+    expect(result.success).toBe(false)
+    expect(result.error).toMatch(/authenticated|signed in/i)
+  })
+
+  it('validates new password is different from current', async () => {
+    const result = await changePassword('SamePassword123', 'SamePassword123')
+
+    expect(result.success).toBe(false)
+    expect(result.error).toMatch(/different/i)
+  })
+
+  it('handles incorrect current password', async () => {
+    // Mock createClient to return error for wrong password
+    const { createClient } = await import('@supabase/supabase-js')
+    vi.mocked(createClient).mockReturnValueOnce({
+      auth: {
+        signInWithPassword: vi.fn().mockResolvedValue({
+          error: { message: 'Invalid login credentials' }
+        }),
+      },
+    } as any)
+
+    const result = await changePassword('WrongPassword123', 'NewPassword123')
+
+    expect(result.success).toBe(false)
+    expect(result.error).toBeDefined()
   })
 })
