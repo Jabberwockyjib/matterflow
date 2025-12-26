@@ -1090,3 +1090,91 @@ export async function updateUserRole(
     return { success: false, error: "An unexpected error occurred" };
   }
 }
+
+/**
+ * Deactivate a user account (admin only)
+ */
+export async function deactivateUser(userId: string): Promise<{
+  success: boolean;
+  error?: string;
+}> {
+  try {
+    const { profile } = await getSessionWithProfile();
+    if (profile?.role !== "admin") {
+      return { success: false, error: "Only admins can deactivate users" };
+    }
+
+    const supabase = supabaseAdmin();
+
+    // Update profile status
+    const { error } = await supabase
+      .from("profiles")
+      .update({ status: "inactive" })
+      .eq("user_id", userId);
+
+    if (error) {
+      console.error("deactivateUser error:", error);
+      return { success: false, error: "Failed to deactivate user" };
+    }
+
+    // Log to audit trail
+    await supabase.from("audit_logs").insert({
+      actor_id: profile?.user_id,
+      event_type: "user.deactivated",
+      entity_type: "user",
+      entity_id: userId,
+      metadata: {
+        deactivatedBy: profile?.full_name,
+      } as Json,
+    });
+
+    return { success: true };
+  } catch (error) {
+    console.error("deactivateUser error:", error);
+    return { success: false, error: "An unexpected error occurred" };
+  }
+}
+
+/**
+ * Reactivate a user account (admin only)
+ */
+export async function reactivateUser(userId: string): Promise<{
+  success: boolean;
+  error?: string;
+}> {
+  try {
+    const { profile } = await getSessionWithProfile();
+    if (profile?.role !== "admin") {
+      return { success: false, error: "Only admins can reactivate users" };
+    }
+
+    const supabase = supabaseAdmin();
+
+    // Update profile status
+    const { error } = await supabase
+      .from("profiles")
+      .update({ status: "active" })
+      .eq("user_id", userId);
+
+    if (error) {
+      console.error("reactivateUser error:", error);
+      return { success: false, error: "Failed to reactivate user" };
+    }
+
+    // Log to audit trail
+    await supabase.from("audit_logs").insert({
+      actor_id: profile?.user_id,
+      event_type: "user.reactivated",
+      entity_type: "user",
+      entity_id: userId,
+      metadata: {
+        reactivatedBy: profile?.full_name,
+      } as Json,
+    });
+
+    return { success: true };
+  } catch (error) {
+    console.error("reactivateUser error:", error);
+    return { success: false, error: "An unexpected error occurred" };
+  }
+}
