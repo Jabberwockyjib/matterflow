@@ -15,6 +15,17 @@ import { inviteUserSchema } from "@/lib/validation/schemas";
 type ActionResult = { error?: string; ok?: boolean };
 type InviteUserResult = { success: boolean; data?: { userId: string }; error?: string };
 
+export type UserWithProfile = {
+  userId: string;
+  email: string;
+  fullName: string | null;
+  role: "admin" | "staff" | "client";
+  status: "active" | "inactive";
+  lastLogin: string | null;
+  invitedAt: string | null;
+  invitedBy: string | null;
+};
+
 const ensureSupabase = () => {
   if (!supabaseEnvReady()) {
     throw new Error("Supabase environment variables are not set");
@@ -965,6 +976,64 @@ export async function inviteUser(data: {
     };
   } catch (error) {
     console.error("inviteUser error:", error);
+    return { success: false, error: "An unexpected error occurred" };
+  }
+}
+
+/**
+ * Get all users (admin only)
+ */
+export async function getAllUsers(): Promise<{
+  success: boolean;
+  data?: UserWithProfile[];
+  error?: string;
+}> {
+  try {
+    const { profile } = await getSessionWithProfile();
+    if (profile?.role !== "admin") {
+      return { success: false, error: "Only admins can view all users" };
+    }
+
+    const supabase = supabaseAdmin();
+
+    const { data: profiles, error } = await supabase
+      .from("profiles")
+      .select(`
+        user_id,
+        full_name,
+        role,
+        status,
+        last_login,
+        invited_at,
+        invited_by
+      `)
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      console.error("getAllUsers error:", error);
+      return { success: false, error: "Failed to fetch users" };
+    }
+
+    // Get emails from auth.users
+    const userIds = profiles.map((p) => p.user_id);
+    const { data: authUsers } = await supabase.auth.admin.listUsers();
+
+    const usersMap = new Map(authUsers.users.map((u) => [u.id, u.email]));
+
+    const users: UserWithProfile[] = profiles.map((p) => ({
+      userId: p.user_id,
+      email: usersMap.get(p.user_id) || "",
+      fullName: p.full_name,
+      role: p.role,
+      status: p.status as "active" | "inactive",
+      lastLogin: p.last_login,
+      invitedAt: p.invited_at,
+      invitedBy: p.invited_by,
+    }));
+
+    return { success: true, data: users };
+  } catch (error) {
+    console.error("getAllUsers error:", error);
     return { success: false, error: "An unexpected error occurred" };
   }
 }

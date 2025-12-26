@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { inviteUser } from '@/lib/data/actions'
+import { inviteUser, getAllUsers } from '@/lib/data/actions'
 import * as auth from '@/lib/auth/server'
 import * as server from '@/lib/supabase/server'
 
@@ -23,56 +23,94 @@ vi.mock('@react-email/components', () => ({
   render: vi.fn().mockReturnValue('<html>mock email</html>'),
 }))
 
-describe('inviteUser', () => {
-  const mockAuthUser = {
-    user: {
-      id: 'new-user-id',
-      email: 'newuser@example.com',
-    },
-  }
+// Shared test data and mocks
+const mockAuthUser = {
+  user: {
+    id: 'new-user-id',
+    email: 'newuser@example.com',
+  },
+}
 
-  const mockSupabase = {
-    from: vi.fn((table: string) => {
-      if (table === 'profiles') {
-        return {
-          select: vi.fn().mockReturnValue({
+const mockProfilesData = [
+  {
+    user_id: 'admin-id',
+    full_name: 'Admin User',
+    role: 'admin',
+    status: 'active',
+    last_login: '2025-01-01T00:00:00Z',
+    invited_at: '2024-12-01T00:00:00Z',
+    invited_by: null,
+  },
+  {
+    user_id: 'staff-id',
+    full_name: 'Staff User',
+    role: 'staff',
+    status: 'active',
+    last_login: null,
+    invited_at: '2024-12-15T00:00:00Z',
+    invited_by: 'admin-id',
+  },
+]
+
+const mockSupabase = {
+  from: vi.fn((table: string) => {
+    if (table === 'profiles') {
+      return {
+        select: vi.fn(() => {
+          // Return both order and eq to support different query patterns
+          return {
+            order: vi.fn().mockResolvedValue({
+              data: mockProfilesData,
+              error: null,
+            }),
             eq: vi.fn().mockReturnValue({
               single: vi.fn().mockResolvedValue({ data: null, error: null }),
             }),
+          }
+        }),
+        insert: vi.fn().mockReturnValue({
+          select: vi.fn().mockReturnValue({
+            single: vi.fn().mockResolvedValue({ data: { user_id: 'new-user-id' }, error: null }),
           }),
-          insert: vi.fn().mockReturnValue({
-            select: vi.fn().mockReturnValue({
-              single: vi.fn().mockResolvedValue({ data: { user_id: 'new-user-id' }, error: null }),
-            }),
-          }),
-        }
+        }),
       }
-      if (table === 'audit_logs') {
-        return {
-          insert: vi.fn().mockResolvedValue({ error: null }),
-        }
+    }
+    if (table === 'audit_logs') {
+      return {
+        insert: vi.fn().mockResolvedValue({ error: null }),
       }
-      return {}
-    }),
-    auth: {
-      admin: {
-        createUser: vi.fn().mockResolvedValue({ data: mockAuthUser, error: null }),
-        deleteUser: vi.fn().mockResolvedValue({ error: null }),
-        listUsers: vi.fn().mockResolvedValue({ data: { users: [] }, error: null }),
-      },
+    }
+    return {}
+  }),
+  auth: {
+    admin: {
+      createUser: vi.fn().mockResolvedValue({ data: mockAuthUser, error: null }),
+      deleteUser: vi.fn().mockResolvedValue({ error: null }),
+      listUsers: vi.fn().mockResolvedValue({
+        data: {
+          users: [
+            { id: 'admin-id', email: 'admin@example.com' },
+            { id: 'staff-id', email: 'staff@example.com' },
+          ],
+        },
+        error: null,
+      }),
     },
-  }
+  },
+}
 
-  beforeEach(() => {
-    vi.clearAllMocks()
-    vi.spyOn(server, 'supabaseAdmin').mockReturnValue(
-      mockSupabase as unknown as ReturnType<typeof server.supabaseAdmin>
-    )
-    vi.spyOn(auth, 'getSessionWithProfile').mockResolvedValue({
-      session: { user: { id: 'admin-id', email: 'admin@example.com' } },
-      profile: { full_name: 'Admin', role: 'admin' },
-    } as unknown as Awaited<ReturnType<typeof auth.getSessionWithProfile>>)
-  })
+beforeEach(() => {
+  vi.clearAllMocks()
+  vi.spyOn(server, 'supabaseAdmin').mockReturnValue(
+    mockSupabase as unknown as ReturnType<typeof server.supabaseAdmin>
+  )
+  vi.spyOn(auth, 'getSessionWithProfile').mockResolvedValue({
+    session: { user: { id: 'admin-id', email: 'admin@example.com' } },
+    profile: { full_name: 'Admin', role: 'admin' },
+  } as unknown as Awaited<ReturnType<typeof auth.getSessionWithProfile>>)
+})
+
+describe('inviteUser', () => {
 
   it('successfully invites a new user', async () => {
     const result = await inviteUser({
@@ -210,5 +248,26 @@ describe('inviteUser', () => {
 
     expect(result.success).toBe(false)
     expect(mockSupabaseWithProfileError.auth.admin.deleteUser).toHaveBeenCalledWith('new-user-id')
+  })
+})
+
+describe('getAllUsers', () => {
+  it('returns all users for admin', async () => {
+    const result = await getAllUsers()
+
+    expect(result.success).toBe(true)
+    expect(Array.isArray(result.data)).toBe(true)
+  })
+
+  it('rejects non-admin users', async () => {
+    vi.spyOn(auth, 'getSessionWithProfile').mockResolvedValue({
+      session: { user: { id: 'staff-id' } },
+      profile: { full_name: 'Staff', role: 'staff' },
+    } as any)
+
+    const result = await getAllUsers()
+
+    expect(result.success).toBe(false)
+    expect(result.error).toContain('admin')
   })
 })
