@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { inviteUser } from '@/lib/data/actions'
 import { Button } from '@/components/ui/button'
 import {
@@ -23,6 +24,7 @@ import {
 } from '@/components/ui/select'
 
 export function InviteUserModal() {
+  const router = useRouter()
   const [open, setOpen] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -45,7 +47,8 @@ export function InviteUserModal() {
         setFullName('')
         setRole('client')
         setOpen(false)
-        // Optionally: show success toast or reload user list
+        // Refresh the page to show the new user
+        router.refresh()
       } else {
         setError(result.error || 'Failed to invite user')
       }
