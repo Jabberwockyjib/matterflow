@@ -57,8 +57,8 @@ export type ClientInvitation = {
   matterType: string | null;
   notes: string | null;
   status: string;
-  invitedAt: string;
-  expiresAt: string;
+  invitedAt: string | null;
+  expiresAt: string | null;
   daysAgo: number;
 };
 
@@ -67,7 +67,7 @@ export type IntakeReview = {
   matterId: string;
   formType: string;
   reviewStatus: string;
-  submittedAt: string;
+  submittedAt: string | null;
   responses: Record<string, any>;
   internalNotes: string | null;
   isNew: boolean;
@@ -673,11 +673,13 @@ export async function fetchClientInvitations(): Promise<{
       matterType: inv.matter_type,
       notes: inv.notes,
       status: inv.status,
-      invitedAt: inv.invited_at || "",
-      expiresAt: inv.expires_at || "",
-      daysAgo: Math.floor(
-        (now.getTime() - new Date(inv.invited_at || 0).getTime()) / (1000 * 60 * 60 * 24)
-      ),
+      invitedAt: inv.invited_at,
+      expiresAt: inv.expires_at,
+      daysAgo: inv.invited_at
+        ? Math.floor(
+            (now.getTime() - new Date(inv.invited_at).getTime()) / (1000 * 60 * 60 * 24)
+          )
+        : 0,
     }));
 
     return {
@@ -761,13 +763,12 @@ export async function fetchIntakesByReviewStatus(): Promise<{
       matterId: intake.matter_id,
       formType: intake.form_type,
       reviewStatus: intake.review_status || "pending",
-      submittedAt: intake.submitted_at || "",
+      submittedAt: intake.submitted_at,
       responses: (intake.responses as Record<string, any>) || {},
       internalNotes: intake.internal_notes,
-      isNew: Boolean(
-        intake.submitted_at &&
-        now.getTime() - new Date(intake.submitted_at).getTime() < 24 * 60 * 60 * 1000
-      ),
+      isNew: intake.submitted_at
+        ? now.getTime() - new Date(intake.submitted_at).getTime() < 24 * 60 * 60 * 1000
+        : false,
     }));
 
     return {

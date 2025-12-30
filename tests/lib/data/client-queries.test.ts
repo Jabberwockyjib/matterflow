@@ -53,6 +53,81 @@ describe('fetchClientInvitations', () => {
     expect(result.source).toBe('mock')
     expect(result.pending.length).toBeGreaterThan(0)
   })
+
+  it('handles database errors gracefully', async () => {
+    vi.spyOn(server, 'supabaseEnvReady').mockReturnValue(true)
+    vi.spyOn(server, 'supabaseAdmin').mockReturnValue({
+      from: vi.fn(() => ({
+        select: vi.fn(() => ({
+          order: vi.fn().mockResolvedValue({
+            data: null,
+            error: { message: 'Database connection failed' },
+          }),
+        })),
+      })),
+    } as any)
+
+    const result = await fetchClientInvitations()
+
+    expect(result.error).toBe('Database connection failed')
+    expect(result.pending).toEqual([])
+    expect(result.completed).toEqual([])
+    expect(result.expired).toEqual([])
+  })
+
+  it('handles empty results', async () => {
+    vi.spyOn(server, 'supabaseEnvReady').mockReturnValue(true)
+    vi.spyOn(server, 'supabaseAdmin').mockReturnValue({
+      from: vi.fn(() => ({
+        select: vi.fn(() => ({
+          order: vi.fn().mockResolvedValue({
+            data: [],
+            error: null,
+          }),
+        })),
+      })),
+    } as any)
+
+    const result = await fetchClientInvitations()
+
+    expect(result.pending).toEqual([])
+    expect(result.completed).toEqual([])
+    expect(result.expired).toEqual([])
+    expect(result.source).toBe('supabase')
+  })
+
+  it('handles null invited_at dates', async () => {
+    vi.spyOn(server, 'supabaseEnvReady').mockReturnValue(true)
+    vi.spyOn(server, 'supabaseAdmin').mockReturnValue({
+      from: vi.fn(() => ({
+        select: vi.fn(() => ({
+          order: vi.fn().mockResolvedValue({
+            data: [
+              {
+                id: '1',
+                invite_code: 'ABC123',
+                client_name: 'Test Client',
+                client_email: 'test@example.com',
+                matter_type: 'Contract Review',
+                status: 'pending',
+                invited_at: null,
+                expires_at: null,
+                notes: null,
+              },
+            ],
+            error: null,
+          }),
+        })),
+      })),
+    } as any)
+
+    const result = await fetchClientInvitations()
+
+    expect(result.pending).toHaveLength(1)
+    expect(result.pending[0].invitedAt).toBeNull()
+    expect(result.pending[0].expiresAt).toBeNull()
+    expect(result.pending[0].daysAgo).toBe(0)
+  })
 })
 
 describe('fetchIntakesByReviewStatus', () => {
@@ -98,5 +173,81 @@ describe('fetchIntakesByReviewStatus', () => {
 
     expect(result.source).toBe('mock')
     expect(result.pending.length).toBeGreaterThan(0)
+  })
+
+  it('handles database errors gracefully', async () => {
+    vi.spyOn(server, 'supabaseEnvReady').mockReturnValue(true)
+    vi.spyOn(server, 'supabaseAdmin').mockReturnValue({
+      from: vi.fn(() => ({
+        select: vi.fn(() => ({
+          in: vi.fn(() => ({
+            order: vi.fn().mockResolvedValue({
+              data: null,
+              error: { message: 'Database connection failed' },
+            }),
+          })),
+        })),
+      })),
+    } as any)
+
+    const result = await fetchIntakesByReviewStatus()
+
+    expect(result.error).toBe('Database connection failed')
+    expect(result.pending).toEqual([])
+    expect(result.underReview).toEqual([])
+  })
+
+  it('handles empty results', async () => {
+    vi.spyOn(server, 'supabaseEnvReady').mockReturnValue(true)
+    vi.spyOn(server, 'supabaseAdmin').mockReturnValue({
+      from: vi.fn(() => ({
+        select: vi.fn(() => ({
+          in: vi.fn(() => ({
+            order: vi.fn().mockResolvedValue({
+              data: [],
+              error: null,
+            }),
+          })),
+        })),
+      })),
+    } as any)
+
+    const result = await fetchIntakesByReviewStatus()
+
+    expect(result.pending).toEqual([])
+    expect(result.underReview).toEqual([])
+    expect(result.source).toBe('supabase')
+  })
+
+  it('handles null submitted_at dates', async () => {
+    vi.spyOn(server, 'supabaseEnvReady').mockReturnValue(true)
+    vi.spyOn(server, 'supabaseAdmin').mockReturnValue({
+      from: vi.fn(() => ({
+        select: vi.fn(() => ({
+          in: vi.fn(() => ({
+            order: vi.fn().mockResolvedValue({
+              data: [
+                {
+                  id: '1',
+                  matter_id: 'matter-1',
+                  form_type: 'Contract Review',
+                  review_status: 'pending',
+                  submitted_at: null,
+                  responses: { client_name: 'John Doe' },
+                  internal_notes: null,
+                },
+              ],
+              error: null,
+            }),
+          })),
+        })),
+      })),
+    } as any)
+
+    const result = await fetchIntakesByReviewStatus()
+
+    expect(result.pending).toHaveLength(1)
+    expect(result.pending[0].submittedAt).toBeNull()
+    expect(result.pending[0].isNew).toBe(false)
   })
 })
