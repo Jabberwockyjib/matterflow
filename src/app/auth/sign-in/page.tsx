@@ -1,6 +1,7 @@
 "use client";
 
-import { useSearchParams } from "next/navigation";
+import { useEffect, useState } from "react";
+import { useSearchParams, useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Mail, ShieldCheck } from "lucide-react";
@@ -15,8 +16,25 @@ import { useUnsavedChanges } from "@/hooks/useUnsavedChanges";
 import { showSuccess, showError } from "@/lib/toast";
 
 export default function SignInPage() {
+  const supabase = supabaseBrowser();
   const searchParams = useSearchParams();
+  const router = useRouter();
   const redirect = searchParams.get("redirect") || "/";
+  const [isCheckingAuth, setIsCheckingAuth] = useState(true);
+
+  // Check if user is already logged in
+  useEffect(() => {
+    const checkAuth = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session) {
+        // Already logged in, redirect to dashboard
+        router.push(redirect);
+      } else {
+        setIsCheckingAuth(false);
+      }
+    };
+    checkAuth();
+  }, [supabase, router, redirect]);
 
   // Initialize React Hook Form with Zod validation
   const {
@@ -72,6 +90,19 @@ export default function SignInPage() {
       console.log('[Sign-in] Sign-in successful, AuthListener will handle redirect');
     }
   };
+
+  // Show loading while checking auth
+  if (isCheckingAuth) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-slate-50 px-4">
+        <Card className="w-full max-w-md border-slate-200">
+          <CardContent className="p-8 text-center">
+            <p className="text-slate-600">Checking authentication...</p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-slate-50 px-4">

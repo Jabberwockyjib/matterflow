@@ -21,10 +21,12 @@ describe("MatterCard", () => {
       title: "Test Matter",
       stage: "Active",
       nextAction: "Review documents",
+      nextActionDueDate: "2024-06-18", // 3 days from reference
       responsibleParty: "lawyer",
       billingModel: "hourly",
       matterType: "Contract Review",
       updatedAt: referenceDate.toISOString(),
+      createdAt: referenceDate.toISOString(),
       clientName: "Test Client",
       dueDate: "2024-06-18", // 3 days from reference
       ...overrides,
@@ -74,15 +76,15 @@ describe("MatterCard", () => {
     });
 
     it("shows fallback text for null next action", () => {
-      const matter = createMatter({ nextAction: null });
+      const matter = createMatter({ nextAction: "" });
       const element = renderMatterCard(matter);
 
       expect(element).toBeDefined();
       // Component should render "No next action" for null nextAction
     });
 
-    it("does not render due date badge when dueDate is null", () => {
-      const matter = createMatter({ dueDate: null });
+    it("does not render due date badge when dueDate is far future", () => {
+      const matter = createMatter({ dueDate: "2099-12-31", nextActionDueDate: "2099-12-31" });
       const element = renderMatterCard(matter);
 
       expect(element).toBeDefined();
@@ -200,10 +202,12 @@ describe("MatterCard integration with types", () => {
       title: "Test Title",
       stage: "Active",
       nextAction: "Test action",
+      nextActionDueDate: "2024-06-18",
       responsibleParty: "lawyer",
       billingModel: "hourly",
       matterType: "Contract",
       updatedAt: new Date().toISOString(),
+      createdAt: new Date().toISOString(),
       clientName: "Test Client",
       dueDate: "2024-06-18",
     };
@@ -213,18 +217,20 @@ describe("MatterCard integration with types", () => {
     expect(element).toBeDefined();
   });
 
-  it("handles all nullable fields", () => {
+  it("handles nullable clientName field", () => {
     const matter: MatterSummary = {
       id: "test-id",
       title: "Test Title",
       stage: "Active",
-      nextAction: null,
+      nextAction: "Review",
+      nextActionDueDate: "2024-06-18",
       responsibleParty: "lawyer",
       billingModel: "hourly",
       matterType: "Contract",
       updatedAt: new Date().toISOString(),
+      createdAt: new Date().toISOString(),
       clientName: null,
-      dueDate: null,
+      dueDate: "2024-06-18",
     };
 
     const element = MatterCard({ matter });

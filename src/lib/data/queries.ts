@@ -280,6 +280,50 @@ export async function fetchTasks(): Promise<{
   }
 }
 
+export async function fetchTasksForMatter(matterId: string): Promise<{
+  data: TaskSummary[];
+  source: DataSource;
+  error?: string;
+}> {
+  if (!supabaseEnvReady()) {
+    return { data: taskFallback.filter(t => t.matterId === matterId), source: "mock" };
+  }
+
+  try {
+    const supabase = supabaseAdmin();
+    const { data, error } = await supabase
+      .from("tasks")
+      .select(
+        "id,title,due_date,status,responsible_party,matter_id",
+      )
+      .eq("matter_id", matterId)
+      .order("due_date", { ascending: true, nullsFirst: true });
+
+    if (error || !data) {
+      return {
+        data: taskFallback.filter(t => t.matterId === matterId),
+        source: "mock",
+        error: error?.message || "No task data returned",
+      };
+    }
+
+    return {
+      data: data.map((row) => ({
+        id: row.id,
+        title: row.title,
+        dueDate: row.due_date,
+        status: row.status,
+        responsibleParty: row.responsible_party,
+        matterId: row.matter_id,
+      })),
+      source: "supabase",
+    };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Unknown error";
+    return { data: taskFallback.filter(t => t.matterId === matterId), source: "mock", error: message };
+  }
+}
+
 export async function fetchInvoices(): Promise<{
   data: InvoiceSummary[];
   source: DataSource;
@@ -363,6 +407,52 @@ export async function fetchTimeEntries(): Promise<{
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown error";
     return { data: timeFallback, source: "mock", error: message };
+  }
+}
+
+export async function fetchTimeEntriesForMatter(matterId: string): Promise<{
+  data: TimeEntrySummary[];
+  source: DataSource;
+  error?: string;
+}> {
+  if (!supabaseEnvReady()) {
+    return { data: timeFallback.filter(t => t.matterId === matterId), source: "mock" };
+  }
+
+  try {
+    const supabase = supabaseAdmin();
+    const { data, error } = await supabase
+      .from("time_entries")
+      .select(
+        "id,matter_id,task_id,status,description,duration_minutes,started_at,ended_at",
+      )
+      .eq("matter_id", matterId)
+      .order("started_at", { ascending: false });
+
+    if (error || !data) {
+      return {
+        data: timeFallback.filter(t => t.matterId === matterId),
+        source: "mock",
+        error: error?.message || "No time entry data returned",
+      };
+    }
+
+    return {
+      data: data.map((row) => ({
+        id: row.id,
+        matterId: row.matter_id,
+        taskId: row.task_id,
+        status: row.status,
+        description: row.description,
+        durationMinutes: row.duration_minutes,
+        startedAt: row.started_at,
+        endedAt: row.ended_at,
+      })),
+      source: "supabase",
+    };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Unknown error";
+    return { data: timeFallback.filter(t => t.matterId === matterId), source: "mock", error: message };
   }
 }
 
@@ -780,4 +870,126 @@ export async function fetchIntakesByReviewStatus(): Promise<{
     const message = err instanceof Error ? err.message : "Unknown error";
     return { pending: [], underReview: [], source: "supabase", error: message };
   }
+}
+
+/**
+ * Practice Settings
+ */
+
+export type PracticeSettings = {
+  id: string;
+  firmName: string;
+  contactEmail: string | null;
+  contactPhone: string | null;
+  address: string | null;
+  defaultHourlyRate: number | null;
+  paymentTermsDays: number;
+  lateFeePercentage: number;
+  autoRemindersEnabled: boolean;
+  matterTypes: string[];
+  createdAt: string;
+  updatedAt: string;
+};
+
+export async function getPracticeSettings(): Promise<{
+  data: PracticeSettings | null;
+  source: "supabase" | "mock";
+}> {
+  if (!supabaseEnvReady()) {
+    return {
+      data: {
+        id: "mock-settings",
+        firmName: "Mock Law Firm",
+        contactEmail: "contact@mocklaw.com",
+        contactPhone: "(555) 123-4567",
+        address: "123 Main St, Suite 100\nMock City, MC 12345",
+        defaultHourlyRate: 250.0,
+        paymentTermsDays: 30,
+        lateFeePercentage: 5.0,
+        autoRemindersEnabled: true,
+        matterTypes: [
+          "Contract Review",
+          "Employment Agreement",
+          "Policy Review",
+          "Litigation",
+        ],
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      },
+      source: "mock" as const,
+    };
+  }
+
+  const supabase = supabaseAdmin();
+  const { data, error } = await supabase
+    .from("practice_settings")
+    .select("*")
+    .maybeSingle();
+
+  if (error) {
+    console.error("Error fetching practice settings:", error);
+    return { data: null, source: "supabase" as const };
+  }
+
+  if (!data) {
+    return { data: null, source: "supabase" as const };
+  }
+
+  return {
+    data: {
+      id: data.id,
+      firmName: data.firm_name,
+      contactEmail: data.contact_email,
+      contactPhone: data.contact_phone,
+      address: data.address,
+      defaultHourlyRate: data.default_hourly_rate,
+      paymentTermsDays: data.payment_terms_days,
+      lateFeePercentage: data.late_fee_percentage,
+      autoRemindersEnabled: data.auto_reminders_enabled,
+      matterTypes: (data.matter_types as string[]) || [],
+      createdAt: data.created_at,
+      updatedAt: data.updated_at,
+    },
+    source: "supabase" as const,
+  };
+}
+
+/**
+ * Fetch all client users (role='client')
+ */
+export async function fetchClients(): Promise<{
+  data: Array<{ id: string; fullName: string }>;
+  source: "supabase" | "mock";
+}> {
+  if (!supabaseEnvReady()) {
+    return {
+      data: [
+        {
+          id: "00000000-0000-0000-0000-000000000002",
+          fullName: "Client One",
+        },
+      ],
+      source: "mock",
+    };
+  }
+
+  const supabase = supabaseAdmin();
+  const { data, error } = await supabase
+    .from("profiles")
+    .select("user_id, full_name")
+    .eq("role", "client")
+    .order("full_name");
+
+  if (error) {
+    console.error("Error fetching clients:", error);
+    return { data: [], source: "supabase" };
+  }
+
+  return {
+    data: (data || []).map((client) => ({
+      id: client.user_id,
+      fullName: client.full_name,
+    })),
+    source: "supabase",
+  };
 }

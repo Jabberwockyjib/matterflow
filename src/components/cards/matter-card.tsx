@@ -1,4 +1,5 @@
 import * as React from "react";
+import Link from "next/link";
 import { cn, isOverdue, formatDueDate } from "@/lib/utils";
 
 export interface MatterCardProps extends React.HTMLAttributes<HTMLDivElement> {
@@ -42,16 +43,17 @@ export function MatterCard({
   const overdue = isOverdue(nextActionDueDate);
 
   return (
-    <div
-      className={cn(
-        "group relative overflow-hidden rounded-xl border-2 bg-white transition-all duration-300 hover:shadow-xl hover:-translate-y-1",
-        overdue
-          ? "border-red-400 bg-red-50 shadow-lg ring-2 ring-red-400/30 dark:border-red-700 dark:bg-red-950"
-          : "border-border shadow-md",
-        className
-      )}
-      {...props}
-    >
+    <Link href={`/matters/${id}`} className="block">
+      <div
+        className={cn(
+          "group relative overflow-hidden rounded-xl border-2 bg-white transition-all duration-300 hover:shadow-xl hover:-translate-y-1 cursor-pointer",
+          overdue
+            ? "border-red-400 bg-red-50 shadow-lg ring-2 ring-red-400/30 dark:border-red-700 dark:bg-red-950"
+            : "border-border shadow-md",
+          className
+        )}
+        {...props}
+      >
       {/* Decorative corner accent */}
       {overdue ? (
         <>
@@ -147,6 +149,7 @@ export function MatterCard({
           </span>
         </div>
       </div>
-    </div>
+      </div>
+    </Link>
   );
 }

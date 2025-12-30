@@ -14,17 +14,24 @@ vi.mock('next/navigation', () => ({
       return null
     }),
   })),
+  useRouter: vi.fn(() => ({
+    push: vi.fn(),
+    replace: vi.fn(),
+    back: vi.fn(),
+  })),
 }))
 
 // Mock the supabase client module
 const mockSignInWithPassword = vi.fn()
 const mockSignOut = vi.fn()
+const mockGetSession = vi.fn()
 
 vi.mock('@/lib/supabase/client', () => ({
   supabaseBrowser: vi.fn(() => ({
     auth: {
       signInWithPassword: mockSignInWithPassword,
       signOut: mockSignOut,
+      getSession: mockGetSession,
     },
   })),
 }))
@@ -36,6 +43,8 @@ const mockReload = vi.fn()
 describe('Authentication Flow Tests', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    // Mock getSession to return no session by default (user not logged in)
+    mockGetSession.mockResolvedValue({ data: { session: null }, error: null })
     // Mock window.location
     Object.defineProperty(window, 'location', {
       value: {
@@ -55,7 +64,10 @@ describe('Authentication Flow Tests', () => {
     it('renders login form with email and password inputs', async () => {
       const { user } = renderWithUser(<SignInPage />)
 
-      expect(screen.getByLabelText(/email/i)).toBeInTheDocument()
+      // Wait for auth check to complete and form to appear
+      await waitFor(() => {
+        expect(screen.getByLabelText(/email/i)).toBeInTheDocument()
+      })
       expect(screen.getByLabelText(/password/i)).toBeInTheDocument()
       expect(screen.getByRole('button', { name: /sign in/i })).toBeInTheDocument()
     })
@@ -69,6 +81,11 @@ describe('Authentication Flow Tests', () => {
 
     it('enables submit button when email and password are filled', async () => {
       const { user } = renderWithUser(<SignInPage />)
+
+      // Wait for auth check to complete and form to appear
+      await waitFor(() => {
+        expect(screen.getByLabelText(/email/i)).toBeInTheDocument()
+      })
 
       const emailInput = screen.getByLabelText(/email/i)
       const passwordInput = screen.getByLabelText(/password/i)
@@ -87,6 +104,11 @@ describe('Authentication Flow Tests', () => {
       })
 
       const { user } = renderWithUser(<SignInPage />)
+
+      // Wait for auth check to complete and form to appear
+      await waitFor(() => {
+        expect(screen.getByLabelText(/email/i)).toBeInTheDocument()
+      })
 
       const emailInput = screen.getByLabelText(/email/i)
       const passwordInput = screen.getByLabelText(/password/i)
@@ -166,16 +188,17 @@ describe('Authentication Flow Tests', () => {
   })
 
   describe('AuthWidget', () => {
-    it('displays sign in link when no email is provided', () => {
+    it('shows nothing when no email is provided', () => {
       renderWithUser(<AuthWidget />)
 
-      expect(screen.getByText(/sign in via/i)).toBeInTheDocument()
+      // Auth widget shows nothing when not authenticated
+      expect(screen.queryByRole('button')).not.toBeInTheDocument()
     })
 
-    it('displays email and sign out button when email is provided', () => {
+    it('displays sign out button when email is provided', () => {
       renderWithUser(<AuthWidget email="test@example.com" />)
 
-      expect(screen.getByText('test@example.com')).toBeInTheDocument()
+      // Auth widget only shows sign out button, email is in sidebar/topbar
       expect(screen.getByRole('button', { name: /sign out/i })).toBeInTheDocument()
     })
 
@@ -219,19 +242,19 @@ describe('Authentication Flow Tests', () => {
   })
 
   describe('Protected Route Access', () => {
-    it('unauthenticated users see sign in prompt', () => {
+    it('unauthenticated users do not see sign out button', () => {
       renderWithUser(<AuthWidget email={null} />)
 
-      expect(screen.getByText(/sign in via/i)).toBeInTheDocument()
+      // Auth widget shows nothing when not authenticated
       expect(screen.queryByRole('button', { name: /sign out/i })).not.toBeInTheDocument()
     })
 
-    it('authenticated users see their email and sign out option', () => {
+    it('authenticated users see sign out button', () => {
       const testUser = mockUser({ email: 'authenticated@example.com' })
 
       renderWithUser(<AuthWidget email={testUser.email} />)
 
-      expect(screen.getByText(testUser.email)).toBeInTheDocument()
+      // Auth widget only shows sign out button, email is displayed in sidebar/topbar
       expect(screen.getByRole('button', { name: /sign out/i })).toBeInTheDocument()
     })
   })

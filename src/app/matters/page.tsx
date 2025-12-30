@@ -1,6 +1,6 @@
 import { ArrowRight } from "lucide-react";
 
-import { fetchMatters } from "@/lib/data/queries";
+import { fetchMatters, fetchClients } from "@/lib/data/queries";
 import { createMatter, updateMatterStage } from "@/lib/data/actions";
 import { getSessionWithProfile } from "@/lib/auth/server";
 import { supabaseEnvReady } from "@/lib/supabase/server";
@@ -22,6 +22,7 @@ async function handleUpdateMatter(formData: FormData): Promise<void> {
 
 export default async function MattersPage() {
   const { data: matters, source, error } = await fetchMatters();
+  const { data: clients } = await fetchClients();
   const { session } = await getSessionWithProfile();
   const supabaseReady = supabaseEnvReady();
 
@@ -88,6 +89,27 @@ export default async function MattersPage() {
                     placeholder="Matter title"
                     className="w-full rounded-md border border-slate-200 px-3 py-2 text-sm dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100"
                   />
+                </label>
+
+                {/* Client */}
+                <label className="text-sm text-slate-700 dark:text-slate-300">
+                  <span className="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                    Client (Optional)
+                  </span>
+                  <select
+                    name="clientId"
+                    className="w-full rounded-md border border-slate-200 px-3 py-2 text-sm dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100"
+                  >
+                    <option value="">No client (lead only)</option>
+                    {clients.map((client) => (
+                      <option key={client.id} value={client.id}>
+                        {client.fullName}
+                      </option>
+                    ))}
+                  </select>
+                  <p className="mt-1 text-xs text-slate-500">
+                    If client is selected, intake automation will trigger
+                  </p>
                 </label>
 
                 {/* Matter Type */}

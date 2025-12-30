@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
+import { revalidatePath } from "next/cache";
 import { getTokensFromCode } from "@/lib/google-drive/client";
 import { supabaseAdmin } from "@/lib/supabase/server";
-import { cookies } from "next/headers";
+import { getSessionWithProfile } from "@/lib/auth/server";
 
 /**
  * Handle Google OAuth callback
@@ -51,36 +52,40 @@ export async function GET(request: Request) {
       );
     }
 
-    // Get current user from session cookie
-    const cookieStore = await cookies();
-    const accessToken = cookieStore.get("sb-access-token")?.value;
+    // Get current user from Supabase session
+    const { session } = await getSessionWithProfile();
 
-    if (!accessToken) {
+    if (!session) {
       return NextResponse.redirect(
         new URL("/auth/sign-in?error=not_authenticated", request.url)
       );
     }
 
-    // Decode JWT to get user ID (simple decode, not verification)
-    const payload = accessToken.split(".")[1];
-    const decoded = JSON.parse(Buffer.from(payload, "base64").toString());
-    const userId = decoded.sub;
+    // Store refresh token in practice_settings (practice-wide, not per-user)
+    // This is a single-practice app, so one Google Drive connection serves everyone
+    const supabase = supabaseAdmin();
 
-    if (!userId) {
+    // Get the single practice_settings row (singleton pattern)
+    const { data: settings } = await supabase
+      .from("practice_settings")
+      .select("id")
+      .limit(1)
+      .single();
+
+    if (!settings) {
+      console.error("No practice_settings row found");
       return NextResponse.redirect(
-        new URL("/auth/sign-in?error=invalid_session", request.url)
+        new URL("/?error=practice_settings_not_found", request.url)
       );
     }
 
-    // Store refresh token in database
-    const supabase = supabaseAdmin();
     const { error: updateError } = await supabase
-      .from("profiles")
+      .from("practice_settings")
       .update({
         google_refresh_token: tokens.refresh_token,
         google_connected_at: new Date().toISOString(),
       })
-      .eq("user_id", userId);
+      .eq("id", settings.id);
 
     if (updateError) {
       console.error("Error storing Google tokens:", updateError);
@@ -89,9 +94,13 @@ export async function GET(request: Request) {
       );
     }
 
+    // Revalidate settings page to show updated connection status
+    revalidatePath("/settings");
+
     // Redirect to return URL with success
+    const separator = returnUrl.includes("?") ? "&" : "?";
     return NextResponse.redirect(
-      new URL(`${returnUrl}?google_connected=true`, request.url)
+      new URL(`${returnUrl}${separator}google_connected=true`, request.url)
     );
   } catch (error) {
     console.error("Google OAuth callback error:", error);

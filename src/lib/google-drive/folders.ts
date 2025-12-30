@@ -98,7 +98,7 @@ async function getOrCreateFolder(
 
 /**
  * Create complete matter folder structure
- * /Client Name/Matter Name/00 Intake, 01 Source Docs, etc.
+ * /MatterFlow/Client Name/Matter Name/00 Intake, 01 Source Docs, etc.
  */
 export async function createMatterFolders(
   refreshToken: string,
@@ -107,8 +107,11 @@ export async function createMatterFolders(
 ): Promise<MatterFolderStructure> {
   const drive = createDriveClientWithRefresh(refreshToken);
 
-  // Create or get client folder
-  const clientFolder = await getOrCreateFolder(drive, clientName);
+  // Create or get master MatterFlow folder (keeps all practice files organized)
+  const masterFolder = await getOrCreateFolder(drive, "MatterFlow");
+
+  // Create or get client folder under MatterFlow
+  const clientFolder = await getOrCreateFolder(drive, clientName, masterFolder.id);
 
   // Create or get matter folder under client folder
   const matterFolder = await getOrCreateFolder(
@@ -146,7 +149,13 @@ export async function getMatterFolders(
 ): Promise<MatterFolderStructure | null> {
   const drive = createDriveClientWithRefresh(refreshToken);
 
-  const clientFolder = await findFolder(drive, clientName);
+  // Look for MatterFlow master folder
+  const masterFolder = await findFolder(drive, "MatterFlow");
+  if (!masterFolder) {
+    return null;
+  }
+
+  const clientFolder = await findFolder(drive, clientName, masterFolder.id);
   if (!clientFolder) {
     return null;
   }
@@ -196,14 +205,3 @@ export async function listFilesInFolder(
   }));
 }
 
-/**
- * Get folder path (for display)
- */
-export function getMatterFolderPath(
-  clientName: string,
-  matterTitle: string,
-  folderType?: FolderType
-): string {
-  const basePath = `/${clientName}/${matterTitle}`;
-  return folderType ? `${basePath}/${folderType}` : basePath;
-}

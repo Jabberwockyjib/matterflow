@@ -1813,3 +1813,4 @@ export async function updatePracticeSettings(
   revalidatePath("/settings");
   return { ok: true };
 }
+>>>>>>> Stashed changes

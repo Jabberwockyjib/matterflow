@@ -21,13 +21,15 @@ function createMockMatter(
     id: "test-1",
     title: "Test Matter",
     stage: "Active",
-    nextAction: null,
+    nextAction: "Review documents",
+    nextActionDueDate: "2024-06-18",
     responsibleParty: "lawyer",
     billingModel: "flat",
     matterType: "Contract Review",
     updatedAt: new Date().toISOString(),
+    createdAt: new Date().toISOString(),
     clientName: "Test Client",
-    dueDate: null,
+    dueDate: "2024-06-18",
     ...overrides,
   };
 }
@@ -353,18 +355,18 @@ describe("matter-helpers", () => {
       expect(sorted[2].id).toBe("3"); // June 25
     });
 
-    it("puts null due dates at the end", () => {
+    it("puts far future due dates at the end", () => {
       const matters = [
-        createMockMatter({ id: "1", dueDate: null }),
-        createMockMatter({ id: "2", dueDate: "2024-06-15" }),
-        createMockMatter({ id: "3", dueDate: null }),
+        createMockMatter({ id: "1", dueDate: "2099-12-31", nextActionDueDate: "2099-12-31" }),
+        createMockMatter({ id: "2", dueDate: "2024-06-15", nextActionDueDate: "2024-06-15" }),
+        createMockMatter({ id: "3", dueDate: "2099-12-31", nextActionDueDate: "2099-12-31" }),
       ];
 
       const sorted = sortMattersByDueDate(matters);
 
-      expect(sorted[0].id).toBe("2"); // With date
-      expect(sorted[1].dueDate).toBe(null);
-      expect(sorted[2].dueDate).toBe(null);
+      expect(sorted[0].id).toBe("2"); // With near date
+      expect(sorted[1].dueDate).toBe("2099-12-31");
+      expect(sorted[2].dueDate).toBe("2099-12-31");
     });
 
     it("does not mutate original array", () => {
@@ -383,10 +385,10 @@ describe("matter-helpers", () => {
       expect(sortMattersByDueDate([])).toEqual([]);
     });
 
-    it("handles array with all null due dates", () => {
+    it("handles array with all far future due dates", () => {
       const matters = [
-        createMockMatter({ id: "1", dueDate: null }),
-        createMockMatter({ id: "2", dueDate: null }),
+        createMockMatter({ id: "1", dueDate: "2099-12-31", nextActionDueDate: "2099-12-31" }),
+        createMockMatter({ id: "2", dueDate: "2099-12-31", nextActionDueDate: "2099-12-31" }),
       ];
 
       const sorted = sortMattersByDueDate(matters);

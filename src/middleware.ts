@@ -35,7 +35,11 @@ export async function middleware(req: NextRequest) {
     (pathname.startsWith("/matters") ||
       pathname.startsWith("/tasks") ||
       pathname.startsWith("/time") ||
-      pathname.startsWith("/billing"));
+      pathname.startsWith("/billing") ||
+      pathname.startsWith("/documents") ||
+      pathname.startsWith("/settings") ||
+      pathname.startsWith("/admin") ||
+      pathname.startsWith("/dashboard"));
 
   // Check for Supabase auth tokens (new auth-helpers use pattern: sb-{project-ref}-auth-token)
   const allCookies = req.cookies.getAll();

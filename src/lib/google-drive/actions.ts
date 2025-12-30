@@ -16,15 +16,16 @@ import type { Json } from "@/types/database.types";
 type ActionResult = { error?: string; ok?: boolean; data?: unknown };
 
 /**
- * Get user's Google refresh token from database
+ * Get practice-wide Google refresh token from database
+ * (Single practice app, so one Google Drive connection serves everyone)
  */
-async function getUserRefreshToken(userId: string): Promise<string | null> {
+async function getPracticeRefreshToken(): Promise<string | null> {
   const supabase = supabaseAdmin();
 
   const { data, error } = await supabase
-    .from("profiles")
+    .from("practice_settings")
     .select("google_refresh_token")
-    .eq("user_id", userId)
+    .limit(1)
     .maybeSingle();
 
   if (error || !data?.google_refresh_token) {
@@ -72,8 +73,8 @@ export async function initializeMatterFolders(
 
     const clientName = clientProfile?.full_name || "Unknown Client";
 
-    // Get user's Google refresh token
-    const refreshToken = await getUserRefreshToken(session.user.id);
+    // Get practice Google refresh token
+    const refreshToken = await getPracticeRefreshToken();
     if (!refreshToken) {
       return {
         error: "Google Drive not connected. Please connect your Google account first.",
@@ -153,8 +154,8 @@ export async function uploadDocument(formData: FormData): Promise<ActionResult> 
       return { error: `Folder ${folderType} not found` };
     }
 
-    // Get user's Google refresh token
-    const refreshToken = await getUserRefreshToken(session.user.id);
+    // Get practice Google refresh token
+    const refreshToken = await getPracticeRefreshToken();
     if (!refreshToken) {
       return { error: "Google Drive not connected" };
     }
@@ -249,8 +250,8 @@ export async function deleteDocument(documentId: string): Promise<ActionResult> 
       return { error: "Document has no Drive file ID" };
     }
 
-    // Get user's Google refresh token
-    const refreshToken = await getUserRefreshToken(session.user.id);
+    // Get practice Google refresh token
+    const refreshToken = await getPracticeRefreshToken();
     if (!refreshToken) {
       return { error: "Google Drive not connected" };
     }
@@ -361,8 +362,8 @@ export async function shareDocumentWithClient(
       return { error: "Document has no Drive file ID" };
     }
 
-    // Get user's Google refresh token
-    const refreshToken = await getUserRefreshToken(session.user.id);
+    // Get practice Google refresh token
+    const refreshToken = await getPracticeRefreshToken();
     if (!refreshToken) {
       return { error: "Google Drive not connected" };
     }

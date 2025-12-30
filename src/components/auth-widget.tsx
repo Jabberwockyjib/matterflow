@@ -32,23 +32,16 @@ export function AuthWidget({ email }: { email?: string | null }) {
       {status && (
         <span role="alert" className="text-xs text-red-600">{status}</span>
       )}
-      {email ? (
-        <>
-          <span className="text-xs text-slate-600">{email}</span>
-          <Button
-            size="sm"
-            variant="secondary"
-            onClick={handleSignOut}
-            disabled={pending}
-          >
-            <LogOut className="mr-1 h-4 w-4" />
-            Sign out
-          </Button>
-        </>
-      ) : (
-        <span className="text-xs text-slate-500">
-          Sign in via /auth/sign-in
-        </span>
+      {email && (
+        <Button
+          size="sm"
+          variant="secondary"
+          onClick={handleSignOut}
+          disabled={pending}
+        >
+          <LogOut className="mr-1 h-4 w-4" />
+          {pending ? "Signing out..." : "Sign out"}
+        </Button>
       )}
     </div>
   );

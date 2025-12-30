@@ -78,9 +78,13 @@ const sampleMatters: MatterSummary[] = Array.from({ length: 100 }, (_, i) => ({
   matterType: i % 2 === 0 ? "Litigation" : "Contract",
   stage: "Active",
   nextAction: "Review",
+  nextActionDueDate: "2024-06-18",
   responsibleParty: "lawyer",
   billingModel: "hourly",
   updatedAt: new Date().toISOString(),
+  createdAt: new Date().toISOString(),
+  clientName: `Client ${i}`,
+  dueDate: "2024-06-18",
 }));
 
 /**
@@ -92,9 +96,13 @@ const largeMatters: MatterSummary[] = Array.from({ length: 1000 }, (_, i) => ({
   matterType: i % 3 === 0 ? "Litigation" : i % 3 === 1 ? "Contract" : "Estate",
   stage: "Active",
   nextAction: "Review documents and prepare summary",
+  nextActionDueDate: "2024-06-18",
   responsibleParty: "lawyer",
   billingModel: "hourly",
   updatedAt: new Date().toISOString(),
+  createdAt: new Date().toISOString(),
+  clientName: `Client ${i}`,
+  dueDate: "2024-06-18",
 }));
 
 describe("timer-performance", () => {

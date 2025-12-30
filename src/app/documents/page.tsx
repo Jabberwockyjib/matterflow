@@ -13,16 +13,16 @@ export default async function DocumentsPage() {
     );
   }
 
-  // Check if Google Drive is connected
+  // Check if Google Drive is connected (practice-wide, not per-user)
   const supabase = supabaseAdmin();
-  const { data: profileData } = await supabase
-    .from("profiles")
+  const { data: practiceSettings } = await supabase
+    .from("practice_settings")
     .select("google_refresh_token, google_connected_at")
-    .eq("user_id", session.user.id)
+    .limit(1)
     .maybeSingle();
 
-  const isConnected = Boolean(profileData?.google_refresh_token);
-  const connectedAt = profileData?.google_connected_at || undefined;
+  const isConnected = Boolean(practiceSettings?.google_refresh_token);
+  const connectedAt = practiceSettings?.google_connected_at || undefined;
 
   return (
     <div className="min-h-screen bg-slate-50 p-8">
