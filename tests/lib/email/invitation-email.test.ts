@@ -53,4 +53,19 @@ describe('InvitationEmail', () => {
     expect(html).toContain('MatterFlow')
     expect(html).toContain('Complete Your Intake Form')
   })
+
+  it('escapes HTML special characters to prevent XSS', async () => {
+    const html = await render(
+      React.createElement(InvitationEmail, {
+        clientName: "<script>alert('xss')</script>",
+        inviteCode: "ABC123",
+        inviteLink: "https://app.example.com/intake/invite/ABC123",
+        lawyerName: "Jane Smith",
+      })
+    )
+
+    // React Email should escape HTML special characters by default
+    expect(html).not.toContain('<script>alert')
+    expect(html).toContain('&lt;script&gt;')
+  })
 })
