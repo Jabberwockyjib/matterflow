@@ -72,6 +72,65 @@ export type Database = {
           },
         ]
       }
+      client_invitations: {
+        Row: {
+          client_email: string
+          client_name: string
+          completed_at: string | null
+          created_at: string | null
+          documents: Json | null
+          expires_at: string | null
+          id: string
+          invite_code: string
+          invited_at: string | null
+          invited_by: string | null
+          matter_type: string | null
+          notes: string | null
+          status: string
+          updated_at: string | null
+        }
+        Insert: {
+          client_email: string
+          client_name: string
+          completed_at?: string | null
+          created_at?: string | null
+          documents?: Json | null
+          expires_at?: string | null
+          id?: string
+          invite_code: string
+          invited_at?: string | null
+          invited_by?: string | null
+          matter_type?: string | null
+          notes?: string | null
+          status: string
+          updated_at?: string | null
+        }
+        Update: {
+          client_email?: string
+          client_name?: string
+          completed_at?: string | null
+          created_at?: string | null
+          documents?: Json | null
+          expires_at?: string | null
+          id?: string
+          invite_code?: string
+          invited_at?: string | null
+          invited_by?: string | null
+          matter_type?: string | null
+          notes?: string | null
+          status?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_invitations_invited_by_fkey"
+            columns: ["invited_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+        ]
+      }
       documents: {
         Row: {
           created_at: string
@@ -131,28 +190,43 @@ export type Database = {
       intake_responses: {
         Row: {
           created_at: string
+          decline_reason: string | null
           form_type: string
           id: string
+          internal_notes: string | null
           matter_id: string
           responses: Json | null
+          review_status: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
           status: string
           submitted_at: string | null
         }
         Insert: {
           created_at?: string
+          decline_reason?: string | null
           form_type: string
           id?: string
+          internal_notes?: string | null
           matter_id: string
           responses?: Json | null
+          review_status?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
           status?: string
           submitted_at?: string | null
         }
         Update: {
           created_at?: string
+          decline_reason?: string | null
           form_type?: string
           id?: string
+          internal_notes?: string | null
           matter_id?: string
           responses?: Json | null
+          review_status?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
           status?: string
           submitted_at?: string | null
         }
@@ -163,6 +237,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "matters"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "intake_responses_reviewed_by_fkey"
+            columns: ["reviewed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
           },
         ]
       }
@@ -343,6 +424,9 @@ export type Database = {
       }
       profiles: {
         Row: {
+          address: string | null
+          client_notes: string | null
+          client_status: string | null
           created_at: string
           full_name: string | null
           google_connected_at: string | null
@@ -351,11 +435,15 @@ export type Database = {
           invited_by: string | null
           last_login: string | null
           password_must_change: boolean | null
+          phone: string | null
           role: Database["public"]["Enums"]["user_role"]
           status: string
           user_id: string
         }
         Insert: {
+          address?: string | null
+          client_notes?: string | null
+          client_status?: string | null
           created_at?: string
           full_name?: string | null
           google_connected_at?: string | null
@@ -364,11 +452,15 @@ export type Database = {
           invited_by?: string | null
           last_login?: string | null
           password_must_change?: boolean | null
+          phone?: string | null
           role?: Database["public"]["Enums"]["user_role"]
           status?: string
           user_id: string
         }
         Update: {
+          address?: string | null
+          client_notes?: string | null
+          client_status?: string | null
           created_at?: string
           full_name?: string | null
           google_connected_at?: string | null
@@ -377,6 +469,7 @@ export type Database = {
           invited_by?: string | null
           last_login?: string | null
           password_must_change?: boolean | null
+          phone?: string | null
           role?: Database["public"]["Enums"]["user_role"]
           status?: string
           user_id?: string
