@@ -1608,3 +1608,119 @@ export async function createQuickTimeEntry(data: {
 
   return createTimeEntry(formData);
 }
+
+// Client Invitation Actions
+
+/**
+ * Invite a new client via email with intake form link
+ */
+export async function inviteClient(formData: FormData): Promise<{
+  ok: boolean
+  inviteCode?: string
+  inviteLink?: string
+  error?: string
+}> {
+  try {
+    // Validate authentication
+    const { session, profile } = await getSessionWithProfile()
+    if (!session) {
+      return { ok: false, error: 'Not authenticated' }
+    }
+
+    // Ensure staff or admin
+    const role = profile?.role as 'admin' | 'staff' | 'client' | undefined
+    if (!role || !['admin', 'staff'].includes(role)) {
+      return { ok: false, error: 'Only staff and admins can invite clients' }
+    }
+
+    // Extract and validate fields
+    const clientName = formData.get('clientName')?.toString().trim()
+    const clientEmail = formData.get('clientEmail')?.toString().trim()
+    const matterType = formData.get('matterType')?.toString() || null
+    const notes = formData.get('notes')?.toString().trim() || null
+
+    if (!clientName) {
+      return { ok: false, error: 'Client name is required' }
+    }
+
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    if (!clientEmail || !emailRegex.test(clientEmail)) {
+      return { ok: false, error: 'Valid email is required' }
+    }
+
+    // Generate unique invite code (full UUID for security)
+    const inviteCode = crypto.randomUUID().toUpperCase()
+
+    // Create invitation record
+    const supabase = supabaseAdmin()
+    const { data: invitation, error } = await supabase
+      .from('client_invitations')
+      .insert({
+        invite_code: inviteCode,
+        client_name: clientName,
+        client_email: clientEmail,
+        matter_type: matterType,
+        notes: notes,
+        status: 'pending',
+        invited_by: session.user.id,
+      })
+      .select()
+      .single()
+
+    if (error || !invitation) {
+      console.error('Error creating invitation:', error)
+      return { ok: false, error: error?.message || 'Failed to create invitation' }
+    }
+
+    // Generate invite link
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
+    const inviteLink = `${appUrl}/intake/invite/${inviteCode}`
+
+    // Send invitation email (non-blocking)
+    try {
+      const { sendInvitationEmail } = await import('@/lib/email/client')
+      const message = notes
+        ? `${notes}\n\nMatter type: ${matterType || 'Not specified'}`
+        : matterType
+          ? `Matter type: ${matterType}`
+          : undefined
+
+      await sendInvitationEmail({
+        to: clientEmail,
+        clientName: clientName,
+        inviteCode: inviteCode,
+        inviteLink: inviteLink,
+        lawyerName: profile?.full_name || 'Your Lawyer',
+        message: message,
+      })
+    } catch (emailError) {
+      console.error('Failed to send invitation email:', emailError)
+      // Don't fail the whole operation if email fails
+    }
+
+    // Audit log
+    await supabase.from('audit_logs').insert({
+      actor_id: session.user.id,
+      event_type: 'client_invited',
+      entity_type: 'client_invitation',
+      entity_id: invitation.id,
+      metadata: {
+        client_email: clientEmail,
+        matter_type: matterType,
+      } as Json,
+    })
+
+    revalidatePath('/clients')
+
+    return {
+      ok: true,
+      inviteCode: inviteCode,
+      inviteLink: inviteLink,
+    }
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Unknown error'
+    console.error('inviteClient error:', message)
+    return { ok: false, error: message }
+  }
+}

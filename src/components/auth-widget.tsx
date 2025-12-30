@@ -7,13 +7,17 @@ import { Button } from "@/components/ui/button";
 import { supabaseBrowser } from "@/lib/supabase/client";
 
 export function AuthWidget({ email }: { email?: string | null }) {
-  const supabase = supabaseBrowser();
   const [pending, startTransition] = useTransition();
   const [status, setStatus] = useState<string | null>(null);
 
   const handleSignOut = () => {
     startTransition(async () => {
       setStatus(null);
+      const supabase = supabaseBrowser();
+      if (!supabase) {
+        setStatus("Authentication not available");
+        return;
+      }
       const { error } = await supabase.auth.signOut();
       if (error) {
         setStatus(error.message);

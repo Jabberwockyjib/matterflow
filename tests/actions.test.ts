@@ -17,7 +17,12 @@ import {
 import * as auth from "@/lib/auth/server";
 import * as server from "@/lib/supabase/server";
 
-const mockInsert = vi.fn().mockResolvedValue({ error: null });
+const mockInsert = vi.fn().mockReturnValue({
+  select: vi.fn().mockReturnValue({
+    single: vi.fn().mockResolvedValue({ data: { id: "test-id" }, error: null }),
+  }),
+});
+
 const mockSupabase = {
   from: vi.fn((table: string) => {
     if (table === "time_entries") {
@@ -27,6 +32,20 @@ const mockSupabase = {
         select: vi.fn().mockReturnValue({
           eq: vi.fn().mockReturnValue({
             maybeSingle: vi.fn().mockResolvedValue({ data: { started_at: new Date().toISOString() } }),
+          }),
+        }),
+      };
+    }
+    if (table === "audit_logs") {
+      return {
+        insert: vi.fn().mockResolvedValue({ error: null }),
+      };
+    }
+    if (table === "profiles") {
+      return {
+        select: vi.fn().mockReturnValue({
+          eq: vi.fn().mockReturnValue({
+            maybeSingle: vi.fn().mockResolvedValue({ data: { full_name: "Test Client", user_id: "client-id" }, error: null }),
           }),
         }),
       };
@@ -57,6 +76,8 @@ describe("data actions", () => {
     form.set("title", "Test Matter");
     form.set("billingModel", "hourly");
     form.set("ownerId", "user-1");
+    form.set("nextAction", "Initial consultation");
+    form.set("nextActionDueDate", "2025-01-15");
     const res = await createMatter(form);
     expect(res?.ok).toBe(true);
     expect(mockSupabase.from).toHaveBeenCalledWith("matters");
@@ -93,6 +114,8 @@ describe("data actions", () => {
     const form = new FormData();
     form.set("id", "1");
     form.set("stage", "Under Review");
+    form.set("nextAction", "Review documents");
+    form.set("nextActionDueDate", "2025-01-15");
     const res = await updateMatterStage(form);
     expect(res?.ok).toBe(true);
     expect(mockSupabase.from).toHaveBeenCalledWith("matters");

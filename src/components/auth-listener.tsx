@@ -27,6 +27,11 @@ export function AuthListener() {
   useEffect(() => {
     const supabase = supabaseBrowser();
 
+    // If no Supabase client is available (e.g., during build), skip setup
+    if (!supabase) {
+      return;
+    }
+
     console.log('[AuthListener] Setting up auth state listener');
 
     const {

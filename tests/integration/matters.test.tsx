@@ -10,6 +10,36 @@ import {
 } from '@/lib/data/actions'
 import { setMockSessionWithProfile } from '@/lib/auth/server'
 
+// Mock next/cache
+vi.mock('next/cache', () => ({
+  revalidatePath: vi.fn(),
+}))
+
+// Mock email client
+vi.mock('@/lib/email/client', () => ({
+  resend: {
+    emails: {
+      send: vi.fn().mockResolvedValue({ id: 'email-id' }),
+    },
+  },
+  FROM_EMAIL: 'test@example.com',
+}))
+
+// Mock @react-email/components
+vi.mock('@react-email/components', () => ({
+  render: vi.fn().mockReturnValue('<html>mock email</html>'),
+  Html: ({ children }: any) => children,
+  Head: () => null,
+  Preview: () => null,
+  Body: ({ children }: any) => children,
+  Container: ({ children }: any) => children,
+  Section: ({ children }: any) => children,
+  Text: ({ children }: any) => children,
+  Link: ({ children }: any) => children,
+  Hr: () => null,
+  Button: ({ children }: any) => children,
+}))
+
 // Mock the supabase server module
 const mockInsert = vi.fn()
 const mockUpdate = vi.fn()
@@ -18,6 +48,7 @@ const mockSelect = vi.fn()
 const mockEq = vi.fn()
 const mockMaybeSingle = vi.fn()
 const mockOrder = vi.fn()
+const mockSingle = vi.fn()
 
 vi.mock('@/lib/supabase/server', () => ({
   supabaseEnvReady: vi.fn(() => true),
@@ -36,6 +67,18 @@ vi.mock('@/lib/supabase/server', () => ({
           insert: vi.fn().mockResolvedValue({ error: null }),
         }
       }
+      if (table === 'profiles') {
+        return {
+          select: vi.fn().mockReturnValue({
+            eq: vi.fn().mockReturnValue({
+              maybeSingle: vi.fn().mockResolvedValue({
+                data: { full_name: 'Test Client', user_id: 'client-id' },
+                error: null
+              }),
+            }),
+          }),
+        }
+      }
       return {}
     }),
   })),
@@ -52,6 +95,16 @@ describe('Matter CRUD Integration Tests', () => {
     mockEq.mockReset()
     mockMaybeSingle.mockReset()
     mockOrder.mockReset()
+    mockSingle.mockReset()
+
+    // Setup default mock chain for insert operations
+    mockSelect.mockReturnValue({
+      single: mockSingle.mockResolvedValue({
+        data: { id: 'test-matter-id' },
+        error: null
+      })
+    })
+    mockInsert.mockReturnValue({ select: mockSelect })
   })
 
   afterEach(() => {
@@ -66,14 +119,14 @@ describe('Matter CRUD Integration Tests', () => {
       const profile = mockProfile({ role: 'staff' })
       setMockSessionWithProfile({ session, profile })
 
-      mockInsert.mockResolvedValueOnce({ error: null })
-
       const formData = new FormData()
       formData.set('title', 'Test Case')
       formData.set('ownerId', defaultIds.userId)
       formData.set('matterType', 'consultation')
       formData.set('billingModel', 'hourly')
       formData.set('responsibleParty', 'attorney')
+      formData.set('nextAction', 'Initial consultation')
+      formData.set('nextActionDueDate', '2025-01-15')
 
       const result = await createMatter(formData)
 
@@ -85,8 +138,10 @@ describe('Matter CRUD Integration Tests', () => {
         client_id: null,
         matter_type: 'consultation',
         billing_model: 'hourly',
+        stage: 'Lead Created',
         responsible_party: 'attorney',
-        next_action: null,
+        next_action: 'Initial consultation',
+        next_action_due_date: '2025-01-15',
       })
     })
 
@@ -120,29 +175,21 @@ describe('Matter CRUD Integration Tests', () => {
       expect(mockInsert).not.toHaveBeenCalled()
     })
 
-    it('uses default values for missing form fields', async () => {
+    it('returns error when nextAction is missing', async () => {
       // Setup: authenticated staff user
       const session = mockSession()
       const profile = mockProfile({ role: 'staff' })
       setMockSessionWithProfile({ session, profile })
 
-      mockInsert.mockResolvedValueOnce({ error: null })
-
       const formData = new FormData()
-      // Not setting any fields to test defaults
+      formData.set('title', 'Test Matter')
+      // Not setting nextAction - should fail validation
 
       const result = await createMatter(formData)
 
-      expect(result.ok).toBe(true)
-      expect(mockInsert).toHaveBeenCalledWith({
-        title: 'Untitled Matter',
-        owner_id: null,
-        client_id: null,
-        matter_type: 'General',
-        billing_model: 'hourly',
-        responsible_party: 'lawyer',
-        next_action: null,
-      })
+      expect(result.error).toBe('Next Action is required')
+      expect(result.ok).toBeUndefined()
+      expect(mockInsert).not.toHaveBeenCalled()
     })
 
     it('returns error when database insert fails', async () => {
@@ -151,10 +198,12 @@ describe('Matter CRUD Integration Tests', () => {
       const profile = mockProfile({ role: 'staff' })
       setMockSessionWithProfile({ session, profile })
 
-      mockInsert.mockResolvedValueOnce({ error: { message: 'Database error' } })
+      mockSingle.mockResolvedValueOnce({ data: null, error: { message: 'Database error' } })
 
       const formData = new FormData()
       formData.set('title', 'Test Case')
+      formData.set('nextAction', 'Review')
+      formData.set('nextActionDueDate', '2025-01-15')
 
       const result = await createMatter(formData)
 
@@ -168,10 +217,10 @@ describe('Matter CRUD Integration Tests', () => {
       const profile = mockProfile({ role: 'admin' })
       setMockSessionWithProfile({ session, profile })
 
-      mockInsert.mockResolvedValueOnce({ error: null })
-
       const formData = new FormData()
       formData.set('title', 'Admin Created Case')
+      formData.set('nextAction', 'Initial review')
+      formData.set('nextActionDueDate', '2025-01-20')
 
       const result = await createMatter(formData)
 
@@ -196,6 +245,7 @@ describe('Matter CRUD Integration Tests', () => {
       formData.set('stage', 'active')
       formData.set('responsibleParty', 'client')
       formData.set('nextAction', 'Review documents')
+      formData.set('nextActionDueDate', '2025-01-25')
 
       const result = await updateMatterStage(formData)
 
@@ -204,6 +254,7 @@ describe('Matter CRUD Integration Tests', () => {
         stage: 'active',
         responsible_party: 'client',
         next_action: 'Review documents',
+        next_action_due_date: '2025-01-25',
       })
       expect(mockEq).toHaveBeenCalledWith('id', defaultIds.matterId)
     })
@@ -248,6 +299,8 @@ describe('Matter CRUD Integration Tests', () => {
       const formData = new FormData()
       formData.set('id', defaultIds.matterId)
       formData.set('stage', 'closed')
+      formData.set('nextAction', 'Final review')
+      formData.set('nextActionDueDate', '2025-01-30')
       // Not setting responsibleParty
 
       const result = await updateMatterStage(formData)
@@ -256,7 +309,8 @@ describe('Matter CRUD Integration Tests', () => {
       expect(mockUpdate).toHaveBeenCalledWith({
         stage: 'closed',
         responsible_party: undefined,
-        next_action: null,
+        next_action: 'Final review',
+        next_action_due_date: '2025-01-30',
       })
     })
 
@@ -272,6 +326,8 @@ describe('Matter CRUD Integration Tests', () => {
       const formData = new FormData()
       formData.set('id', defaultIds.matterId)
       formData.set('stage', 'active')
+      formData.set('nextAction', 'Continue work')
+      formData.set('nextActionDueDate', '2025-02-01')
 
       const result = await updateMatterStage(formData)
 
@@ -456,10 +512,10 @@ describe('Matter CRUD Integration Tests', () => {
       const profile = mockProfile({ role: 'staff' })
       setMockSessionWithProfile({ session, profile })
 
-      mockInsert.mockResolvedValueOnce({ error: null })
-
       const formData = new FormData()
       formData.set('title', '') // Empty string
+      formData.set('nextAction', 'Begin work')
+      formData.set('nextActionDueDate', '2025-02-05')
 
       const result = await createMatter(formData)
 
@@ -476,10 +532,10 @@ describe('Matter CRUD Integration Tests', () => {
       const profile = mockProfile({ role: 'staff' })
       setMockSessionWithProfile({ session, profile })
 
-      mockInsert.mockResolvedValueOnce({ error: null })
-
       const formData = new FormData()
       formData.set('title', 'Smith v. Jones & Associates (Case #123)')
+      formData.set('nextAction', 'File motion')
+      formData.set('nextActionDueDate', '2025-02-10')
 
       const result = await createMatter(formData)
 
@@ -496,11 +552,11 @@ describe('Matter CRUD Integration Tests', () => {
       const profile = mockProfile({ role: 'staff' })
       setMockSessionWithProfile({ session, profile })
 
-      mockInsert.mockResolvedValueOnce({ error: null })
-
       const longTitle = 'A'.repeat(500)
       const formData = new FormData()
       formData.set('title', longTitle)
+      formData.set('nextAction', 'Review case')
+      formData.set('nextActionDueDate', '2025-02-15')
 
       const result = await createMatter(formData)
 

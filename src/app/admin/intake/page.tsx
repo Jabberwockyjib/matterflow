@@ -3,6 +3,8 @@ import { getAllIntakeResponses } from "@/lib/intake";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 
+export const dynamic = 'force-dynamic';
+
 export default async function AdminIntakeListPage() {
   const { data: responses, error } = await getAllIntakeResponses();
 

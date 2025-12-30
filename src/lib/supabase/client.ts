@@ -13,8 +13,10 @@ let browserClient: ReturnType<typeof createBrowserClient<Database>> | null = nul
  *
  * The singleton pattern ensures all components share the same client instance,
  * preventing auth state synchronization issues.
+ *
+ * Returns null if Supabase environment variables are not set (for build-time compatibility).
  */
-export const supabaseBrowser = (): ReturnType<typeof createBrowserClient<Database>> => {
+export const supabaseBrowser = (): ReturnType<typeof createBrowserClient<Database>> | null => {
   if (browserClient) {
     return browserClient;
   }
@@ -23,7 +25,8 @@ export const supabaseBrowser = (): ReturnType<typeof createBrowserClient<Databas
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
   if (!supabaseUrl || !supabaseAnonKey) {
-    throw new Error("Supabase environment variables are not set");
+    // Return null instead of throwing during build time
+    return null;
   }
 
   browserClient = createBrowserClient<Database>(supabaseUrl, supabaseAnonKey);

@@ -38,6 +38,7 @@ ALTER TABLE intake_responses
 CREATE INDEX idx_client_invitations_status ON client_invitations(status);
 CREATE INDEX idx_client_invitations_invited_by ON client_invitations(invited_by);
 CREATE INDEX idx_client_invitations_expires_at ON client_invitations(expires_at);
+CREATE INDEX idx_client_invitations_client_email ON client_invitations(client_email);
 CREATE INDEX idx_profiles_client_status ON profiles(client_status);
 CREATE INDEX idx_intake_responses_review_status ON intake_responses(review_status);
 
@@ -67,6 +68,29 @@ CREATE POLICY "Staff and admins can update invitations"
   USING (
     current_user_role() IN ('admin', 'staff')
   );
+
+-- Staff and admins can delete invitations
+CREATE POLICY "Staff and admins can delete invitations"
+  ON client_invitations FOR DELETE
+  TO authenticated
+  USING (
+    current_user_role() IN ('admin', 'staff')
+  );
+
+-- Trigger function to automatically update updated_at timestamp
+CREATE OR REPLACE FUNCTION update_updated_at_column()
+RETURNS TRIGGER AS $$
+BEGIN
+  NEW.updated_at = NOW();
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Apply updated_at trigger to client_invitations
+CREATE TRIGGER update_client_invitations_updated_at
+  BEFORE UPDATE ON client_invitations
+  FOR EACH ROW
+  EXECUTE FUNCTION update_updated_at_column();
 
 COMMENT ON TABLE client_invitations IS 'Tracks client invitation codes and status for intake-first workflow';
 COMMENT ON COLUMN profiles.client_status IS 'Current client lifecycle stage';
