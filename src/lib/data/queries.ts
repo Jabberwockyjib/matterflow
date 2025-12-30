@@ -49,6 +49,30 @@ export type TimeEntrySummary = {
   endedAt: string | null;
 };
 
+export type ClientInvitation = {
+  id: string;
+  inviteCode: string;
+  clientName: string;
+  clientEmail: string;
+  matterType: string | null;
+  notes: string | null;
+  status: string;
+  invitedAt: string;
+  expiresAt: string;
+  daysAgo: number;
+};
+
+export type IntakeReview = {
+  id: string;
+  matterId: string;
+  formType: string;
+  reviewStatus: string;
+  submittedAt: string;
+  responses: Record<string, any>;
+  internalNotes: string | null;
+  isNew: boolean;
+};
+
 type DataSource = "supabase" | "mock";
 
 // Get today's date in ISO format for mock data
@@ -581,4 +605,178 @@ export async function fetchOverdueMatters() {
     data: (data || []).map(mapMatter),
     source: "supabase" as const,
   };
+}
+
+/**
+ * Fetch client invitations grouped by status
+ */
+export async function fetchClientInvitations(): Promise<{
+  pending: ClientInvitation[];
+  completed: ClientInvitation[];
+  expired: ClientInvitation[];
+  source: DataSource;
+  error?: string;
+}> {
+  const { session } = await getSessionWithProfile();
+
+  if (!session) {
+    return { pending: [], completed: [], expired: [], source: "mock" };
+  }
+
+  if (!supabaseEnvReady()) {
+    // Mock data for development
+    const mockInvitation: ClientInvitation = {
+      id: "mock-invite-1",
+      inviteCode: "ABC123",
+      clientName: "John Doe",
+      clientEmail: "john@example.com",
+      matterType: "Contract Review",
+      notes: "Phone consultation follow-up",
+      status: "pending",
+      invitedAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
+      expiresAt: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString(),
+      daysAgo: 2,
+    };
+
+    return {
+      pending: [mockInvitation],
+      completed: [],
+      expired: [],
+      source: "mock",
+    };
+  }
+
+  try {
+    const supabase = supabaseAdmin();
+    const { data, error } = await supabase
+      .from("client_invitations")
+      .select("*")
+      .order("invited_at", { ascending: false });
+
+    if (error) {
+      console.error("Error fetching invitations:", error);
+      return {
+        pending: [],
+        completed: [],
+        expired: [],
+        source: "supabase",
+        error: error.message,
+      };
+    }
+
+    const now = new Date();
+    const mapped = (data || []).map((inv) => ({
+      id: inv.id,
+      inviteCode: inv.invite_code,
+      clientName: inv.client_name,
+      clientEmail: inv.client_email,
+      matterType: inv.matter_type,
+      notes: inv.notes,
+      status: inv.status,
+      invitedAt: inv.invited_at || "",
+      expiresAt: inv.expires_at || "",
+      daysAgo: Math.floor(
+        (now.getTime() - new Date(inv.invited_at || 0).getTime()) / (1000 * 60 * 60 * 24)
+      ),
+    }));
+
+    return {
+      pending: mapped.filter((i) => i.status === "pending"),
+      completed: mapped.filter((i) => i.status === "completed"),
+      expired: mapped.filter((i) => i.status === "expired"),
+      source: "supabase",
+    };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Unknown error";
+    return {
+      pending: [],
+      completed: [],
+      expired: [],
+      source: "supabase",
+      error: message,
+    };
+  }
+}
+
+/**
+ * Fetch intake submissions grouped by review status
+ */
+export async function fetchIntakesByReviewStatus(): Promise<{
+  pending: IntakeReview[];
+  underReview: IntakeReview[];
+  source: DataSource;
+  error?: string;
+}> {
+  const { session } = await getSessionWithProfile();
+
+  if (!session) {
+    return { pending: [], underReview: [], source: "mock" };
+  }
+
+  if (!supabaseEnvReady()) {
+    // Mock data
+    const mockIntake: IntakeReview = {
+      id: "mock-intake-1",
+      matterId: "mock-matter-1",
+      formType: "Contract Review",
+      reviewStatus: "pending",
+      submittedAt: new Date(Date.now() - 6 * 60 * 60 * 1000).toISOString(),
+      responses: {
+        full_name: "Jane Smith",
+        email: "jane@example.com",
+        company_name: "Acme Corp",
+      },
+      internalNotes: null,
+      isNew: true,
+    };
+
+    return {
+      pending: [mockIntake],
+      underReview: [],
+      source: "mock",
+    };
+  }
+
+  try {
+    const supabase = supabaseAdmin();
+    const { data, error } = await supabase
+      .from("intake_responses")
+      .select("*")
+      .in("review_status", ["pending", "under_review"])
+      .order("submitted_at", { ascending: false });
+
+    if (error) {
+      console.error("Error fetching intake reviews:", error);
+      return {
+        pending: [],
+        underReview: [],
+        source: "supabase",
+        error: error.message,
+      };
+    }
+
+    const now = new Date();
+    const mapped = (data || []).map((intake) => ({
+      id: intake.id,
+      matterId: intake.matter_id,
+      formType: intake.form_type,
+      reviewStatus: intake.review_status || "pending",
+      submittedAt: intake.submitted_at || "",
+      responses: (intake.responses as Record<string, any>) || {},
+      internalNotes: intake.internal_notes,
+      isNew: Boolean(
+        intake.submitted_at &&
+        now.getTime() - new Date(intake.submitted_at).getTime() < 24 * 60 * 60 * 1000
+      ),
+    }));
+
+    return {
+      pending: mapped.filter((i) => i.reviewStatus === "pending"),
+      underReview: mapped.filter((i) => i.reviewStatus === "under_review"),
+      source: "supabase",
+    };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Unknown error";
+    return { pending: [], underReview: [], source: "supabase", error: message };
+  }
 }
