@@ -1,6 +1,5 @@
 import { Suspense } from "react";
 import { Users } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { PipelineBoard } from "@/components/clients/pipeline-board";
 import { ActiveClientsSection } from "@/components/clients/active-clients-section";
 import { InviteClientModal } from "@/components/clients/invite-client-modal";
@@ -19,20 +18,11 @@ export default async function ClientsPage() {
     <div className="container mx-auto px-4 py-8">
       {/* Header */}
       <div className="mb-8 flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-slate-900 flex items-center gap-2">
-            <Users className="h-8 w-8" />
-            Clients
-          </h1>
-          <p className="text-slate-600 mt-1">
-            Manage client invitations, intake reviews, and active clients
-          </p>
-        </div>
-
-        <div className="flex gap-2">
-          <InviteClientModal />
-          <Button variant="outline">Add Client Manually</Button>
-        </div>
+        <h1 className="text-3xl font-bold text-slate-900 flex items-center gap-2">
+          <Users className="h-8 w-8" />
+          Clients
+        </h1>
+        <InviteClientModal />
       </div>
 
       {/* Stats Bar */}
@@ -61,9 +51,6 @@ export default async function ClientsPage() {
 
       {/* Pipeline Board */}
       <div className="mb-8">
-        <h2 className="text-xl font-semibold text-slate-900 mb-4">
-          Client Pipeline
-        </h2>
         <Suspense fallback={<div>Loading pipeline...</div>}>
           <PipelineBoard invitations={invitations} intakes={intakes} />
         </Suspense>
