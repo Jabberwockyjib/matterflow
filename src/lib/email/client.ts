@@ -26,3 +26,43 @@ export const FROM_EMAIL =
  * Check if Resend is configured
  */
 export const isResendConfigured = () => Boolean(resendApiKey);
+
+/**
+ * Send invitation email to client
+ */
+export interface SendInvitationEmailParams {
+  to: string;
+  clientName: string;
+  matterType: string;
+  inviteLink: string;
+  personalNotes?: string;
+  lawyerName: string;
+  firmName?: string;
+}
+
+export async function sendInvitationEmail(params: SendInvitationEmailParams) {
+  // Dynamic import to avoid bundling email template in client-side code
+  const { default: InvitationEmail } = await import(
+    "./templates/invitation-email"
+  );
+
+  try {
+    const { data, error } = await resend.emails.send({
+      from: FROM_EMAIL,
+      to: params.to,
+      subject: `Complete Your Intake Form for ${params.firmName || "MatterFlow"}`,
+      react: InvitationEmail(params),
+    });
+
+    if (error) {
+      console.error("Resend API error:", error);
+      return { ok: false, error: error.message };
+    }
+
+    return { ok: true, data };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Unknown error";
+    console.error("Email sending error:", message);
+    return { ok: false, error: message };
+  }
+}
