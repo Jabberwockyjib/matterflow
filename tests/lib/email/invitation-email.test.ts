@@ -4,48 +4,53 @@ import InvitationEmail from '@/lib/email/templates/invitation-email'
 import React from 'react'
 
 describe('InvitationEmail', () => {
-  it('renders invitation email with all props', async () => {
+  it('renders with all props', async () => {
     const html = await render(
       React.createElement(InvitationEmail, {
         clientName: "John Doe",
-        matterType: "Contract Review",
+        inviteCode: "ABC123",
         inviteLink: "https://app.example.com/intake/invite/ABC123",
         lawyerName: "Jane Smith",
-        firmName: "Smith Law",
-        personalNotes: "Looking forward to reviewing your contract.",
+        message: "Looking forward to reviewing your contract.",
       })
     )
 
     expect(html).toContain('John Doe')
-    expect(html).toContain('Contract Review')
+    expect(html).toContain('ABC123')
     expect(html).toContain('intake/invite/ABC123')
+    expect(html).toContain('Jane Smith')
     expect(html).toContain('Looking forward to reviewing your contract')
+    expect(html).toContain('MatterFlow')
   })
 
-  it('renders without optional personalNotes', async () => {
+  it('renders without optional message', async () => {
     const html = await render(
       React.createElement(InvitationEmail, {
         clientName: "John Doe",
-        matterType: "Contract Review",
+        inviteCode: "ABC123",
         inviteLink: "https://app.example.com/intake/invite/ABC123",
         lawyerName: "Jane Smith",
       })
     )
 
     expect(html).toContain('John Doe')
+    expect(html).toContain('ABC123')
     expect(html).toContain('Complete Your Intake Form')
+    expect(html).toContain('MatterFlow')
   })
 
-  it('renders without optional firmName', async () => {
+  it('uses BaseLayout for consistent branding', async () => {
     const html = await render(
       React.createElement(InvitationEmail, {
         clientName: "John Doe",
-        matterType: "Contract Review",
+        inviteCode: "ABC123",
         inviteLink: "https://app.example.com/intake/invite/ABC123",
         lawyerName: "Jane Smith",
       })
     )
 
+    // BaseLayout adds the MatterFlow branding and structure
     expect(html).toContain('MatterFlow')
+    expect(html).toContain('Complete Your Intake Form')
   })
 })

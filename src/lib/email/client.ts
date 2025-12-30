@@ -33,11 +33,10 @@ export const isResendConfigured = () => Boolean(resendApiKey);
 export interface SendInvitationEmailParams {
   to: string;
   clientName: string;
-  matterType: string;
+  inviteCode: string;
   inviteLink: string;
-  personalNotes?: string;
   lawyerName: string;
-  firmName?: string;
+  message?: string;
 }
 
 export async function sendInvitationEmail(params: SendInvitationEmailParams) {
@@ -50,7 +49,7 @@ export async function sendInvitationEmail(params: SendInvitationEmailParams) {
     const { data, error } = await resend.emails.send({
       from: FROM_EMAIL,
       to: params.to,
-      subject: `Complete Your Intake Form for ${params.firmName || "MatterFlow"}`,
+      subject: "Complete Your Intake Form for MatterFlow",
       react: InvitationEmail(params),
     });
 
