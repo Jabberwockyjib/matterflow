@@ -31,6 +31,7 @@ export function InviteClientModal() {
     null
   )
   const [copied, setCopied] = useState(false)
+  const [matterType, setMatterType] = useState('')
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
@@ -63,14 +64,31 @@ export function InviteClientModal() {
 
   async function copyLink() {
     if (success?.link) {
-      await navigator.clipboard.writeText(success.link)
-      setCopied(true)
-      setTimeout(() => setCopied(false), 2000)
+      try {
+        await navigator.clipboard.writeText(success.link)
+        setCopied(true)
+        setTimeout(() => setCopied(false), 2000)
+      } catch (err) {
+        console.error('Failed to copy:', err)
+        // Don't set copied state if copy failed
+      }
     }
   }
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog
+      open={open}
+      onOpenChange={(isOpen) => {
+        setOpen(isOpen)
+        if (!isOpen) {
+          // Reset all state when dialog closes
+          setError(null)
+          setSuccess(null)
+          setCopied(false)
+          setMatterType('')
+        }
+      }}
+    >
       <DialogTrigger asChild>
         <Button>
           <UserPlus className="h-4 w-4 mr-2" />
@@ -147,7 +165,7 @@ export function InviteClientModal() {
 
             <div>
               <Label htmlFor="matterType">Matter Type</Label>
-              <Select name="matterType">
+              <Select value={matterType} onValueChange={setMatterType}>
                 <SelectTrigger>
                   <SelectValue placeholder="Select matter type" />
                 </SelectTrigger>
@@ -162,6 +180,7 @@ export function InviteClientModal() {
                   </SelectItem>
                 </SelectContent>
               </Select>
+              <input type="hidden" name="matterType" value={matterType} />
             </div>
 
             <div>
