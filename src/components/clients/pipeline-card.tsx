@@ -17,7 +17,7 @@ type PipelineCardProps =
 
 export function PipelineCard({ type, data }: PipelineCardProps) {
   if (type === 'invitation') {
-    const invitation = data as ClientInvitation
+    const invitation = data
     return (
       <div className="bg-white rounded-lg border border-slate-200 p-4 hover:shadow-md transition-shadow">
         <div className="flex items-start justify-between mb-2">
@@ -41,11 +41,11 @@ export function PipelineCard({ type, data }: PipelineCardProps) {
         </div>
 
         <div className="flex gap-2 mt-3">
-          <Button size="sm" variant="ghost" className="flex-1">
+          <Button size="sm" variant="ghost" className="flex-1" disabled>
             <Eye className="h-3 w-3 mr-1" />
             View
           </Button>
-          <Button size="sm" variant="ghost">
+          <Button size="sm" variant="ghost" disabled aria-label="Copy invitation code">
             <Copy className="h-3 w-3" />
           </Button>
         </div>
@@ -53,7 +53,7 @@ export function PipelineCard({ type, data }: PipelineCardProps) {
     )
   }
 
-  const intake = data as IntakeReview
+  const intake = data
   const isNew = intake.isNew
 
   return (
@@ -82,7 +82,7 @@ export function PipelineCard({ type, data }: PipelineCardProps) {
         {type === 'under-review' && 'Waiting on client response'}
       </div>
 
-      <Button size="sm" className="w-full">
+      <Button size="sm" className="w-full" disabled>
         Review Intake
       </Button>
     </div>
