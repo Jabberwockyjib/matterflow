@@ -11,6 +11,7 @@ import {
   CreditCard,
   FileText,
   Users,
+  UserPlus,
   ClipboardList,
   Settings,
   ChevronLeft,
@@ -35,6 +36,7 @@ const primaryLinks: NavLink[] = [
 ];
 
 const adminLinks: NavLink[] = [
+  { href: "/clients", label: "Clients", icon: UserPlus },
   { href: "/admin/users", label: "Users", icon: Users },
   { href: "/admin/intake", label: "Intakes", icon: ClipboardList },
 ];
