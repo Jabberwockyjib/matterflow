@@ -52,6 +52,10 @@ export function mockProfile(overrides: Partial<Profile> = {}): Profile {
     last_login: null,
     password_must_change: null,
     status: 'active',
+    phone: null,
+    address: null,
+    client_notes: null,
+    client_status: null,
     ...overrides,
   }
 }

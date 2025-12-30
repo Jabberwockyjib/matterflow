@@ -15,7 +15,6 @@ import { useUnsavedChanges } from "@/hooks/useUnsavedChanges";
 import { showSuccess, showError } from "@/lib/toast";
 
 export default function SignInPage() {
-  const supabase = supabaseBrowser();
   const searchParams = useSearchParams();
   const redirect = searchParams.get("redirect") || "/";
 
@@ -47,6 +46,11 @@ export default function SignInPage() {
   // Handle form submission
   const onSubmit = async (data: SignInFormData) => {
     console.log('[Sign-in] Attempting sign in...');
+    const supabase = supabaseBrowser();
+    if (!supabase) {
+      showError("Authentication service is not available");
+      return;
+    }
     const { data: authData, error } = await supabase.auth.signInWithPassword({
       email: data.email,
       password: data.password,
