@@ -1678,20 +1678,22 @@ export async function inviteClient(formData: FormData): Promise<{
     const inviteLink = `${appUrl}/intake/invite/${inviteCode}`
 
     // Send invitation email (non-blocking)
-    // TODO: Implement sendInvitationEmail in Task 3
     try {
-      // Import the email function dynamically (will be implemented in Task 3)
-      const emailClient = await import('@/lib/email/client')
-      if ('sendInvitationEmail' in emailClient && typeof emailClient.sendInvitationEmail === 'function') {
-        await emailClient.sendInvitationEmail({
-          to: clientEmail,
-          clientName: clientName,
-          matterType: matterType || 'your matter',
-          inviteLink: inviteLink,
-          personalNotes: notes || undefined,
-          lawyerName: profile?.full_name || 'Your Lawyer',
-        })
-      }
+      const { sendInvitationEmail } = await import('@/lib/email/client')
+      const message = notes
+        ? `${notes}\n\nMatter type: ${matterType || 'Not specified'}`
+        : matterType
+          ? `Matter type: ${matterType}`
+          : undefined
+
+      await sendInvitationEmail({
+        to: clientEmail,
+        clientName: clientName,
+        inviteCode: inviteCode,
+        inviteLink: inviteLink,
+        lawyerName: profile?.full_name || 'Your Lawyer',
+        message: message,
+      })
     } catch (emailError) {
       console.error('Failed to send invitation email:', emailError)
       // Don't fail the whole operation if email fails
