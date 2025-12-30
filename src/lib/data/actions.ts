@@ -1677,23 +1677,43 @@ export async function inviteClient(formData: FormData): Promise<{
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
     const inviteLink = `${appUrl}/intake/invite/${inviteCode}`
 
-    // Send invitation email (non-blocking)
+    // Send invitation email via Gmail (non-blocking)
     try {
-      const { sendInvitationEmail } = await import('@/lib/email/client')
-      const message = notes
-        ? `${notes}\n\nMatter type: ${matterType || 'Not specified'}`
-        : matterType
-          ? `Matter type: ${matterType}`
-          : undefined
+      // Fetch practice settings for Gmail OAuth credentials
+      const { data: settings } = await supabase
+        .from('practice_settings')
+        .select('google_refresh_token, contact_email, firm_name')
+        .single()
 
-      await sendInvitationEmail({
-        to: clientEmail,
-        clientName: clientName,
-        inviteCode: inviteCode,
-        inviteLink: inviteLink,
-        lawyerName: profile?.full_name || 'Your Lawyer',
-        message: message,
-      })
+      if (!settings?.google_refresh_token) {
+        console.warn('Gmail not connected - skipping invitation email. Connect Google account in Settings.')
+      } else if (!settings?.contact_email) {
+        console.warn('Contact email not configured - skipping invitation email. Add contact email in Settings.')
+      } else {
+        const { sendInvitationEmail } = await import('@/lib/email/gmail-client')
+        const message = notes
+          ? `${notes}\n\nMatter type: ${matterType || 'Not specified'}`
+          : matterType
+            ? `Matter type: ${matterType}`
+            : undefined
+
+        const result = await sendInvitationEmail(
+          {
+            to: clientEmail,
+            clientName: clientName,
+            inviteCode: inviteCode,
+            inviteLink: inviteLink,
+            lawyerName: profile?.full_name || settings.firm_name || 'Your Lawyer',
+            message: message,
+          },
+          settings.google_refresh_token,
+          settings.contact_email
+        )
+
+        if (!result.ok) {
+          console.error('Failed to send invitation email:', result.error)
+        }
+      }
     } catch (emailError) {
       console.error('Failed to send invitation email:', emailError)
       // Don't fail the whole operation if email fails
