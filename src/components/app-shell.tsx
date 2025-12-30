@@ -15,6 +15,7 @@ import type { MatterSummary } from "@/lib/data/queries";
 
 const links = [
   { href: "/", label: "Dashboard" },
+  { href: "/clients", label: "Clients" },
   { href: "/matters", label: "Matters" },
   { href: "/tasks", label: "Tasks" },
   { href: "/time", label: "Time" },
