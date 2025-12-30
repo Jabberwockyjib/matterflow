@@ -1,5 +1,5 @@
 import { notFound, redirect } from 'next/navigation'
-import { supabaseAdmin } from '@/lib/supabase/admin'
+import { supabaseAdmin } from '@/lib/supabase/server'
 
 interface PageProps {
   params: Promise<{ code: string }>
@@ -8,8 +8,10 @@ interface PageProps {
 export default async function InviteRedemptionPage({ params }: PageProps) {
   const { code } = await params
 
+  const supabase = supabaseAdmin()
+
   // Look up the invitation by code
-  const { data: invitation, error } = await supabaseAdmin()
+  const { data: invitation, error } = await supabase
     .from('client_invitations')
     .select('*')
     .eq('invite_code', code)
@@ -77,7 +79,7 @@ export default async function InviteRedemptionPage({ params }: PageProps) {
   }
 
   // Check if a matter already exists for this invitation
-  const { data: existingMatters } = await supabaseAdmin()
+  const { data: existingMatters } = await supabase
     .from('matters')
     .select('id')
     .eq('client_email', invitation.client_email)
@@ -90,7 +92,7 @@ export default async function InviteRedemptionPage({ params }: PageProps) {
   }
 
   // Create a new matter for this invitation
-  const { data: matter, error: matterError } = await supabaseAdmin()
+  const { data: matter, error: matterError } = await supabase
     .from('matters')
     .insert({
       title: `${invitation.matter_type || 'General'} for ${invitation.client_name}`,
