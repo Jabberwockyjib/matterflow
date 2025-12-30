@@ -21,6 +21,16 @@ vi.mock('@/lib/email/client', () => ({
 // Mock @react-email/components
 vi.mock('@react-email/components', () => ({
   render: vi.fn().mockReturnValue('<html>mock email</html>'),
+  Html: ({ children }: any) => children,
+  Head: () => null,
+  Preview: () => null,
+  Body: ({ children }: any) => children,
+  Container: ({ children }: any) => children,
+  Section: ({ children }: any) => children,
+  Text: ({ children }: any) => children,
+  Link: ({ children }: any) => children,
+  Hr: () => null,
+  Button: ({ children }: any) => children,
 }))
 
 // Mock @supabase/supabase-js for user client

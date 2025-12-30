@@ -21,7 +21,7 @@ describe("fetchMattersWithFilters", () => {
       const result = await fetchMattersWithFilters();
 
       expect(result.source).toBe("mock");
-      expect(result.data).toHaveLength(2);
+      expect(result.data).toHaveLength(5);
       expect(result.error).toBeUndefined();
     });
 
@@ -29,7 +29,7 @@ describe("fetchMattersWithFilters", () => {
       const result = await fetchMattersWithFilters({});
 
       expect(result.source).toBe("mock");
-      expect(result.data).toHaveLength(2);
+      expect(result.data).toHaveLength(5);
     });
 
     it("filters by single stage", async () => {
@@ -66,7 +66,7 @@ describe("fetchMattersWithFilters", () => {
       });
 
       expect(result.source).toBe("mock");
-      expect(result.data).toHaveLength(1);
+      expect(result.data).toHaveLength(2); // mock-1 and mock-5 are both Policy Review
       expect(result.data[0].matterType).toBe("Policy Review");
     });
 
@@ -76,7 +76,7 @@ describe("fetchMattersWithFilters", () => {
       });
 
       expect(result.source).toBe("mock");
-      expect(result.data).toHaveLength(2);
+      expect(result.data).toHaveLength(4); // mock-1, mock-2, mock-4, mock-5
     });
 
     it("filters by search query matching title", async () => {
@@ -176,7 +176,7 @@ describe("fetchMattersWithFilters", () => {
       });
 
       expect(result.source).toBe("mock");
-      expect(result.data).toHaveLength(2);
+      expect(result.data).toHaveLength(5);
     });
 
     it("ignores empty matterTypes array", async () => {
@@ -185,7 +185,7 @@ describe("fetchMattersWithFilters", () => {
       });
 
       expect(result.source).toBe("mock");
-      expect(result.data).toHaveLength(2);
+      expect(result.data).toHaveLength(5);
     });
 
     it("ignores empty search query", async () => {
@@ -194,7 +194,7 @@ describe("fetchMattersWithFilters", () => {
       });
 
       expect(result.source).toBe("mock");
-      expect(result.data).toHaveLength(2);
+      expect(result.data).toHaveLength(5);
     });
 
     it("ignores whitespace-only search query", async () => {
@@ -203,7 +203,7 @@ describe("fetchMattersWithFilters", () => {
       });
 
       expect(result.source).toBe("mock");
-      expect(result.data).toHaveLength(2);
+      expect(result.data).toHaveLength(5);
     });
   });
 
