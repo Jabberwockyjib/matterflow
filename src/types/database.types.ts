@@ -259,7 +259,7 @@ export type Database = {
           internal_notes: string | null
           matter_id: string
           responses: Json | null
-          review_status: string | null
+          review_status: string
           reviewed_at: string | null
           reviewed_by: string | null
           status: string
@@ -273,7 +273,7 @@ export type Database = {
           internal_notes?: string | null
           matter_id: string
           responses?: Json | null
-          review_status?: string | null
+          review_status?: string
           reviewed_at?: string | null
           reviewed_by?: string | null
           status?: string
@@ -287,7 +287,7 @@ export type Database = {
           internal_notes?: string | null
           matter_id?: string
           responses?: Json | null
-          review_status?: string | null
+          review_status?: string
           reviewed_at?: string | null
           reviewed_by?: string | null
           status?: string
