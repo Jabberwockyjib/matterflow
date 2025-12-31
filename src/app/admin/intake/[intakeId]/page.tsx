@@ -27,15 +27,33 @@ export default async function IntakeReviewPage({
         title,
         matter_type,
         stage,
-        client:profiles!matters_client_id_fkey (
-          full_name,
-          users:user_id (email)
-        )
+        client_id
       )
     `
     )
     .eq("id", intakeId)
     .single();
+
+  // Get client details separately
+  let clientData = null;
+  if (intakeResponse?.matters?.client_id) {
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("user_id, full_name")
+      .eq("user_id", intakeResponse.matters.client_id)
+      .single();
+
+    if (profile) {
+      const { data: user } = await supabase.auth.admin.getUserById(profile.user_id);
+      if (user) {
+        clientData = {
+          userId: profile.user_id,
+          fullName: profile.full_name || "Unknown",
+          email: user.user?.email || "",
+        };
+      }
+    }
+  }
 
   if (error || !intakeResponse) {
     return (
@@ -103,7 +121,7 @@ export default async function IntakeReviewPage({
             <div>
               <p className="text-sm font-medium text-gray-500">Client</p>
               <p className="text-base text-gray-900 mt-1">
-                {matter.client?.full_name || "Unknown"}
+                {clientData?.fullName || "Unknown"}
               </p>
             </div>
             <div>
@@ -172,12 +190,21 @@ export default async function IntakeReviewPage({
         {intakeResponse.status === "submitted" && (
           <IntakeReviewClient
             intakeId={intakeId}
-            intakeResponse={intakeResponse}
-            matter={matter}
-            client={{
-              userId: matter.client?.users?.id || "",
-              fullName: matter.client?.full_name || "Unknown",
-              email: matter.client?.users?.email || "",
+            intakeResponse={{
+              id: intakeResponse.id,
+              status: intakeResponse.status,
+              internal_notes: intakeResponse.internal_notes,
+              review_status: intakeResponse.review_status,
+            }}
+            matter={{
+              id: matter.id,
+              title: matter.title,
+              client_id: matter.client_id,
+            }}
+            client={clientData || {
+              userId: "",
+              fullName: "Unknown",
+              email: "",
             }}
             infoRequests={infoRequests}
           />

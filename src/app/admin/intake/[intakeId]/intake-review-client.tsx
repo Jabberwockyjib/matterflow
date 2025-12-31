@@ -4,7 +4,8 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { showSuccess, showError } from "@/lib/toast";
-import { approveIntakeForm, declineIntakeForm, scheduleCallAction, updateIntakeNotes, createInfoRequest } from "@/lib/data/actions";
+import { approveIntakeForm } from "@/lib/intake";
+import { declineIntakeForm, scheduleCallAction, updateIntakeNotes, createInfoRequest } from "@/lib/data/actions";
 import { InfoRequestComposer } from "@/components/clients/info-request-composer";
 import { ScheduleCallModal } from "@/components/clients/schedule-call-modal";
 import { DeclineIntakeModal } from "@/components/clients/decline-intake-modal";
@@ -18,7 +19,7 @@ interface IntakeReviewClientProps {
   intakeResponse: {
     id: string;
     status: string;
-    review_notes: string | null;
+    internal_notes: string | null;
     review_status: string | null;
   };
   matter: {
@@ -49,14 +50,14 @@ export function IntakeReviewClient({
   const [showDeclineModal, setShowDeclineModal] = useState(false);
 
   // Internal notes state with auto-save
-  const [notes, setNotes] = useState(intakeResponse.review_notes || "");
+  const [notes, setNotes] = useState(intakeResponse.internal_notes || "");
   const [isSavingNotes, setIsSavingNotes] = useState(false);
   const [lastSaved, setLastSaved] = useState<Date | undefined>(undefined);
   const debouncedNotes = useDebounce(notes, 1000);
 
   // Auto-save notes when debounced value changes
   useEffect(() => {
-    if (debouncedNotes !== (intakeResponse.review_notes || "")) {
+    if (debouncedNotes !== (intakeResponse.internal_notes || "")) {
       setIsSavingNotes(true);
       updateIntakeNotes(intakeId, debouncedNotes)
         .then(() => {
@@ -69,19 +70,16 @@ export function IntakeReviewClient({
           setIsSavingNotes(false);
         });
     }
-  }, [debouncedNotes, intakeId, intakeResponse.review_notes]);
+  }, [debouncedNotes, intakeId, intakeResponse.internal_notes]);
 
   // Action handlers
   const handleApprove = async () => {
-    const formData = new FormData();
-    formData.append("intakeResponseId", intakeId);
-
-    const result = await approveIntakeForm(formData);
-    if (result.ok) {
+    const result = await approveIntakeForm(intakeId);
+    if ("error" in result) {
+      showError(result.error || "Failed to approve intake form");
+    } else {
       showSuccess("Intake form approved successfully");
       router.refresh();
-    } else {
-      showError(result.error || "Failed to approve intake form");
     }
   };
 
