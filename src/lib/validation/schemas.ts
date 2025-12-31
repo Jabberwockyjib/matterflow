@@ -123,6 +123,7 @@ export const matterStageValues = [
   "Billing Pending",
   "Completed",
   "Archived",
+  "Declined",
 ] as const;
 
 // ============================================================================

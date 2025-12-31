@@ -11,7 +11,7 @@ insert into public.matters (id, title, client_id, owner_id, matter_type, billing
 values
   ('11111111-1111-1111-1111-111111111111', 'Policy Review – Evergreen', '00000000-0000-0000-0000-000000000002', '00000000-0000-0000-0000-000000000001', 'Policy Review', 'flat', 'Under Review', 'Draft review pack', current_date - 2, 'lawyer'),
   ('22222222-2222-2222-2222-222222222222', 'Contract Review – Lotus Clinic', '00000000-0000-0000-0000-000000000002', '00000000-0000-0000-0000-000000000001', 'Contract Review', 'hourly', 'Waiting on Client', 'Nudge client', current_date, 'client'),
-  ('33333333-3333-3333-3333-333333333333', 'Employment Agreement – Sunrise', '00000000-0000-0000-0000-000000000002', '00000000-0000-0000-0000-000000000001', 'Employment Agreement', 'flat', 'Drafting', 'Send initial draft', current_date + 3, 'staff')
+  ('33333333-3333-3333-3333-333333333333', 'Employment Agreement – Sunrise', '00000000-0000-0000-0000-000000000002', '00000000-0000-0000-0000-000000000001', 'Employment Agreement', 'flat', 'Draft Ready', 'Send initial draft', current_date + 3, 'lawyer')
 on conflict (id) do nothing;
 
 insert into public.tasks (id, matter_id, title, due_date, status, responsible_party, created_by)

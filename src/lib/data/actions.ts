@@ -2045,10 +2045,7 @@ export async function declineIntakeForm(formData: FormData): Promise<ActionResul
       return { ok: false, error: updateError.message };
     }
 
-    // NOTE: Matter stage update to "Declined" will be enabled after migration in Task 11
-    // For now, we skip the matter update to avoid enum constraint violation
-    // TODO: Uncomment after Task 11 adds "Declined" to matter_stage enum
-    /*
+    // Update matter stage to "Declined"
     const { error: matterError } = await supabase
       .from("matters")
       .update({
@@ -2062,7 +2059,6 @@ export async function declineIntakeForm(formData: FormData): Promise<ActionResul
       console.error("Failed to update matter stage:", matterError);
       return { ok: false, error: "Failed to update matter status: " + matterError.message };
     }
-    */
 
     // Log to audit
     await logAudit({
