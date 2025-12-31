@@ -4,6 +4,7 @@ import { supabaseAdmin } from "@/lib/supabase/server";
 import { IntakeReviewClient } from "./intake-review-client";
 import { DynamicFormRenderer } from "@/components/intake/dynamic-form-renderer";
 import { Badge } from "@/components/ui/badge";
+import { getInfoRequests } from "@/lib/data/queries";
 
 interface IntakeReviewPageProps {
   params: Promise<{ intakeId: string }>;
@@ -48,6 +49,9 @@ export default async function IntakeReviewPage({
       </div>
     );
   }
+
+  // Get info requests for this intake
+  const { data: infoRequests } = await getInfoRequests(intakeId);
 
   const matter = intakeResponse.matters;
   const template = getTemplateForMatterType(matter.matter_type);
@@ -166,7 +170,17 @@ export default async function IntakeReviewPage({
 
         {/* Actions */}
         {intakeResponse.status === "submitted" && (
-          <IntakeReviewClient intakeId={intakeId} />
+          <IntakeReviewClient
+            intakeId={intakeId}
+            intakeResponse={intakeResponse}
+            matter={matter}
+            client={{
+              userId: matter.client?.users?.id || "",
+              fullName: matter.client?.full_name || "Unknown",
+              email: matter.client?.users?.email || "",
+            }}
+            infoRequests={infoRequests}
+          />
         )}
 
         {intakeResponse.status === "approved" && (
