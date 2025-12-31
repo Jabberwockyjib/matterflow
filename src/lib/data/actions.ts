@@ -2210,3 +2210,44 @@ export async function scheduleCallAction(formData: FormData): Promise<ActionResu
     return { ok: false, error: err instanceof Error ? err.message : "Failed to schedule call" };
   }
 }
+
+/**
+ * Update internal notes for an intake response
+ * Used for lawyer's private notes, not visible to client
+ */
+export async function updateIntakeNotes(
+  intakeResponseId: string,
+  notes: string
+): Promise<ActionResult> {
+  const roleCheck = await ensureStaffOrAdmin();
+  if ("error" in roleCheck) return roleCheck;
+
+  try {
+    const supabase = ensureSupabase();
+
+    const { error: updateError } = await supabase
+      .from("intake_responses")
+      .update({ internal_notes: notes })
+      .eq("id", intakeResponseId);
+
+    if (updateError) {
+      console.error("Failed to update intake notes:", updateError);
+      return { ok: false, error: updateError.message };
+    }
+
+    // Log to audit (silent, no need for full revalidation)
+    await logAudit({
+      supabase,
+      actorId: roleCheck.session.user.id,
+      eventType: "update_intake_notes",
+      entityType: "intake_response",
+      entityId: intakeResponseId,
+      metadata: { notes_length: notes.length },
+    });
+
+    return { ok: true };
+  } catch (err) {
+    console.error("Error updating intake notes:", err);
+    return { ok: false, error: err instanceof Error ? err.message : "Failed to update notes" };
+  }
+}
