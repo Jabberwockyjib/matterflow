@@ -14,6 +14,7 @@ import { resend, FROM_EMAIL } from "@/lib/email/client";
 import UserInvitationEmail from "@/lib/email/templates/user-invitation";
 import AdminPasswordResetEmail from "@/lib/email/templates/admin-password-reset";
 import { inviteUserSchema, passwordResetSchema, changePasswordSchema } from "@/lib/validation/schemas";
+import { infoRequestSchema, infoResponseSchema } from "@/lib/validation/info-request-schemas";
 import { z } from "zod";
 
 type ActionResult = {
@@ -1832,4 +1833,164 @@ export async function updatePracticeSettings(
 
   revalidatePath("/settings");
   return { ok: true };
+}
+
+// Info Request Actions
+
+/**
+ * Create an info request to ask client for additional information
+ * Used when intake response needs clarification or additional data
+ */
+export async function createInfoRequest(formData: FormData): Promise<ActionResult> {
+  const roleCheck = await ensureStaffOrAdmin();
+  if ("error" in roleCheck) return roleCheck;
+
+  try {
+    const supabase = ensureSupabase();
+
+    // Parse and validate input
+    const intakeResponseId = formData.get("intakeResponseId") as string;
+    const questionsJson = formData.get("questions") as string;
+    const message = formData.get("message") as string | null;
+    const documentsJson = formData.get("documents") as string | null;
+    const deadline = formData.get("deadline") as string | null;
+
+    const questions = JSON.parse(questionsJson);
+    const documents = documentsJson ? JSON.parse(documentsJson) : undefined;
+
+    const validated = infoRequestSchema.parse({
+      intakeResponseId,
+      questions,
+      message: message || undefined,
+      documents,
+      deadline: deadline || undefined,
+    });
+
+    // Insert info request
+    const { data: infoRequest, error: insertError } = await supabase
+      .from("info_requests")
+      .insert({
+        intake_response_id: validated.intakeResponseId,
+        requested_by: roleCheck.session.user.id,
+        questions: validated.questions as any,
+        message: validated.message || null,
+        documents: validated.documents || null,
+        response_deadline: validated.deadline || null,
+        status: "pending",
+      })
+      .select()
+      .single();
+
+    if (insertError) {
+      console.error("Failed to create info request:", insertError);
+      return { ok: false, error: insertError.message };
+    }
+
+    // Update intake response review status to 'under_review'
+    const { error: updateError } = await supabase
+      .from("intake_responses")
+      .update({ review_status: "under_review" })
+      .eq("id", validated.intakeResponseId);
+
+    if (updateError) {
+      console.error("Failed to update intake response status:", updateError);
+      // Don't fail the whole operation if status update fails
+    }
+
+    // Log to audit
+    await logAudit({
+      supabase,
+      actorId: roleCheck.session.user.id,
+      eventType: "create_info_request",
+      entityType: "info_request",
+      entityId: infoRequest.id,
+      metadata: {
+        intake_response_id: validated.intakeResponseId,
+        questions_count: validated.questions.length,
+      },
+    });
+
+    // TODO: Send email notification to client about info request
+    // This will be implemented in the email integration phase
+
+    revalidatePath("/admin/clients");
+    revalidatePath("/admin/intake");
+
+    return { ok: true, data: infoRequest };
+  } catch (err) {
+    console.error("Error creating info request:", err);
+    if (err instanceof z.ZodError) {
+      return { ok: false, error: err.issues.map((e) => e.message).join(", ") };
+    }
+    return { ok: false, error: err instanceof Error ? err.message : "Failed to create info request" };
+  }
+}
+
+/**
+ * Submit response to an info request
+ * Used by clients to provide requested additional information
+ */
+export async function submitInfoResponse(formData: FormData): Promise<ActionResult> {
+  const { session } = await getSessionWithProfile();
+  if (!session) {
+    return { error: "Unauthorized: please sign in" };
+  }
+
+  try {
+    const supabase = ensureSupabase();
+
+    // Parse and validate input
+    const infoRequestId = formData.get("infoRequestId") as string;
+    const responsesJson = formData.get("responses") as string;
+
+    const responses = JSON.parse(responsesJson);
+
+    const validated = infoResponseSchema.parse({
+      infoRequestId,
+      responses,
+    });
+
+    // Update info request with responses
+    const { data: updatedRequest, error: updateError } = await supabase
+      .from("info_requests")
+      .update({
+        responses: validated.responses as any,
+        status: "completed",
+        responded_at: new Date().toISOString(),
+      })
+      .eq("id", validated.infoRequestId)
+      .select()
+      .single();
+
+    if (updateError) {
+      console.error("Failed to submit info response:", updateError);
+      return { ok: false, error: updateError.message };
+    }
+
+    // Update intake response review status back to 'under_review'
+    // so it appears in lawyer's review queue
+    const { error: statusError } = await supabase
+      .from("intake_responses")
+      .update({ review_status: "under_review" })
+      .eq("id", updatedRequest.intake_response_id);
+
+    if (statusError) {
+      console.error("Failed to update intake response status:", statusError);
+      // Don't fail the whole operation if status update fails
+    }
+
+    // TODO: Send email notification to lawyer about completed info request
+    // This will be implemented in the email integration phase
+
+    revalidatePath("/admin/clients");
+    revalidatePath("/admin/intake");
+
+    return { ok: true, data: updatedRequest };
+  } catch (err) {
+    console.error("Error submitting info response:", err);
+    if (err instanceof z.ZodError) {
+      return { ok: false, error: err.issues.map((e) => e.message).join(", ") };
+    }
+    return { ok: false, error: err instanceof Error ? err.message : "Failed to submit info response" };
+  }
 }
