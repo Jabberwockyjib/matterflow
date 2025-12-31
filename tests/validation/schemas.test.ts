@@ -913,6 +913,7 @@ describe("enum values", () => {
     expect(matterStageValues).toContain("Lead Created");
     expect(matterStageValues).toContain("Completed");
     expect(matterStageValues).toContain("Archived");
-    expect(matterStageValues.length).toBe(11);
+    expect(matterStageValues).toContain("Declined");
+    expect(matterStageValues.length).toBe(12);
   });
 });
