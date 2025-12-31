@@ -13,7 +13,7 @@ import { sendMatterCreatedEmail, sendTaskAssignedEmail, sendInvoiceEmail } from 
 import { resend, FROM_EMAIL } from "@/lib/email/client";
 import UserInvitationEmail from "@/lib/email/templates/user-invitation";
 import AdminPasswordResetEmail from "@/lib/email/templates/admin-password-reset";
-import { inviteUserSchema, passwordResetSchema, changePasswordSchema } from "@/lib/validation/schemas";
+import { inviteUserSchema, passwordResetSchema, changePasswordSchema, declineIntakeSchema } from "@/lib/validation/schemas";
 import { infoRequestSchema, infoResponseSchema } from "@/lib/validation/info-request-schemas";
 import { z } from "zod";
 
@@ -1992,5 +1992,100 @@ export async function submitInfoResponse(formData: FormData): Promise<ActionResu
       return { ok: false, error: err.issues.map((e) => e.message).join(", ") };
     }
     return { ok: false, error: err instanceof Error ? err.message : "Failed to submit info response" };
+  }
+}
+
+/**
+ * Decline an intake form
+ * Updates status and sends notification to client
+ */
+export async function declineIntakeForm(formData: FormData): Promise<ActionResult> {
+  const roleCheck = await ensureStaffOrAdmin();
+  if ("error" in roleCheck) return roleCheck;
+
+  try {
+    const supabase = ensureSupabase();
+
+    const intakeResponseId = formData.get("intakeResponseId") as string;
+    const reason = formData.get("reason") as string;
+    const notes = formData.get("notes") as string | null;
+
+    const validated = declineIntakeSchema.parse({
+      intakeResponseId,
+      reason,
+      notes: notes || undefined,
+    });
+
+    // Get intake response with matter
+    const { data: intakeResponse, error: fetchError } = await supabase
+      .from("intake_responses")
+      .select("*, matters!intake_responses_matter_id_fkey(id, title)")
+      .eq("id", validated.intakeResponseId)
+      .single();
+
+    if (fetchError || !intakeResponse) {
+      return { ok: false, error: "Intake response not found" };
+    }
+
+    // Update intake response status
+    const reviewNotes = validated.notes
+      ? `DECLINED: ${validated.reason}\n\n${validated.notes}`
+      : `DECLINED: ${validated.reason}`;
+
+    const { error: updateError } = await supabase
+      .from("intake_responses")
+      .update({
+        status: "declined",
+        review_status: "declined",
+        review_notes: reviewNotes,
+      })
+      .eq("id", validated.intakeResponseId);
+
+    if (updateError) {
+      console.error("Failed to decline intake:", updateError);
+      return { ok: false, error: updateError.message };
+    }
+
+    // Update matter stage to "Declined"
+    const { error: matterError } = await supabase
+      .from("matters")
+      .update({
+        stage: "Declined",
+        next_action: "Follow up if client reapplies",
+        responsible_party: "lawyer",
+      })
+      .eq("id", intakeResponse.matter_id);
+
+    if (matterError) {
+      console.error("Failed to update matter stage:", matterError);
+      // Don't fail the whole operation
+    }
+
+    // Log to audit
+    await logAudit({
+      supabase,
+      actorId: roleCheck.session.user.id,
+      eventType: "decline_intake",
+      entityType: "intake_response",
+      entityId: validated.intakeResponseId,
+      metadata: {
+        reason: validated.reason,
+        notes: validated.notes,
+      },
+    });
+
+    // TODO: Send email notification to client
+    // This will be implemented in email integration phase
+
+    revalidatePath("/admin/intake");
+    revalidatePath(`/admin/intake/${validated.intakeResponseId}`);
+
+    return { ok: true };
+  } catch (err) {
+    console.error("Error declining intake:", err);
+    if (err instanceof z.ZodError) {
+      return { ok: false, error: err.issues.map((e) => e.message).join(", ") };
+    }
+    return { ok: false, error: err instanceof Error ? err.message : "Failed to decline intake" };
   }
 }

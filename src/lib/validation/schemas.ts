@@ -356,6 +356,21 @@ export const invoiceStatusSchema = z.object({
 export type InvoiceStatusFormData = z.infer<typeof invoiceStatusSchema>;
 
 // ============================================================================
+// Intake Response Schemas
+// ============================================================================
+
+/**
+ * Schema for declining an intake form
+ */
+export const declineIntakeSchema = z.object({
+  intakeResponseId: z.string().uuid(),
+  reason: z.enum(['incomplete_info', 'not_good_fit', 'client_unresponsive', 'other']),
+  notes: z.string().optional(),
+});
+
+export type DeclineIntakeData = z.infer<typeof declineIntakeSchema>;
+
+// ============================================================================
 // Validation Helper Types
 // ============================================================================
 
