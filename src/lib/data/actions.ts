@@ -2106,10 +2106,16 @@ export async function scheduleCallAction(formData: FormData): Promise<ActionResu
 
     const intakeResponseId = formData.get("intakeResponseId") as string;
     const dateTime = formData.get("dateTime") as string;
-    const duration = parseInt(formData.get("duration") as string);
+    const durationStr = formData.get("duration") as string;
+    const duration = parseInt(durationStr);
     const meetingType = formData.get("meetingType") as string;
     const meetingLink = formData.get("meetingLink") as string | null;
     const notes = formData.get("notes") as string | null;
+
+    // Validate duration is a valid number
+    if (isNaN(duration)) {
+      return { ok: false, error: "Invalid duration value" };
+    }
 
     const validated = scheduleCallSchema.parse({
       intakeResponseId,
@@ -2127,11 +2133,21 @@ export async function scheduleCallAction(formData: FormData): Promise<ActionResu
       .eq("id", validated.intakeResponseId)
       .single();
 
-    if (fetchError || !intakeResponse) {
+    if (fetchError) {
+      console.error("Failed to fetch intake response:", fetchError);
+      return { ok: false, error: fetchError.message };
+    }
+
+    if (!intakeResponse) {
       return { ok: false, error: "Intake response not found" };
     }
 
     const matter = intakeResponse.matters;
+
+    // Validate matter exists
+    if (!matter || !matter.id) {
+      return { ok: false, error: "Associated matter not found" };
+    }
 
     // Create task for the call
     const taskDescription = JSON.stringify({
@@ -2160,18 +2176,23 @@ export async function scheduleCallAction(formData: FormData): Promise<ActionResu
     }
 
     // Log to audit
-    await logAudit({
-      supabase,
-      actorId: roleCheck.session.user.id,
-      eventType: "schedule_call",
-      entityType: "task",
-      entityId: task.id,
-      metadata: {
-        intake_response_id: validated.intakeResponseId,
-        meeting_type: validated.meetingType,
-        date_time: validated.dateTime,
-      },
-    });
+    try {
+      await logAudit({
+        supabase,
+        actorId: roleCheck.session.user.id,
+        eventType: "schedule_call",
+        entityType: "task",
+        entityId: task.id,
+        metadata: {
+          intake_response_id: validated.intakeResponseId,
+          meeting_type: validated.meetingType,
+          date_time: validated.dateTime,
+        },
+      });
+    } catch (auditError) {
+      console.warn("Failed to log audit entry for schedule_call:", auditError);
+      // Don't fail the operation if audit logging fails
+    }
 
     // TODO: Send calendar invite email to client
     // This will be implemented in email integration phase
