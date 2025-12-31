@@ -384,6 +384,16 @@ export const scheduleCallSchema = z.object({
 
 export type ScheduleCallData = z.infer<typeof scheduleCallSchema>;
 
+/**
+ * Schema for updating intake response internal notes
+ */
+export const updateIntakeNotesSchema = z.object({
+  intakeResponseId: z.string().uuid(),
+  notes: z.string().max(10000, "Notes cannot exceed 10,000 characters"),
+});
+
+export type UpdateIntakeNotesData = z.infer<typeof updateIntakeNotesSchema>;
+
 // ============================================================================
 // Validation Helper Types
 // ============================================================================

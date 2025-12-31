@@ -13,7 +13,7 @@ import { sendMatterCreatedEmail, sendTaskAssignedEmail, sendInvoiceEmail } from 
 import { resend, FROM_EMAIL } from "@/lib/email/client";
 import UserInvitationEmail from "@/lib/email/templates/user-invitation";
 import AdminPasswordResetEmail from "@/lib/email/templates/admin-password-reset";
-import { inviteUserSchema, passwordResetSchema, changePasswordSchema, declineIntakeSchema, scheduleCallSchema } from "@/lib/validation/schemas";
+import { inviteUserSchema, passwordResetSchema, changePasswordSchema, declineIntakeSchema, scheduleCallSchema, updateIntakeNotesSchema } from "@/lib/validation/schemas";
 import { infoRequestSchema, infoResponseSchema } from "@/lib/validation/info-request-schemas";
 import { z } from "zod";
 
@@ -2223,30 +2223,62 @@ export async function updateIntakeNotes(
   if ("error" in roleCheck) return roleCheck;
 
   try {
+    // Validate inputs
+    const validated = updateIntakeNotesSchema.parse({
+      intakeResponseId,
+      notes,
+    });
+
     const supabase = ensureSupabase();
 
+    // Verify intake response exists
+    const { data: existingIntake, error: fetchError } = await supabase
+      .from("intake_responses")
+      .select("id")
+      .eq("id", validated.intakeResponseId)
+      .single();
+
+    if (fetchError) {
+      console.error("Failed to fetch intake response:", fetchError);
+      return { ok: false, error: fetchError.message };
+    }
+
+    if (!existingIntake) {
+      return { ok: false, error: "Intake response not found" };
+    }
+
+    // Update internal notes
     const { error: updateError } = await supabase
       .from("intake_responses")
-      .update({ internal_notes: notes })
-      .eq("id", intakeResponseId);
+      .update({ internal_notes: validated.notes })
+      .eq("id", validated.intakeResponseId);
 
     if (updateError) {
       console.error("Failed to update intake notes:", updateError);
       return { ok: false, error: updateError.message };
     }
 
-    // Log to audit (silent, no need for full revalidation)
+    // Log to audit
+    // Note: No path revalidation - internal notes are staff-only and not displayed in cached pages
+    // This is a background auto-save operation
     await logAudit({
       supabase,
       actorId: roleCheck.session.user.id,
       eventType: "update_intake_notes",
       entityType: "intake_response",
-      entityId: intakeResponseId,
-      metadata: { notes_length: notes.length },
+      entityId: validated.intakeResponseId,
+      metadata: {
+        notes_length: validated.notes.length,
+        action: validated.notes.length === 0 ? 'cleared' : 'updated',
+      },
     });
 
     return { ok: true };
   } catch (err) {
+    // Handle Zod validation errors
+    if (err instanceof z.ZodError) {
+      return { ok: false, error: err.issues.map((e) => e.message).join(", ") };
+    }
     console.error("Error updating intake notes:", err);
     return { ok: false, error: err instanceof Error ? err.message : "Failed to update notes" };
   }
