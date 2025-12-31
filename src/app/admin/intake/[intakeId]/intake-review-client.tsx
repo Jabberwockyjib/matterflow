@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { showSuccess, showError } from "@/lib/toast";
-import { approveIntakeForm, declineIntakeForm, scheduleCallAction, updateIntakeNotes } from "@/lib/data/actions";
+import { approveIntakeForm, declineIntakeForm, scheduleCallAction, updateIntakeNotes, createInfoRequest } from "@/lib/data/actions";
 import { InfoRequestComposer } from "@/components/clients/info-request-composer";
 import { ScheduleCallModal } from "@/components/clients/schedule-call-modal";
 import { DeclineIntakeModal } from "@/components/clients/decline-intake-modal";
@@ -92,7 +92,7 @@ export function IntakeReviewClient({
     if (data.message) formData.append("message", data.message);
     if (data.deadline) formData.append("deadline", data.deadline);
 
-    const result = await approveIntakeForm(formData); // TODO: Use createInfoRequest
+    const result = await createInfoRequest(formData);
     if (result.ok) {
       showSuccess("Information request sent successfully");
       router.refresh();
