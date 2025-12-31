@@ -993,3 +993,213 @@ export async function fetchClients(): Promise<{
     source: "supabase",
   };
 }
+
+/**
+ * Info Request types and queries
+ */
+
+export type InfoRequestSummary = {
+  id: string;
+  intakeResponseId: string;
+  requestedBy: {
+    userId: string;
+    fullName: string;
+    email: string;
+  } | null;
+  questions: Record<string, any>;
+  message: string | null;
+  documents: Record<string, any> | null;
+  responseDeadline: string | null;
+  status: string;
+  requestedAt: string;
+  respondedAt: string | null;
+  responses: Record<string, any> | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type InfoRequestDetail = InfoRequestSummary & {
+  intakeResponse: {
+    id: string;
+    matterId: string;
+    formType: string;
+    matter: {
+      id: string;
+      title: string;
+      clientId: string | null;
+      client: {
+        userId: string;
+        fullName: string;
+        email: string;
+      } | null;
+    } | null;
+  } | null;
+};
+
+/**
+ * Get all info requests for an intake response
+ */
+export async function getInfoRequests(
+  intakeResponseId: string
+): Promise<{
+  data: InfoRequestSummary[];
+  source: DataSource;
+}> {
+  if (!supabaseEnvReady()) {
+    return { data: [], source: "supabase" };
+  }
+
+  try {
+    const supabase = supabaseAdmin();
+    const { data, error } = await supabase
+      .from("info_requests")
+      .select(
+        `
+        *,
+        requestedBy:profiles!info_requests_requested_by_fkey(
+          user_id,
+          full_name,
+          email
+        )
+      `
+      )
+      .eq("intake_response_id", intakeResponseId)
+      .order("requested_at", { ascending: false });
+
+    if (error || !data) {
+      console.error("Error fetching info requests:", error);
+      return { data: [], source: "supabase" };
+    }
+
+    return {
+      data: data.map((row) => ({
+        id: row.id,
+        intakeResponseId: row.intake_response_id,
+        requestedBy: row.requestedBy
+          ? {
+              userId: row.requestedBy.user_id,
+              fullName: row.requestedBy.full_name,
+              email: row.requestedBy.email,
+            }
+          : null,
+        questions: (row.questions as Record<string, any>) || {},
+        message: row.message,
+        documents: row.documents as Record<string, any> | null,
+        responseDeadline: row.response_deadline,
+        status: row.status,
+        requestedAt: row.requested_at,
+        respondedAt: row.responded_at,
+        responses: row.responses as Record<string, any> | null,
+        createdAt: row.created_at,
+        updatedAt: row.updated_at,
+      })),
+      source: "supabase",
+    };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Unknown error";
+    console.error("Error fetching info requests:", message);
+    return { data: [], source: "supabase" };
+  }
+}
+
+/**
+ * Get a single info request by ID with full context
+ */
+export async function getInfoRequestById(
+  id: string
+): Promise<{
+  data: InfoRequestDetail | null;
+  source: DataSource;
+}> {
+  if (!supabaseEnvReady()) {
+    return { data: null, source: "supabase" };
+  }
+
+  try {
+    const supabase = supabaseAdmin();
+    const { data, error } = await supabase
+      .from("info_requests")
+      .select(
+        `
+        *,
+        requestedBy:profiles!info_requests_requested_by_fkey(
+          user_id,
+          full_name,
+          email
+        ),
+        intakeResponse:intake_responses!info_requests_intake_response_id_fkey(
+          id,
+          matter_id,
+          form_type,
+          matter:matters!intake_responses_matter_id_fkey(
+            id,
+            title,
+            client_id,
+            client:profiles!matters_client_id_fkey(
+              user_id,
+              full_name,
+              email
+            )
+          )
+        )
+      `
+      )
+      .eq("id", id)
+      .single();
+
+    if (error || !data) {
+      console.error("Error fetching info request by ID:", error);
+      return { data: null, source: "supabase" };
+    }
+
+    return {
+      data: {
+        id: data.id,
+        intakeResponseId: data.intake_response_id,
+        requestedBy: data.requestedBy
+          ? {
+              userId: data.requestedBy.user_id,
+              fullName: data.requestedBy.full_name,
+              email: data.requestedBy.email,
+            }
+          : null,
+        questions: (data.questions as Record<string, any>) || {},
+        message: data.message,
+        documents: data.documents as Record<string, any> | null,
+        responseDeadline: data.response_deadline,
+        status: data.status,
+        requestedAt: data.requested_at,
+        respondedAt: data.responded_at,
+        responses: data.responses as Record<string, any> | null,
+        createdAt: data.created_at,
+        updatedAt: data.updated_at,
+        intakeResponse: data.intakeResponse
+          ? {
+              id: data.intakeResponse.id,
+              matterId: data.intakeResponse.matter_id,
+              formType: data.intakeResponse.form_type,
+              matter: data.intakeResponse.matter
+                ? {
+                    id: data.intakeResponse.matter.id,
+                    title: data.intakeResponse.matter.title,
+                    clientId: data.intakeResponse.matter.client_id,
+                    client: data.intakeResponse.matter.client
+                      ? {
+                          userId: data.intakeResponse.matter.client.user_id,
+                          fullName: data.intakeResponse.matter.client.full_name,
+                          email: data.intakeResponse.matter.client.email,
+                        }
+                      : null,
+                  }
+                : null,
+            }
+          : null,
+      },
+      source: "supabase",
+    };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Unknown error";
+    console.error("Error fetching info request by ID:", message);
+    return { data: null, source: "supabase" };
+  }
+}
