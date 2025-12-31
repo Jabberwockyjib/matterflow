@@ -370,6 +370,20 @@ export const declineIntakeSchema = z.object({
 
 export type DeclineIntakeData = z.infer<typeof declineIntakeSchema>;
 
+/**
+ * Schema for scheduling a consultation call
+ */
+export const scheduleCallSchema = z.object({
+  intakeResponseId: z.string().uuid(),
+  dateTime: z.string().datetime(),
+  duration: z.number().int().positive(),
+  meetingType: z.enum(['phone', 'video', 'in_person']),
+  meetingLink: z.string().url().optional(),
+  notes: z.string().optional(),
+});
+
+export type ScheduleCallData = z.infer<typeof scheduleCallSchema>;
+
 // ============================================================================
 // Validation Helper Types
 // ============================================================================

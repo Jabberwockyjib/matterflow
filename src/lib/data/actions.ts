@@ -13,7 +13,7 @@ import { sendMatterCreatedEmail, sendTaskAssignedEmail, sendInvoiceEmail } from 
 import { resend, FROM_EMAIL } from "@/lib/email/client";
 import UserInvitationEmail from "@/lib/email/templates/user-invitation";
 import AdminPasswordResetEmail from "@/lib/email/templates/admin-password-reset";
-import { inviteUserSchema, passwordResetSchema, changePasswordSchema, declineIntakeSchema } from "@/lib/validation/schemas";
+import { inviteUserSchema, passwordResetSchema, changePasswordSchema, declineIntakeSchema, scheduleCallSchema } from "@/lib/validation/schemas";
 import { infoRequestSchema, infoResponseSchema } from "@/lib/validation/info-request-schemas";
 import { z } from "zod";
 
@@ -2090,5 +2090,102 @@ export async function declineIntakeForm(formData: FormData): Promise<ActionResul
       return { ok: false, error: err.issues.map((e) => e.message).join(", ") };
     }
     return { ok: false, error: err instanceof Error ? err.message : "Failed to decline intake" };
+  }
+}
+
+/**
+ * Schedule a consultation call for an intake
+ * Creates a task and sends calendar invite to client
+ */
+export async function scheduleCallAction(formData: FormData): Promise<ActionResult> {
+  const roleCheck = await ensureStaffOrAdmin();
+  if ("error" in roleCheck) return roleCheck;
+
+  try {
+    const supabase = ensureSupabase();
+
+    const intakeResponseId = formData.get("intakeResponseId") as string;
+    const dateTime = formData.get("dateTime") as string;
+    const duration = parseInt(formData.get("duration") as string);
+    const meetingType = formData.get("meetingType") as string;
+    const meetingLink = formData.get("meetingLink") as string | null;
+    const notes = formData.get("notes") as string | null;
+
+    const validated = scheduleCallSchema.parse({
+      intakeResponseId,
+      dateTime,
+      duration,
+      meetingType,
+      meetingLink: meetingLink || undefined,
+      notes: notes || undefined,
+    });
+
+    // Get intake response with matter
+    const { data: intakeResponse, error: fetchError } = await supabase
+      .from("intake_responses")
+      .select("*, matters!intake_responses_matter_id_fkey(id, title, client_id)")
+      .eq("id", validated.intakeResponseId)
+      .single();
+
+    if (fetchError || !intakeResponse) {
+      return { ok: false, error: "Intake response not found" };
+    }
+
+    const matter = intakeResponse.matters;
+
+    // Create task for the call
+    const taskDescription = JSON.stringify({
+      meetingType: validated.meetingType,
+      meetingLink: validated.meetingLink,
+      duration: validated.duration,
+      notes: validated.notes,
+    });
+
+    const { data: task, error: taskError } = await supabase
+      .from("tasks")
+      .insert({
+        matter_id: matter.id,
+        title: "Consultation Call",
+        description: taskDescription,
+        due_date: validated.dateTime,
+        status: "open",
+        responsible_party: "client",
+      })
+      .select()
+      .single();
+
+    if (taskError) {
+      console.error("Failed to create task:", taskError);
+      return { ok: false, error: taskError.message };
+    }
+
+    // Log to audit
+    await logAudit({
+      supabase,
+      actorId: roleCheck.session.user.id,
+      eventType: "schedule_call",
+      entityType: "task",
+      entityId: task.id,
+      metadata: {
+        intake_response_id: validated.intakeResponseId,
+        meeting_type: validated.meetingType,
+        date_time: validated.dateTime,
+      },
+    });
+
+    // TODO: Send calendar invite email to client
+    // This will be implemented in email integration phase
+
+    revalidatePath("/admin/intake");
+    revalidatePath(`/admin/intake/${validated.intakeResponseId}`);
+    revalidatePath(`/admin/matters/${matter.id}`);
+
+    return { ok: true, data: task };
+  } catch (err) {
+    console.error("Error scheduling call:", err);
+    if (err instanceof z.ZodError) {
+      return { ok: false, error: err.issues.map((e) => e.message).join(", ") };
+    }
+    return { ok: false, error: err instanceof Error ? err.message : "Failed to schedule call" };
   }
 }
