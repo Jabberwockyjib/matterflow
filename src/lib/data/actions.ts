@@ -2019,7 +2019,7 @@ export async function declineIntakeForm(formData: FormData): Promise<ActionResul
     // Get intake response with matter
     const { data: intakeResponse, error: fetchError } = await supabase
       .from("intake_responses")
-      .select("*, matters!intake_responses_matter_id_fkey(id, title)")
+      .select("matter_id")
       .eq("id", validated.intakeResponseId)
       .single();
 
@@ -2028,16 +2028,15 @@ export async function declineIntakeForm(formData: FormData): Promise<ActionResul
     }
 
     // Update intake response status
-    const reviewNotes = validated.notes
-      ? `DECLINED: ${validated.reason}\n\n${validated.notes}`
-      : `DECLINED: ${validated.reason}`;
-
     const { error: updateError } = await supabase
       .from("intake_responses")
       .update({
         status: "declined",
         review_status: "declined",
-        review_notes: reviewNotes,
+        decline_reason: validated.reason,
+        internal_notes: validated.notes || null,
+        reviewed_by: roleCheck.session.user.id,
+        reviewed_at: new Date().toISOString(),
       })
       .eq("id", validated.intakeResponseId);
 
@@ -2046,7 +2045,10 @@ export async function declineIntakeForm(formData: FormData): Promise<ActionResul
       return { ok: false, error: updateError.message };
     }
 
-    // Update matter stage to "Declined"
+    // NOTE: Matter stage update to "Declined" will be enabled after migration in Task 11
+    // For now, we skip the matter update to avoid enum constraint violation
+    // TODO: Uncomment after Task 11 adds "Declined" to matter_stage enum
+    /*
     const { error: matterError } = await supabase
       .from("matters")
       .update({
@@ -2058,8 +2060,9 @@ export async function declineIntakeForm(formData: FormData): Promise<ActionResul
 
     if (matterError) {
       console.error("Failed to update matter stage:", matterError);
-      // Don't fail the whole operation
+      return { ok: false, error: "Failed to update matter status: " + matterError.message };
     }
+    */
 
     // Log to audit
     await logAudit({
