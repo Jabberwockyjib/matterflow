@@ -1297,6 +1297,11 @@ export async function getClientProfile(userId: string): Promise<ClientProfileRes
       return { success: false, error: "Client not found" };
     }
 
+    // Validate that the user is actually a client
+    if (profile.role !== "client") {
+      return { success: false, error: "User is not a client" };
+    }
+
     // Get email from auth
     const { data: authUser } = await supabase.auth.admin.getUserById(userId);
     const email = authUser?.user?.email || "";
@@ -1401,34 +1406,42 @@ export async function getActiveClients(): Promise<ActiveClientsResult> {
       return { success: false, error: error.message };
     }
 
-    // Get emails and matter counts for each client
+    if (!profiles || profiles.length === 0) {
+      return { success: true, data: [] };
+    }
+
+    // Get all matters for these clients in bulk
+    const userIds = profiles.map(p => p.user_id);
+    const { data: allMatters } = await supabase
+      .from("matters")
+      .select("client_id, updated_at")
+      .in("client_id", userIds);
+
+    // Aggregate matter stats in memory
+    const matterStats = new Map<string, { count: number; lastActivity: string | null }>();
+    for (const matter of allMatters || []) {
+      const existing = matterStats.get(matter.client_id) || { count: 0, lastActivity: null };
+      matterStats.set(matter.client_id, {
+        count: existing.count + 1,
+        lastActivity: !existing.lastActivity || matter.updated_at > existing.lastActivity
+          ? matter.updated_at
+          : existing.lastActivity,
+      });
+    }
+
+    // Build client list (still need individual email lookups - unavoidable with Supabase)
     const clients: ActiveClient[] = [];
-    for (const profile of profiles || []) {
-      // Get email
+    for (const profile of profiles) {
       const { data: authUser } = await supabase.auth.admin.getUserById(profile.user_id);
       const email = authUser?.user?.email || "";
-
-      // Get matter count
-      const { count } = await supabase
-        .from("matters")
-        .select("id", { count: "exact", head: true })
-        .eq("client_id", profile.user_id);
-
-      // Get last activity (most recent matter update)
-      const { data: lastMatter } = await supabase
-        .from("matters")
-        .select("updated_at")
-        .eq("client_id", profile.user_id)
-        .order("updated_at", { ascending: false })
-        .limit(1)
-        .single();
+      const stats = matterStats.get(profile.user_id) || { count: 0, lastActivity: null };
 
       clients.push({
         userId: profile.user_id,
         email,
         fullName: profile.full_name,
-        matterCount: count || 0,
-        lastActivity: lastMatter?.updated_at || profile.created_at,
+        matterCount: stats.count,
+        lastActivity: stats.lastActivity || profile.created_at,
       });
     }
 

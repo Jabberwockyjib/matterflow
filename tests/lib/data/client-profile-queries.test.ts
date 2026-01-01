@@ -28,6 +28,25 @@ describe("getClientProfile", () => {
     expect(result.success).toBe(false);
     expect(result.error).toBe("Client not found");
   });
+
+  it("returns error when user is not a client", async () => {
+    const mockSupabase = {
+      from: vi.fn().mockReturnThis(),
+      select: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockReturnThis(),
+      single: vi.fn().mockResolvedValue({
+        data: { user_id: "test", role: "admin", full_name: "Admin" },
+        error: null
+      }),
+    };
+
+    vi.mocked(supabaseAdmin).mockReturnValue(mockSupabase as any);
+
+    const result = await getClientProfile("test");
+
+    expect(result.success).toBe(false);
+    expect(result.error).toBe("User is not a client");
+  });
 });
 
 describe("getActiveClients", () => {
