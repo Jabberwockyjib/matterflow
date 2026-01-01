@@ -1074,7 +1074,6 @@ export type InfoRequestSummary = {
   requestedBy: {
     userId: string;
     fullName: string;
-    email: string;
   } | null;
   questions: Record<string, any>;
   message: string | null;
@@ -1100,7 +1099,6 @@ export type InfoRequestDetail = InfoRequestSummary & {
       client: {
         userId: string;
         fullName: string;
-        email: string;
       } | null;
     } | null;
   } | null;
@@ -1126,10 +1124,9 @@ export async function getInfoRequests(
       .select(
         `
         *,
-        requestedBy:profiles!info_requests_requested_by_fkey(
+        requestedBy:profiles!requested_by(
           user_id,
-          full_name,
-          email
+          full_name
         )
       `
       )
@@ -1149,7 +1146,6 @@ export async function getInfoRequests(
           ? {
               userId: row.requestedBy.user_id,
               fullName: row.requestedBy.full_name,
-              email: row.requestedBy.email,
             }
           : null,
         questions: (row.questions as Record<string, any>) || {},
@@ -1192,23 +1188,21 @@ export async function getInfoRequestById(
       .select(
         `
         *,
-        requestedBy:profiles!info_requests_requested_by_fkey(
+        requestedBy:profiles!requested_by(
           user_id,
-          full_name,
-          email
+          full_name
         ),
-        intakeResponse:intake_responses!info_requests_intake_response_id_fkey(
+        intakeResponse:intake_responses!intake_response_id(
           id,
           matter_id,
           form_type,
-          matter:matters!intake_responses_matter_id_fkey(
+          matter:matters!matter_id(
             id,
             title,
             client_id,
-            client:profiles!matters_client_id_fkey(
+            client:profiles!client_id(
               user_id,
-              full_name,
-              email
+              full_name
             )
           )
         )
@@ -1230,7 +1224,6 @@ export async function getInfoRequestById(
           ? {
               userId: data.requestedBy.user_id,
               fullName: data.requestedBy.full_name,
-              email: data.requestedBy.email,
             }
           : null,
         questions: (data.questions as Record<string, any>) || {},
@@ -1257,7 +1250,6 @@ export async function getInfoRequestById(
                       ? {
                           userId: data.intakeResponse.matter.client.user_id,
                           fullName: data.intakeResponse.matter.client.full_name,
-                          email: data.intakeResponse.matter.client.email,
                         }
                       : null,
                   }
