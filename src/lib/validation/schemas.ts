@@ -396,6 +396,36 @@ export const updateIntakeNotesSchema = z.object({
 export type UpdateIntakeNotesData = z.infer<typeof updateIntakeNotesSchema>;
 
 // ============================================================================
+// Client Profile Schemas
+// ============================================================================
+
+export const phoneTypeValues = ["mobile", "business", "home"] as const;
+export const preferredContactMethodValues = ["email", "phone", "text"] as const;
+
+/**
+ * Schema for updating client profile contact information
+ */
+export const updateClientProfileSchema = z.object({
+  userId: z.string().uuid({ message: "Invalid user ID" }),
+  phone: z.string().optional(),
+  phoneType: z.enum(phoneTypeValues).optional(),
+  phoneSecondary: z.string().optional(),
+  phoneSecondaryType: z.enum(phoneTypeValues).optional(),
+  companyName: z.string().optional(),
+  addressStreet: z.string().optional(),
+  addressCity: z.string().optional(),
+  addressState: z.string().optional(),
+  addressZip: z.string().optional(),
+  addressCountry: z.string().optional(),
+  emergencyContactName: z.string().optional(),
+  emergencyContactPhone: z.string().optional(),
+  preferredContactMethod: z.enum(preferredContactMethodValues).optional(),
+  internalNotes: z.string().max(10000, "Notes cannot exceed 10,000 characters").optional(),
+});
+
+export type UpdateClientProfileData = z.infer<typeof updateClientProfileSchema>;
+
+// ============================================================================
 // Validation Helper Types
 // ============================================================================
 
