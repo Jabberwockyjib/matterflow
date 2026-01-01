@@ -539,51 +539,90 @@ export type Database = {
       profiles: {
         Row: {
           address: string | null
+          address_city: string | null
+          address_country: string | null
+          address_state: string | null
+          address_street: string | null
+          address_zip: string | null
           client_notes: string | null
           client_status: string | null
+          company_name: string | null
           created_at: string
+          emergency_contact_name: string | null
+          emergency_contact_phone: string | null
           full_name: string | null
           google_connected_at: string | null
           google_refresh_token: string | null
+          internal_notes: string | null
           invited_at: string | null
           invited_by: string | null
           last_login: string | null
           password_must_change: boolean | null
           phone: string | null
+          phone_secondary: string | null
+          phone_secondary_type: string | null
+          phone_type: string | null
+          preferred_contact_method: string | null
           role: Database["public"]["Enums"]["user_role"]
           status: string
           user_id: string
         }
         Insert: {
           address?: string | null
+          address_city?: string | null
+          address_country?: string | null
+          address_state?: string | null
+          address_street?: string | null
+          address_zip?: string | null
           client_notes?: string | null
           client_status?: string | null
+          company_name?: string | null
           created_at?: string
+          emergency_contact_name?: string | null
+          emergency_contact_phone?: string | null
           full_name?: string | null
           google_connected_at?: string | null
           google_refresh_token?: string | null
+          internal_notes?: string | null
           invited_at?: string | null
           invited_by?: string | null
           last_login?: string | null
           password_must_change?: boolean | null
           phone?: string | null
+          phone_secondary?: string | null
+          phone_secondary_type?: string | null
+          phone_type?: string | null
+          preferred_contact_method?: string | null
           role?: Database["public"]["Enums"]["user_role"]
           status?: string
           user_id: string
         }
         Update: {
           address?: string | null
+          address_city?: string | null
+          address_country?: string | null
+          address_state?: string | null
+          address_street?: string | null
+          address_zip?: string | null
           client_notes?: string | null
           client_status?: string | null
+          company_name?: string | null
           created_at?: string
+          emergency_contact_name?: string | null
+          emergency_contact_phone?: string | null
           full_name?: string | null
           google_connected_at?: string | null
           google_refresh_token?: string | null
+          internal_notes?: string | null
           invited_at?: string | null
           invited_by?: string | null
           last_login?: string | null
           password_must_change?: boolean | null
           phone?: string | null
+          phone_secondary?: string | null
+          phone_secondary_type?: string | null
+          phone_type?: string | null
+          preferred_contact_method?: string | null
           role?: Database["public"]["Enums"]["user_role"]
           status?: string
           user_id?: string
