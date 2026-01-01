@@ -73,6 +73,76 @@ export type IntakeReview = {
   isNew: boolean;
 };
 
+export type ClientProfile = {
+  userId: string;
+  email: string;
+  fullName: string | null;
+  role: string;
+  phone: string | null;
+  phoneType: string | null;
+  phoneSecondary: string | null;
+  phoneSecondaryType: string | null;
+  companyName: string | null;
+  addressStreet: string | null;
+  addressCity: string | null;
+  addressState: string | null;
+  addressZip: string | null;
+  addressCountry: string | null;
+  emergencyContactName: string | null;
+  emergencyContactPhone: string | null;
+  preferredContactMethod: string | null;
+  internalNotes: string | null;
+  createdAt: string;
+};
+
+export type ClientMatterSummary = {
+  id: string;
+  title: string;
+  stage: string;
+  matterType: string;
+  createdAt: string;
+};
+
+export type ClientIntakeSummary = {
+  id: string;
+  formType: string;
+  status: string;
+  submittedAt: string | null;
+};
+
+export type ClientInfoRequestSummary = {
+  id: string;
+  status: string;
+  questionCount: number;
+  createdAt: string;
+  respondedAt: string | null;
+};
+
+export type ClientProfileResult = {
+  success: boolean;
+  data?: {
+    profile: ClientProfile;
+    matters: ClientMatterSummary[];
+    intakes: ClientIntakeSummary[];
+    infoRequests: ClientInfoRequestSummary[];
+  };
+  error?: string;
+};
+
+export type ActiveClient = {
+  userId: string;
+  email: string;
+  fullName: string | null;
+  matterCount: number;
+  lastActivity: string | null;
+};
+
+export type ActiveClientsResult = {
+  success: boolean;
+  data?: ActiveClient[];
+  error?: string;
+};
+
 type DataSource = "supabase" | "mock";
 
 // Get today's date in ISO format for mock data
@@ -1201,5 +1271,170 @@ export async function getInfoRequestById(
     const message = err instanceof Error ? err.message : "Unknown error";
     console.error("Error fetching info request by ID:", message);
     return { data: null, source: "supabase" };
+  }
+}
+
+// ============================================================================
+// Client Profile Queries
+// ============================================================================
+
+export async function getClientProfile(userId: string): Promise<ClientProfileResult> {
+  if (!supabaseEnvReady()) {
+    return { success: false, error: "Database not configured" };
+  }
+
+  try {
+    const supabase = supabaseAdmin();
+
+    // Get profile
+    const { data: profile, error: profileError } = await supabase
+      .from("profiles")
+      .select("*")
+      .eq("user_id", userId)
+      .single();
+
+    if (profileError || !profile) {
+      return { success: false, error: "Client not found" };
+    }
+
+    // Get email from auth
+    const { data: authUser } = await supabase.auth.admin.getUserById(userId);
+    const email = authUser?.user?.email || "";
+
+    // Get matters for this client
+    const { data: matters } = await supabase
+      .from("matters")
+      .select("id, title, stage, matter_type, created_at")
+      .eq("client_id", userId)
+      .order("created_at", { ascending: false });
+
+    // Get intake responses via matters
+    const matterIds = (matters || []).map((m) => m.id);
+    let intakes: { id: string; form_type: string; status: string; submitted_at: string | null; matter_id: string }[] = [];
+    if (matterIds.length > 0) {
+      const { data: intakeData } = await supabase
+        .from("intake_responses")
+        .select("id, form_type, status, submitted_at, matter_id")
+        .in("matter_id", matterIds);
+      intakes = intakeData || [];
+    }
+
+    // Get info requests for intakes
+    const intakeIds = intakes.map((i) => i.id);
+    let infoRequests: { id: string; status: string; questions: unknown; created_at: string; responded_at: string | null; intake_response_id: string }[] = [];
+    if (intakeIds.length > 0) {
+      const { data: irData } = await supabase
+        .from("info_requests")
+        .select("id, status, questions, created_at, responded_at, intake_response_id")
+        .in("intake_response_id", intakeIds);
+      infoRequests = irData || [];
+    }
+
+    return {
+      success: true,
+      data: {
+        profile: {
+          userId: profile.user_id,
+          email,
+          fullName: profile.full_name,
+          role: profile.role,
+          phone: profile.phone,
+          phoneType: profile.phone_type,
+          phoneSecondary: profile.phone_secondary,
+          phoneSecondaryType: profile.phone_secondary_type,
+          companyName: profile.company_name,
+          addressStreet: profile.address_street,
+          addressCity: profile.address_city,
+          addressState: profile.address_state,
+          addressZip: profile.address_zip,
+          addressCountry: profile.address_country,
+          emergencyContactName: profile.emergency_contact_name,
+          emergencyContactPhone: profile.emergency_contact_phone,
+          preferredContactMethod: profile.preferred_contact_method,
+          internalNotes: profile.internal_notes,
+          createdAt: profile.created_at,
+        },
+        matters: (matters || []).map((m) => ({
+          id: m.id,
+          title: m.title,
+          stage: m.stage,
+          matterType: m.matter_type,
+          createdAt: m.created_at,
+        })),
+        intakes: intakes.map((i) => ({
+          id: i.id,
+          formType: i.form_type,
+          status: i.status,
+          submittedAt: i.submitted_at,
+        })),
+        infoRequests: infoRequests.map((ir) => ({
+          id: ir.id,
+          status: ir.status,
+          questionCount: Array.isArray(ir.questions) ? ir.questions.length : 0,
+          createdAt: ir.created_at,
+          respondedAt: ir.responded_at,
+        })),
+      },
+    };
+  } catch (error) {
+    console.error("Error fetching client profile:", error);
+    return { success: false, error: "Failed to fetch client profile" };
+  }
+}
+
+export async function getActiveClients(): Promise<ActiveClientsResult> {
+  if (!supabaseEnvReady()) {
+    return { success: false, error: "Database not configured" };
+  }
+
+  try {
+    const supabase = supabaseAdmin();
+
+    // Get all client profiles
+    const { data: profiles, error } = await supabase
+      .from("profiles")
+      .select("user_id, full_name, role, created_at")
+      .eq("role", "client")
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      return { success: false, error: error.message };
+    }
+
+    // Get emails and matter counts for each client
+    const clients: ActiveClient[] = [];
+    for (const profile of profiles || []) {
+      // Get email
+      const { data: authUser } = await supabase.auth.admin.getUserById(profile.user_id);
+      const email = authUser?.user?.email || "";
+
+      // Get matter count
+      const { count } = await supabase
+        .from("matters")
+        .select("id", { count: "exact", head: true })
+        .eq("client_id", profile.user_id);
+
+      // Get last activity (most recent matter update)
+      const { data: lastMatter } = await supabase
+        .from("matters")
+        .select("updated_at")
+        .eq("client_id", profile.user_id)
+        .order("updated_at", { ascending: false })
+        .limit(1)
+        .single();
+
+      clients.push({
+        userId: profile.user_id,
+        email,
+        fullName: profile.full_name,
+        matterCount: count || 0,
+        lastActivity: lastMatter?.updated_at || profile.created_at,
+      });
+    }
+
+    return { success: true, data: clients };
+  } catch (error) {
+    console.error("Error fetching active clients:", error);
+    return { success: false, error: "Failed to fetch active clients" };
   }
 }
