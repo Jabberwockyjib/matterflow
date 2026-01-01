@@ -87,7 +87,7 @@ export function ClientProfileForm({ userId, initialData, onSaved }: ClientProfil
       } else {
         setError(result.error || "Failed to save");
       }
-    } catch (err) {
+    } catch {
       setError("An unexpected error occurred");
     } finally {
       setSaving(false);
