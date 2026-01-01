@@ -136,10 +136,12 @@ function IntakeResponseCard({ response }: { response: any }) {
           </div>
 
           <div className="space-y-1 text-sm text-gray-600 mb-4">
-            <p>
-              <span className="font-medium">Matter ID:</span>{" "}
-              {response.matter_id.substring(0, 8).toUpperCase()}
-            </p>
+            {response.matter_id && (
+              <p>
+                <span className="font-medium">Matter ID:</span>{" "}
+                {response.matter_id.substring(0, 8).toUpperCase()}
+              </p>
+            )}
             {response.submitted_at && (
               <p>
                 <span className="font-medium">Submitted:</span>{" "}
