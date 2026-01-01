@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import Link from 'next/link'
 import { format } from 'date-fns'
 import type { UserWithProfile } from '@/lib/data/actions'
 import {
@@ -118,6 +119,17 @@ export function UserTable({ users, onUpdate }: UserTableProps) {
                     <DropdownMenuContent align="end">
                       <DropdownMenuLabel>Manage User</DropdownMenuLabel>
                       <DropdownMenuSeparator />
+
+                      {user.role === 'client' && (
+                        <>
+                          <DropdownMenuItem asChild>
+                            <Link href={`/clients/${user.userId}`}>
+                              View Client Details
+                            </Link>
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                        </>
+                      )}
 
                       <DropdownMenuItem onClick={() => handleRoleChange(user.userId, 'admin')}>
                         Change to Admin
