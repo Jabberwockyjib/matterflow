@@ -13,7 +13,7 @@ import { sendMatterCreatedEmail, sendTaskAssignedEmail, sendInvoiceEmail } from 
 import { resend, FROM_EMAIL } from "@/lib/email/client";
 import UserInvitationEmail from "@/lib/email/templates/user-invitation";
 import AdminPasswordResetEmail from "@/lib/email/templates/admin-password-reset";
-import { inviteUserSchema, passwordResetSchema, changePasswordSchema, declineIntakeSchema, scheduleCallSchema, updateIntakeNotesSchema } from "@/lib/validation/schemas";
+import { inviteUserSchema, passwordResetSchema, changePasswordSchema, declineIntakeSchema, scheduleCallSchema, updateIntakeNotesSchema, updateClientProfileSchema } from "@/lib/validation/schemas";
 import { infoRequestSchema, infoResponseSchema } from "@/lib/validation/info-request-schemas";
 import { z } from "zod";
 
@@ -2277,5 +2277,87 @@ export async function updateIntakeNotes(
     }
     console.error("Error updating intake notes:", err);
     return { ok: false, error: err instanceof Error ? err.message : "Failed to update notes" };
+  }
+}
+
+// ============================================================================
+// Client Profile Actions
+// ============================================================================
+
+export async function updateClientProfile(formData: FormData): Promise<ActionResult> {
+  const roleCheck = await ensureStaffOrAdmin();
+  if ("error" in roleCheck) return roleCheck;
+
+  try {
+    const supabase = ensureSupabase();
+
+    const rawData = {
+      userId: formData.get("userId") as string,
+      phone: formData.get("phone") as string || undefined,
+      phoneType: formData.get("phoneType") as string || undefined,
+      phoneSecondary: formData.get("phoneSecondary") as string || undefined,
+      phoneSecondaryType: formData.get("phoneSecondaryType") as string || undefined,
+      companyName: formData.get("companyName") as string || undefined,
+      addressStreet: formData.get("addressStreet") as string || undefined,
+      addressCity: formData.get("addressCity") as string || undefined,
+      addressState: formData.get("addressState") as string || undefined,
+      addressZip: formData.get("addressZip") as string || undefined,
+      addressCountry: formData.get("addressCountry") as string || undefined,
+      emergencyContactName: formData.get("emergencyContactName") as string || undefined,
+      emergencyContactPhone: formData.get("emergencyContactPhone") as string || undefined,
+      preferredContactMethod: formData.get("preferredContactMethod") as string || undefined,
+      internalNotes: formData.get("internalNotes") as string || undefined,
+    };
+
+    const parsed = updateClientProfileSchema.safeParse(rawData);
+    if (!parsed.success) {
+      return { error: parsed.error.errors[0]?.message || "Validation failed" };
+    }
+
+    const { userId, ...profileData } = parsed.data;
+
+    // Build update object with only defined values
+    const updateData: Record<string, string | null> = {};
+    if (profileData.phone !== undefined) updateData.phone = profileData.phone || null;
+    if (profileData.phoneType !== undefined) updateData.phone_type = profileData.phoneType || null;
+    if (profileData.phoneSecondary !== undefined) updateData.phone_secondary = profileData.phoneSecondary || null;
+    if (profileData.phoneSecondaryType !== undefined) updateData.phone_secondary_type = profileData.phoneSecondaryType || null;
+    if (profileData.companyName !== undefined) updateData.company_name = profileData.companyName || null;
+    if (profileData.addressStreet !== undefined) updateData.address_street = profileData.addressStreet || null;
+    if (profileData.addressCity !== undefined) updateData.address_city = profileData.addressCity || null;
+    if (profileData.addressState !== undefined) updateData.address_state = profileData.addressState || null;
+    if (profileData.addressZip !== undefined) updateData.address_zip = profileData.addressZip || null;
+    if (profileData.addressCountry !== undefined) updateData.address_country = profileData.addressCountry || null;
+    if (profileData.emergencyContactName !== undefined) updateData.emergency_contact_name = profileData.emergencyContactName || null;
+    if (profileData.emergencyContactPhone !== undefined) updateData.emergency_contact_phone = profileData.emergencyContactPhone || null;
+    if (profileData.preferredContactMethod !== undefined) updateData.preferred_contact_method = profileData.preferredContactMethod || null;
+    if (profileData.internalNotes !== undefined) updateData.internal_notes = profileData.internalNotes || null;
+
+    const { error } = await supabase
+      .from("profiles")
+      .update(updateData)
+      .eq("user_id", userId);
+
+    if (error) {
+      console.error("Error updating client profile:", error);
+      return { error: "Failed to update client profile" };
+    }
+
+    await logAudit({
+      supabase,
+      actorId: roleCheck.session.user.id,
+      eventType: "client_profile_updated",
+      entityType: "profile",
+      entityId: userId,
+      metadata: { updatedFields: Object.keys(updateData) },
+    });
+
+    revalidatePath(`/clients/${userId}`);
+    revalidatePath("/clients");
+
+    return { ok: true };
+  } catch (error) {
+    console.error("Error in updateClientProfile:", error);
+    return { error: "An unexpected error occurred" };
   }
 }
