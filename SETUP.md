@@ -240,8 +240,12 @@ Google Drive stores and organizes all client documents.
    - Add: `http://matterflow.local`
    - Add: `https://yourdomain.com` (your production domain)
 6. **Authorized redirect URIs**:
-   - Add: `http://matterflow.local/api/auth/google/callback`
-   - Add: `https://yourdomain.com/api/auth/google/callback` (production)
+   - Add: `http://localhost:54322/auth/v1/callback` (Google OAuth login - local dev)
+   - Add: `http://matterflow.local/api/auth/google/callback` (Drive integration)
+   - Add: `https://yourdomain.com/auth/v1/callback` (Google OAuth login - production)
+   - Add: `https://yourdomain.com/api/auth/google/callback` (Drive integration - production)
+
+   **Note:** Google OAuth requires `localhost` for login callbacks (not `.local` domains). Port 54322 is used for MatterFlow to avoid conflicts with other projects using the standard Supabase port (54321).
 7. Click "Create"
 8. **⚠️ SAVE THESE**:
    - **Client ID** (looks like `123456789-abc.apps.googleusercontent.com`)
