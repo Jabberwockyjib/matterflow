@@ -11,7 +11,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Button } from "@/components/ui/button";
 import type { ActiveClient } from "@/lib/data/queries";
 
 interface ActiveClientsTableProps {
@@ -55,12 +54,13 @@ export function ActiveClientsTable({ clients }: ActiveClientsTableProps) {
                   : "Never"}
               </TableCell>
               <TableCell className="text-right">
-                <Button variant="ghost" size="sm" asChild>
-                  <Link href={`/clients/${client.userId}`}>
-                    <Eye className="h-4 w-4 mr-1" />
-                    View
-                  </Link>
-                </Button>
+                <Link
+                  href={`/clients/${client.userId}`}
+                  className="inline-flex items-center justify-center h-9 px-3 text-xs font-semibold text-slate-800 hover:bg-slate-100 rounded-md transition-all duration-200"
+                >
+                  <Eye className="h-4 w-4 mr-1" />
+                  View
+                </Link>
               </TableCell>
             </TableRow>
           ))}

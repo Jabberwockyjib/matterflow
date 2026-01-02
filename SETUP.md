@@ -314,7 +314,7 @@ Square needs to notify MatterFlow when payments are made.
 npm install -g ngrok
 
 # Start ngrok
-ngrok http 3000
+ngrok http 3001
 
 # Copy the HTTPS URL (e.g., https://abc123.ngrok.io)
 # Use this URL + /api/webhooks/square in Square webhook settings
@@ -449,15 +449,17 @@ pnpm dev
 You should see:
 ```
 ▲ Next.js 16.1.0
-- Local:        http://localhost:3000
+- Local:        http://localhost:3001
 - Ready in 2.3s
 ```
+
+Note: The dev script is configured to use port 3001 to avoid conflicts with other projects.
 
 ### 2. Open in Browser
 
 Go to: **http://matterflow.local**
 
-The Next.js dev server runs internally on port 3000, but is accessed through Traefik at the hostname. Never use `localhost:3000` directly.
+The Next.js dev server runs internally on port 3001, but is accessed through Traefik at the hostname. Port 3001 is used to avoid conflicts with other projects that may default to 3000.
 
 ---
 
@@ -607,15 +609,12 @@ Use [cron-job.org](https://cron-job.org), [EasyCron](https://www.easycron.com), 
 - Find your user and change `role` to `admin`
 - Sign out and sign back in
 
-### Port 3000 already in use
+### Port 3001 already in use
 
 **Fix**:
 ```bash
-# Kill process on port 3000 (Mac/Linux)
-lsof -ti:3000 | xargs kill -9
-
-# Or use different port
-pnpm dev -p 3001
+# Kill process on port 3001 (Mac/Linux)
+lsof -ti:3001 | xargs kill -9
 ```
 
 ### "Module not found" errors

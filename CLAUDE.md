@@ -82,7 +82,7 @@ get-library-docs({
 ```bash
 # Development
 pnpm install              # Install dependencies
-pnpm dev                  # Start Next.js dev server (access via http://matterflow.local)
+pnpm dev                  # Start Next.js on port 3001 (access via http://matterflow.local)
 pnpm build                # Production build
 pnpm start                # Run production server
 

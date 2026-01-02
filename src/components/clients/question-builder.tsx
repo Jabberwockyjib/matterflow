@@ -85,29 +85,46 @@ function OptionsEditor({ options, onChange }: OptionsEditorProps) {
   );
 }
 
+// Helper to get options from a question (handles discriminated union)
+function getQuestionOptions(q: Question): string[] {
+  if (q.type === 'multiple_choice' || q.type === 'checkboxes') {
+    return q.options || [];
+  }
+  return [];
+}
+
 function QuestionCard({ question, index, onUpdate, onDelete }: QuestionCardProps) {
   const handleTypeChange = (newType: Question['type']) => {
-    const updated: Question = {
-      ...question,
-      type: newType,
+    // Create the base question data
+    const baseData = {
+      id: question.id,
+      question: question.question,
+      required: question.required,
+      helpText: question.helpText,
     };
 
-    // Add options array for multiple choice and checkboxes
-    if (newType === 'multiple_choice' || newType === 'checkboxes') {
-      updated.options = question.options || [];
+    // Create the appropriate question type
+    if (newType === 'multiple_choice') {
+      onUpdate({ ...baseData, type: 'multiple_choice', options: getQuestionOptions(question) });
+    } else if (newType === 'checkboxes') {
+      onUpdate({ ...baseData, type: 'checkboxes', options: getQuestionOptions(question) });
+    } else if (newType === 'short_text') {
+      onUpdate({ ...baseData, type: 'short_text' });
+    } else if (newType === 'long_text') {
+      onUpdate({ ...baseData, type: 'long_text' });
+    } else if (newType === 'file_upload') {
+      onUpdate({ ...baseData, type: 'file_upload' });
     } else {
-      // Remove options for other types
-      delete updated.options;
+      onUpdate({ ...baseData, type: 'date' });
     }
-
-    onUpdate(updated);
   };
 
   const handleOptionsChange = (newOptions: string[]) => {
-    onUpdate({
-      ...question,
-      options: newOptions,
-    });
+    if (question.type === 'multiple_choice') {
+      onUpdate({ ...question, options: newOptions });
+    } else if (question.type === 'checkboxes') {
+      onUpdate({ ...question, options: newOptions });
+    }
   };
 
   const showOptionsEditor = question.type === 'multiple_choice' || question.type === 'checkboxes';
@@ -143,8 +160,8 @@ function QuestionCard({ question, index, onUpdate, onDelete }: QuestionCardProps
                 <Label htmlFor={`question-${question.id}-text`}>Question Text</Label>
                 <Input
                   id={`question-${question.id}-text`}
-                  value={question.text}
-                  onChange={(e) => onUpdate({ ...question, text: e.target.value })}
+                  value={question.question}
+                  onChange={(e) => onUpdate({ ...question, question: e.target.value })}
                   placeholder="Enter your question"
                 />
               </div>
@@ -197,7 +214,7 @@ export function QuestionBuilder({ questions, onChange }: QuestionBuilderProps) {
     const newQuestion: Question = {
       id: crypto.randomUUID(),
       type: 'short_text',
-      text: '',
+      question: '',
       required: false,
     };
     onChange([...questions, newQuestion]);

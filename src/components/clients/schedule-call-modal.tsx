@@ -25,16 +25,23 @@ import {
 } from "@/components/ui/select";
 import { toast } from "sonner";
 
+// Form data type
+interface ScheduleCallFormData {
+  dateTime: string;
+  duration: number;
+  meetingType: "phone" | "video" | "in_person";
+  meetingLink?: string;
+  notes?: string;
+}
+
 // Zod schema for call scheduling
 const scheduleCallSchema = z.object({
   dateTime: z.string().min(1, "Date and time is required"),
-  duration: z.coerce.number().int().positive(),
+  duration: z.number().int().positive(),
   meetingType: z.enum(["phone", "video", "in_person"]),
   meetingLink: z.string().url("Invalid URL").optional().or(z.literal("")),
   notes: z.string().optional(),
-});
-
-type ScheduleCallFormData = z.infer<typeof scheduleCallSchema>;
+}) satisfies z.ZodType<ScheduleCallFormData>;
 
 interface ScheduleCallModalProps {
   intakeResponseId: string;

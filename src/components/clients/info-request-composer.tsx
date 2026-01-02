@@ -17,17 +17,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { showSuccess, showError } from '@/lib/toast';
-import { infoRequestSchema, type InfoRequest } from '@/lib/validation/info-request-schemas';
-
-// Internal question type used by QuestionBuilder
-interface InternalQuestion {
-  id: string;
-  type: 'short_text' | 'long_text' | 'multiple_choice' | 'checkboxes' | 'file_upload' | 'date';
-  text: string;
-  helpText?: string;
-  required: boolean;
-  options?: string[];
-}
+import { infoRequestSchema, type InfoRequest, type Question } from '@/lib/validation/info-request-schemas';
 
 interface InfoRequestComposerProps {
   intakeResponseId: string;
@@ -40,8 +30,8 @@ export function InfoRequestComposer({
   onClose,
   onSubmit,
 }: InfoRequestComposerProps) {
-  // State for questions (using QuestionBuilder's internal format)
-  const [questions, setQuestions] = useState<InternalQuestion[]>([]);
+  // State for questions
+  const [questions, setQuestions] = useState<Question[]>([]);
 
   // Calculate default deadline (3 days from now)
   const getDefaultDeadline = () => {
@@ -68,17 +58,17 @@ export function InfoRequestComposer({
         return;
       }
 
-      // Convert internal questions to schema format
+      // Convert questions to schema format (questions already use 'question' field)
       const schemaQuestions = questions.map((q) => {
         const baseQuestion: any = {
           type: q.type,
-          question: q.text,
+          question: q.question,
           required: q.required,
         };
 
         // Add options for multiple choice and checkboxes
         if (q.type === 'multiple_choice' || q.type === 'checkboxes') {
-          baseQuestion.options = q.options || [];
+          baseQuestion.options = (q as any).options || [];
         }
 
         return baseQuestion;

@@ -4,24 +4,24 @@ import userEvent from '@testing-library/user-event';
 import { ScheduleCallModal } from '@/components/clients/schedule-call-modal';
 
 describe('ScheduleCallModal', () => {
-  let mockOnClose: ReturnType<typeof vi.fn>;
-  let mockOnSubmit: ReturnType<typeof vi.fn>;
+  const mockOnClose = vi.fn();
+  const mockOnSubmit = vi.fn().mockResolvedValue(undefined);
 
   beforeEach(() => {
-    mockOnClose = vi.fn();
-    mockOnSubmit = vi.fn().mockResolvedValue(undefined);
+    mockOnClose.mockClear();
+    mockOnSubmit.mockClear();
   });
 
-  const defaultProps = {
+  const getDefaultProps = () => ({
     intakeResponseId: 'intake-123',
     clientName: 'John Doe',
     clientEmail: 'john@example.com',
     onClose: mockOnClose,
     onSubmit: mockOnSubmit,
-  };
+  });
 
   it('renders all form fields (date/time, duration, meeting type)', () => {
-    render(<ScheduleCallModal {...defaultProps} />);
+    render(<ScheduleCallModal {...getDefaultProps()} />);
 
     // Check for date/time field
     expect(screen.getByLabelText(/date & time/i)).toBeInTheDocument();
@@ -41,7 +41,7 @@ describe('ScheduleCallModal', () => {
 
   it('shows meeting link field for video calls', async () => {
     const user = userEvent.setup();
-    render(<ScheduleCallModal {...defaultProps} onClose={mockOnClose} onSubmit={mockOnSubmit} />);
+    render(<ScheduleCallModal {...getDefaultProps()} />);
 
     // Meeting link should not be visible initially (default is phone)
     expect(screen.queryByLabelText(/meeting link/i)).not.toBeInTheDocument();
@@ -62,7 +62,7 @@ describe('ScheduleCallModal', () => {
 
   it('submits call details', async () => {
     const user = userEvent.setup();
-    render(<ScheduleCallModal {...defaultProps} onClose={mockOnClose} onSubmit={mockOnSubmit} />);
+    render(<ScheduleCallModal {...getDefaultProps()} />);
 
     // Fill in date/time field
     const dateTimeInput = screen.getByLabelText(/date & time/i);

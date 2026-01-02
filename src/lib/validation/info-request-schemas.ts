@@ -12,8 +12,10 @@ export const questionTypeEnum = z.enum([
 
 // Base question schema with common fields
 const baseQuestionSchema = z.object({
+  id: z.string().optional(), // UI-only field for React keys
   question: z.string().min(1),
   required: z.boolean(),
+  helpText: z.string().optional(), // Optional help text for users
 });
 
 // Question schema using discriminated union for type-specific validation

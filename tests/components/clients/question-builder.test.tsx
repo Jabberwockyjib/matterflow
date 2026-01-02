@@ -23,7 +23,7 @@ describe('QuestionBuilder', () => {
       expect.objectContaining({
         id: expect.any(String),
         type: 'short_text',
-        text: '',
+        question: '',
         required: false,
       }),
     ]);
@@ -31,8 +31,8 @@ describe('QuestionBuilder', () => {
 
   it('renders existing questions', () => {
     const questions: Question[] = [
-      { id: '1', type: 'short_text', text: 'What is your name?', required: true },
-      { id: '2', type: 'long_text', text: 'Describe the issue', required: false },
+      { id: '1', type: 'short_text', question: 'What is your name?', required: true },
+      { id: '2', type: 'long_text', question: 'Describe the issue', required: false },
     ];
     const onChange = vi.fn();
 
@@ -44,7 +44,7 @@ describe('QuestionBuilder', () => {
 
   it('updates question text', () => {
     const questions: Question[] = [
-      { id: '1', type: 'short_text', text: 'Old text', required: false },
+      { id: '1', type: 'short_text', question: 'Old text', required: false },
     ];
     const onChange = vi.fn();
 
@@ -56,15 +56,15 @@ describe('QuestionBuilder', () => {
     expect(onChange).toHaveBeenCalledWith([
       expect.objectContaining({
         id: '1',
-        text: 'New text',
+        question: 'New text',
       }),
     ]);
   });
 
   it('removes question when delete button clicked', () => {
     const questions: Question[] = [
-      { id: '1', type: 'short_text', text: 'Question 1', required: false },
-      { id: '2', type: 'short_text', text: 'Question 2', required: false },
+      { id: '1', type: 'short_text', question: 'Question 1', required: false },
+      { id: '2', type: 'short_text', question: 'Question 2', required: false },
     ];
     const onChange = vi.fn();
 
@@ -80,7 +80,7 @@ describe('QuestionBuilder', () => {
 
   it('changes question type', () => {
     const questions: Question[] = [
-      { id: '1', type: 'short_text', text: 'Question', required: false },
+      { id: '1', type: 'short_text', question: 'Question', required: false },
     ];
     const onChange = vi.fn();
 
@@ -108,7 +108,7 @@ describe('QuestionBuilder', () => {
       {
         id: '1',
         type: 'multiple_choice',
-        text: 'Choose one',
+        question: 'Choose one',
         required: false,
         options: ['Option 1', 'Option 2'],
       },
@@ -123,7 +123,7 @@ describe('QuestionBuilder', () => {
 
   it('toggles required field', () => {
     const questions: Question[] = [
-      { id: '1', type: 'short_text', text: 'Question', required: false },
+      { id: '1', type: 'short_text', question: 'Question', required: false },
     ];
     const onChange = vi.fn();
 

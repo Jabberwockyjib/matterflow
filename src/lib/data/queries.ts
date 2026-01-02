@@ -1013,12 +1013,12 @@ export async function getPracticeSettings(): Promise<{
       contactPhone: data.contact_phone,
       address: data.address,
       defaultHourlyRate: data.default_hourly_rate,
-      paymentTermsDays: data.payment_terms_days,
-      lateFeePercentage: data.late_fee_percentage,
-      autoRemindersEnabled: data.auto_reminders_enabled,
+      paymentTermsDays: data.payment_terms_days ?? 30,
+      lateFeePercentage: data.late_fee_percentage ?? 0,
+      autoRemindersEnabled: data.auto_reminders_enabled ?? false,
       matterTypes: (data.matter_types as string[]) || [],
-      createdAt: data.created_at,
-      updatedAt: data.updated_at,
+      createdAt: data.created_at ?? new Date().toISOString(),
+      updatedAt: data.updated_at ?? new Date().toISOString(),
     },
     source: "supabase" as const,
   };
@@ -1058,7 +1058,7 @@ export async function fetchClients(): Promise<{
   return {
     data: (data || []).map((client) => ({
       id: client.user_id,
-      fullName: client.full_name,
+      fullName: client.full_name || "Unknown",
     })),
     source: "supabase",
   };
@@ -1124,7 +1124,7 @@ export async function getInfoRequests(
       .select(
         `
         *,
-        requestedBy:profiles!requested_by(
+        requestedBy:profiles!info_requests_requested_by_fkey(
           user_id,
           full_name
         )
@@ -1145,7 +1145,7 @@ export async function getInfoRequests(
         requestedBy: row.requestedBy
           ? {
               userId: row.requestedBy.user_id,
-              fullName: row.requestedBy.full_name,
+              fullName: row.requestedBy.full_name || "Unknown",
             }
           : null,
         questions: (row.questions as Record<string, any>) || {},
@@ -1188,19 +1188,19 @@ export async function getInfoRequestById(
       .select(
         `
         *,
-        requestedBy:profiles!requested_by(
+        requestedBy:profiles!info_requests_requested_by_fkey(
           user_id,
           full_name
         ),
-        intakeResponse:intake_responses!intake_response_id(
+        intakeResponse:intake_responses!info_requests_intake_response_id_fkey(
           id,
           matter_id,
           form_type,
-          matter:matters!matter_id(
+          matter:matters!intake_responses_matter_id_fkey(
             id,
             title,
             client_id,
-            client:profiles!client_id(
+            client:profiles!matters_client_id_fkey(
               user_id,
               full_name
             )
@@ -1223,7 +1223,7 @@ export async function getInfoRequestById(
         requestedBy: data.requestedBy
           ? {
               userId: data.requestedBy.user_id,
-              fullName: data.requestedBy.full_name,
+              fullName: data.requestedBy.full_name || "Unknown",
             }
           : null,
         questions: (data.questions as Record<string, any>) || {},
@@ -1249,7 +1249,7 @@ export async function getInfoRequestById(
                     client: data.intakeResponse.matter.client
                       ? {
                           userId: data.intakeResponse.matter.client.user_id,
-                          fullName: data.intakeResponse.matter.client.full_name,
+                          fullName: data.intakeResponse.matter.client.full_name || "Unknown",
                         }
                       : null,
                   }
@@ -1412,6 +1412,7 @@ export async function getActiveClients(): Promise<ActiveClientsResult> {
     // Aggregate matter stats in memory
     const matterStats = new Map<string, { count: number; lastActivity: string | null }>();
     for (const matter of allMatters || []) {
+      if (!matter.client_id) continue; // Skip matters without a client
       const existing = matterStats.get(matter.client_id) || { count: 0, lastActivity: null };
       matterStats.set(matter.client_id, {
         count: existing.count + 1,

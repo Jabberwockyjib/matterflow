@@ -58,7 +58,7 @@ describe.skip("Intake Automation Flow", () => {
     };
 
     const result = await submitIntakeForm(testMatterId, "Contract Review", responses);
-    expect(result.ok).toBe(true);
+    expect("ok" in result && result.ok).toBe(true);
 
     // Verify matter updated
     const { data: matter } = await supabaseAdmin()
@@ -81,8 +81,8 @@ describe.skip("Intake Automation Flow", () => {
       .eq("matter_id", testMatterId)
       .single();
 
-    const result = await approveIntakeForm(response!.id, testMatterId);
-    expect(result.ok).toBe(true);
+    const result = await approveIntakeForm(response!.id);
+    expect("ok" in result && result.ok).toBe(true);
 
     // Verify matter updated
     const { data: matter } = await supabaseAdmin()

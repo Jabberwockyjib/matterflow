@@ -25,6 +25,10 @@ export default function SignInPage() {
   // Check if user is already logged in
   useEffect(() => {
     const checkAuth = async () => {
+      if (!supabase) {
+        setIsCheckingAuth(false);
+        return;
+      }
       const { data: { session } } = await supabase.auth.getSession();
       if (session) {
         // Already logged in, redirect to dashboard

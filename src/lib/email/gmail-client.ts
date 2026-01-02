@@ -99,7 +99,7 @@ export async function sendGmailEmail({
 
     return {
       ok: true,
-      messageId: response.data.id,
+      messageId: response.data.id ?? undefined,
     }
   } catch (error) {
     console.error('Gmail API error:', error)
@@ -177,7 +177,7 @@ export async function sendInvitationEmail(
   )
 
   // Render the React email template to HTML
-  const html = render(InvitationEmail(params))
+  const html = await render(InvitationEmail(params))
 
   return sendGmailEmail({
     to: params.to,

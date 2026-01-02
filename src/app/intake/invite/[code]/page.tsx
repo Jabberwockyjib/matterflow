@@ -24,8 +24,7 @@ export default async function InviteRedemptionPage({ params }: PageProps) {
 
   // Check if invitation is expired
   const now = new Date()
-  const expiresAt = new Date(invitation.expires_at)
-  if (now > expiresAt) {
+  if (invitation.expires_at && now > new Date(invitation.expires_at)) {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
         <div className="bg-white rounded-lg border border-slate-200 p-8 max-w-md text-center">
@@ -92,19 +91,29 @@ export default async function InviteRedemptionPage({ params }: PageProps) {
   }
 
   // Create a new matter for this invitation
+  // Get the owner from the invitation's invited_by, or use the first admin as fallback
+  let ownerId = invitation.invited_by
+  if (!ownerId) {
+    const { data: adminUser } = await supabase
+      .from('profiles')
+      .select('user_id')
+      .eq('role', 'admin')
+      .limit(1)
+      .single()
+    ownerId = adminUser?.user_id || ''
+  }
+
   const { data: matter, error: matterError } = await supabase
     .from('matters')
     .insert({
       title: `${invitation.matter_type || 'General'} for ${invitation.client_name}`,
-      client_name: invitation.client_name,
-      client_email: invitation.client_email,
       matter_type: invitation.matter_type || 'General',
       stage: 'Intake Sent',
       responsible_party: 'client',
       next_action: 'Complete intake form',
-      next_action_due_date: invitation.expires_at,
+      next_action_due_date: invitation.expires_at ?? new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
       billing_model: 'hourly',
-      status: 'active',
+      owner_id: ownerId,
     })
     .select('id')
     .single()

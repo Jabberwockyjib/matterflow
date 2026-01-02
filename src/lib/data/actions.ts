@@ -1763,16 +1763,19 @@ export async function updatePracticeSettings(
   }>
 ): Promise<ActionResult> {
   const supabase = supabaseAdmin();
-  const { session, error: authError } = await getSessionWithProfile();
+  const { session } = await getSessionWithProfile();
 
-  if (authError || !session) {
+  if (!session) {
     return { error: "Not authenticated" };
   }
 
   // Ensure admin role
   try {
-    const role = await ensureStaffOrAdmin();
-    if (role !== "admin") {
+    const authResult = await ensureStaffOrAdmin();
+    if ("error" in authResult) {
+      return { error: authResult.error };
+    }
+    if (authResult.profile?.role !== "admin") {
       return { error: "Only admins can update practice settings" };
     }
   } catch (e) {
@@ -2311,7 +2314,7 @@ export async function updateClientProfile(formData: FormData): Promise<ActionRes
 
     const parsed = updateClientProfileSchema.safeParse(rawData);
     if (!parsed.success) {
-      return { error: parsed.error.errors[0]?.message || "Validation failed" };
+      return { error: parsed.error.issues[0]?.message || "Validation failed" };
     }
 
     const { userId, ...profileData } = parsed.data;
