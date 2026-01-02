@@ -217,7 +217,7 @@ Copy `.env.example` to `.env.local` and populate:
 - `NEXT_PUBLIC_APP_URL` - App URL for email links
 - `GOOGLE_CLIENT_ID` - Google OAuth client ID (from Google Cloud Console)
 - `GOOGLE_CLIENT_SECRET` - Google OAuth client secret
-- `GOOGLE_REDIRECT_URI` - OAuth callback URL (http://localhost:3000/api/auth/google/callback)
+- `GOOGLE_REDIRECT_URI` - OAuth callback URL (http://matterflow.local/api/auth/google/callback)
 - `SQUARE_ACCESS_TOKEN` - Square API access token (from Square Developer Dashboard)
 - `SQUARE_ENVIRONMENT` - "sandbox" or "production"
 - `SQUARE_LOCATION_ID` - Square location ID

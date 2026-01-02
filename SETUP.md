@@ -237,10 +237,10 @@ Google Drive stores and organizes all client documents.
 3. **Application type**: "Web application"
 4. **Name**: "MatterFlow Web Client"
 5. **Authorized JavaScript origins**:
-   - Add: `http://localhost:3000`
+   - Add: `http://matterflow.local`
    - Add: `https://yourdomain.com` (your production domain)
 6. **Authorized redirect URIs**:
-   - Add: `http://localhost:3000/api/auth/google/callback`
+   - Add: `http://matterflow.local/api/auth/google/callback`
    - Add: `https://yourdomain.com/api/auth/google/callback` (production)
 7. Click "Create"
 8. **⚠️ SAVE THESE**:
@@ -347,7 +347,7 @@ SUPABASE_SERVICE_ROLE_KEY=your-service-role-key-from-supabase
 # ============================================
 # APPLICATION
 # ============================================
-NEXT_PUBLIC_APP_URL=http://localhost:3000
+NEXT_PUBLIC_APP_URL=http://matterflow.local
 
 # ============================================
 # EMAIL (RESEND) (from Step 4 above)
@@ -365,7 +365,7 @@ RESEND_FROM_EMAIL=MatterFlow <noreply@yourdomain.com>
 # ============================================
 GOOGLE_CLIENT_ID=your-client-id.apps.googleusercontent.com
 GOOGLE_CLIENT_SECRET=GOCSPX-your-client-secret
-GOOGLE_REDIRECT_URI=http://localhost:3000/api/auth/google/callback
+GOOGLE_REDIRECT_URI=http://matterflow.local/api/auth/google/callback
 
 # ============================================
 # SQUARE PAYMENTS (from Step 6 above)
@@ -455,11 +455,9 @@ You should see:
 
 ### 2. Open in Browser
 
-**With Traefik (recommended)**: Go to **http://matterflow.local**
+Go to: **http://matterflow.local**
 
-**Without Traefik**: Go to **http://localhost:3000**
-
-Note: When using Traefik, the Next.js dev server runs on localhost:3000 but is accessed through Traefik at matterflow.local for consistent hostname-based routing.
+The Next.js dev server runs internally on port 3000, but is accessed through Traefik at the hostname. Never use `localhost:3000` directly.
 
 ---
 
@@ -467,7 +465,7 @@ Note: When using Traefik, the Next.js dev server runs on localhost:3000 but is a
 
 ### 1. Create Your Account
 
-1. Navigate to http://localhost:3000
+1. Navigate to http://matterflow.local
 2. You'll be redirected to the sign-in page
 3. Click **"Sign Up"** (or go to `/auth/sign-in`)
 4. Enter your **email** and **password**
@@ -590,7 +588,7 @@ Use [cron-job.org](https://cron-job.org), [EasyCron](https://www.easycron.com), 
 
 **Check**:
 1. Are `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` correct?
-2. Is redirect URI in Google Cloud Console exactly: `http://localhost:3000/api/auth/google/callback`?
+2. Is redirect URI in Google Cloud Console exactly: `http://matterflow.local/api/auth/google/callback`?
 3. Is Google Drive API enabled?
 
 **Fix**:
