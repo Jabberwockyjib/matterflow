@@ -82,7 +82,7 @@ get-library-docs({
 ```bash
 # Development
 pnpm install              # Install dependencies
-pnpm dev                  # Start Next.js dev server (http://localhost:3000)
+pnpm dev                  # Start Next.js dev server (access via http://matterflow.local)
 pnpm build                # Production build
 pnpm start                # Run production server
 
@@ -96,11 +96,28 @@ pnpm test:coverage        # Generate coverage report
 # Email development
 pnpm email                # Preview email templates locally (React Email dev server)
 
-# Supabase local development
+# Local Supabase with Docker Compose + Traefik (recommended)
+docker compose --env-file docker/.env up -d   # Start Supabase stack
+docker compose down                            # Stop Supabase stack
+docker compose logs -f                         # View logs
+
+# Apply migrations to Docker Supabase
+for f in supabase/migrations/*.sql; do docker exec -i matterflow-db psql -U postgres -d postgres < "$f"; done
+
+# Supabase CLI (alternative - uses localhost ports)
 supabase start            # Start local Supabase stack
 supabase migration up     # Apply migrations
 supabase gen types typescript --local > src/types/database.types.ts
 ```
+
+## Development URLs (Traefik)
+
+| Service | URL |
+|---------|-----|
+| Next.js App | http://matterflow.local |
+| Supabase API | http://api.matterflow.local |
+| Supabase Studio | http://studio.matterflow.local |
+| Mailpit Email | http://mail.matterflow.local |
 
 ## Architecture & Key Patterns
 

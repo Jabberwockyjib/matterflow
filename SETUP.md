@@ -85,13 +85,57 @@ Once your project is ready:
    - **anon public** key
    - **service_role** key (⚠️ Keep this secret!)
 
-### Option B: Use Local Supabase
+### Option B: Use Local Supabase with Traefik (Recommended for Development)
 
+This project uses a Traefik-based development infrastructure that provides zero-port-collision workflow with hostname-based routing.
+
+#### Prerequisites
+
+1. **Docker Desktop** running
+2. **Traefik** running on `traefik_net` network (see infrastructure docs)
+3. **Hostnames** in `/etc/hosts`:
+   ```
+   127.0.0.1 matterflow.local api.matterflow.local studio.matterflow.local mail.matterflow.local
+   ```
+
+#### Start the Stack
+
+```bash
+# Start all Supabase services
+docker compose --env-file docker/.env up -d
+
+# Apply database migrations
+for f in supabase/migrations/*.sql; do
+  docker exec -i matterflow-db psql -U postgres -d postgres < "$f"
+done
+
+# Apply seed data (optional)
+docker exec -i matterflow-db psql -U postgres -d postgres < supabase/seed.sql
+```
+
+#### Access Points
+
+| Service | URL |
+|---------|-----|
+| Next.js App | http://matterflow.local |
+| Supabase API | http://api.matterflow.local |
+| Supabase Studio | http://studio.matterflow.local |
+| Mailpit (email) | http://mail.matterflow.local |
+
+#### Stop the Stack
+
+```bash
+docker compose down
+```
+
+#### Using supabase CLI (Alternative)
+
+If you prefer the standard Supabase CLI:
 ```bash
 supabase start
 ```
 
-This starts a local Supabase instance. Use the connection details printed in the terminal.
+Note: This exposes services on localhost ports instead of Traefik hostnames.
 
 ---
 
@@ -411,7 +455,11 @@ You should see:
 
 ### 2. Open in Browser
 
-Go to: **http://localhost:3000**
+**With Traefik (recommended)**: Go to **http://matterflow.local**
+
+**Without Traefik**: Go to **http://localhost:3000**
+
+Note: When using Traefik, the Next.js dev server runs on localhost:3000 but is accessed through Traefik at matterflow.local for consistent hostname-based routing.
 
 ---
 
@@ -685,19 +733,33 @@ pnpm lint
 # Preview email templates
 pnpm email
 
-# Supabase commands
+# Docker Compose commands (Traefik workflow)
+docker compose --env-file docker/.env up -d    # Start Supabase stack
+docker compose down                             # Stop Supabase stack
+docker compose logs -f                          # View logs
+
+# Supabase CLI commands (alternative)
 supabase start          # Start local Supabase
 supabase stop           # Stop local Supabase
 supabase db push        # Run migrations
 supabase db reset       # Reset database
 ```
 
-### Important URLs
+### Important URLs (Traefik Development)
 
-- **Local app**: http://localhost:3000
-- **Supabase**: https://supabase.com
+| Service | URL |
+|---------|-----|
+| MatterFlow App | http://matterflow.local |
+| Supabase API | http://api.matterflow.local |
+| Supabase Studio | http://studio.matterflow.local |
+| Mailpit Email | http://mail.matterflow.local |
+
+### External Services
+
+- **Supabase Cloud**: https://supabase.com
 - **Resend**: https://resend.com
 - **Google Cloud**: https://console.cloud.google.com
+- **Square**: https://developer.squareup.com
 
 ---
 
