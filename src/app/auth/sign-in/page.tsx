@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Mail, ShieldCheck } from "lucide-react";
+import { Mail, ShieldCheck, Chrome } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -21,6 +21,7 @@ export default function SignInPage() {
   const router = useRouter();
   const redirect = searchParams.get("redirect") || "/";
   const [isCheckingAuth, setIsCheckingAuth] = useState(true);
+  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
 
   // Check if user is already logged in
   useEffect(() => {
@@ -95,6 +96,30 @@ export default function SignInPage() {
     }
   };
 
+  // Handle Google OAuth sign-in
+  const handleGoogleSignIn = async () => {
+    const supabase = supabaseBrowser();
+    if (!supabase) {
+      showError("Authentication service is not available");
+      return;
+    }
+
+    setIsGoogleLoading(true);
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: `${window.location.origin}${redirect}`,
+      },
+    });
+
+    if (error) {
+      console.error('[Google Sign-in] Error:', error);
+      showError(error.message);
+      setIsGoogleLoading(false);
+    }
+    // If successful, the page will redirect to Google
+  };
+
   // Show loading while checking auth
   if (isCheckingAuth) {
     return (
@@ -139,12 +164,32 @@ export default function SignInPage() {
             <Button
               type="submit"
               className="w-full"
-              disabled={isSubmitting}
+              disabled={isSubmitting || isGoogleLoading}
             >
               <Mail className="mr-2 h-4 w-4" />
-              {isSubmitting ? "Signing in..." : "Sign in"}
+              {isSubmitting ? "Signing in..." : "Sign in with Email"}
             </Button>
           </form>
+
+          <div className="relative my-4">
+            <div className="absolute inset-0 flex items-center">
+              <span className="w-full border-t border-slate-200" />
+            </div>
+            <div className="relative flex justify-center text-xs uppercase">
+              <span className="bg-white px-2 text-slate-500">Or continue with</span>
+            </div>
+          </div>
+
+          <Button
+            type="button"
+            variant="outline"
+            className="w-full"
+            onClick={handleGoogleSignIn}
+            disabled={isSubmitting || isGoogleLoading}
+          >
+            <Chrome className="mr-2 h-4 w-4" />
+            {isGoogleLoading ? "Redirecting..." : "Sign in with Google"}
+          </Button>
         </CardContent>
       </Card>
     </div>
