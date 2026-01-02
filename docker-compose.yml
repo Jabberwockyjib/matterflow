@@ -257,6 +257,7 @@ services:
       meta:
         condition: service_started
     environment:
+      HOSTNAME: 0.0.0.0
       STUDIO_PG_META_URL: ${STUDIO_PG_META_URL:-http://meta:8080}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
       DEFAULT_ORGANIZATION_NAME: MatterFlow
