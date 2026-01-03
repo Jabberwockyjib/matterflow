@@ -1,25 +1,40 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { getSessionWithProfile } from "@/lib/auth/server";
 
 const PUBLIC_PATHS = ["/auth/sign-in", "/auth/sign-out", "/auth/inactive", "/auth/change-password", "/auth", "/"];
 const MUTATING_METHODS = ["POST", "PUT", "PATCH", "DELETE"];
 
-// Debug logging for auth troubleshooting (only in development)
-const DEBUG_AUTH = process.env.NODE_ENV === "development";
+// Debug logging for auth troubleshooting (disabled by default, enable for debugging)
+const DEBUG_AUTH = false;
 
 type TokenPayload = {
   role?: string;
+  app_metadata?: { role?: string };
 };
 
-const decodeRole = (token: string | undefined) => {
-  if (!token) return null;
+const decodeRole = (cookieValue: string | undefined) => {
+  if (!cookieValue) return null;
   try {
-    const payloadPart = token.split(".")[1];
+    // The cookie value might be base64-encoded JSON containing access_token
+    // or it might be the JWT directly
+    let jwt: string;
+
+    // Try parsing as base64-encoded JSON first (SSR format)
+    try {
+      const decoded = Buffer.from(cookieValue, "base64").toString("utf8");
+      const sessionData = JSON.parse(decoded);
+      jwt = sessionData.access_token || cookieValue;
+    } catch {
+      // If that fails, assume it's the JWT directly
+      jwt = cookieValue;
+    }
+
+    // Now decode the JWT payload
+    const payloadPart = jwt.split(".")[1];
+    if (!payloadPart) return null;
+
     const json = Buffer.from(payloadPart, "base64").toString("utf8");
-    const data = JSON.parse(json) as TokenPayload & {
-      app_metadata?: { role?: string };
-    };
-    // Supabase sometimes nests role in app_metadata; flatten if needed
+    const data = JSON.parse(json) as TokenPayload;
+    // Supabase nests role in app_metadata
     return data.role || data.app_metadata?.role || null;
   } catch {
     return null;
@@ -41,10 +56,30 @@ export async function middleware(req: NextRequest) {
       pathname.startsWith("/admin") ||
       pathname.startsWith("/dashboard"));
 
-  // Check for Supabase auth tokens (new auth-helpers use pattern: sb-{project-ref}-auth-token)
+  // Check for Supabase auth tokens
+  // Cookies can be chunked: sb-{ref}-auth-token or sb-{ref}-auth-token.0, sb-{ref}-auth-token.1, etc.
   const allCookies = req.cookies.getAll();
-  const authCookie = allCookies.find(c => c.name.startsWith("sb-") && c.name.endsWith("-auth-token"));
-  const accessToken = authCookie?.value;
+
+  // Find auth token cookies and reassemble if chunked
+  const authCookies = allCookies.filter(c =>
+    c.name.startsWith("sb-") &&
+    (c.name.endsWith("-auth-token") || c.name.includes("-auth-token."))
+  );
+
+  let accessToken: string | undefined;
+  if (authCookies.length === 1 && authCookies[0].name.endsWith("-auth-token")) {
+    // Single cookie (not chunked)
+    accessToken = authCookies[0].value;
+  } else if (authCookies.length > 0) {
+    // Chunked cookies - sort by chunk number and reassemble
+    const sorted = authCookies.sort((a, b) => {
+      const aNum = parseInt(a.name.split(".").pop() || "0");
+      const bNum = parseInt(b.name.split(".").pop() || "0");
+      return aNum - bNum;
+    });
+    accessToken = sorted.map(c => c.value).join("");
+  }
+
   const hasSessionCookie = Boolean(accessToken);
 
   // Debug logging for cookie presence/absence
@@ -69,37 +104,8 @@ export async function middleware(req: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  // Check for inactive users and password change requirements
-  if (isProtected && hasSessionCookie) {
-    const { profile } = await getSessionWithProfile();
-
-    if (profile) {
-      // Check if user is inactive
-      if (profile.status === "inactive") {
-        if (pathname !== "/auth/inactive") {
-          if (DEBUG_AUTH) {
-            console.log("[middleware] User is inactive, redirecting:", pathname, "→ /auth/inactive");
-          }
-          const url = req.nextUrl.clone();
-          url.pathname = "/auth/inactive";
-          return NextResponse.redirect(url);
-        }
-      }
-
-      // Check if password must be changed
-      if (profile.password_must_change) {
-        // Allow only change-password and sign-out routes
-        if (pathname !== "/auth/change-password" && pathname !== "/auth/sign-out") {
-          if (DEBUG_AUTH) {
-            console.log("[middleware] Password change required, redirecting:", pathname, "→ /auth/change-password");
-          }
-          const url = req.nextUrl.clone();
-          url.pathname = "/auth/change-password";
-          return NextResponse.redirect(url);
-        }
-      }
-    }
-  }
+  // Note: Inactive user and password change checks are handled in the layout
+  // to avoid database queries in middleware on every request
 
   const role = decodeRole(accessToken);
   const isMutating = MUTATING_METHODS.includes(req.method.toUpperCase());
