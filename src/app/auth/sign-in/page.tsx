@@ -190,6 +190,13 @@ export default function SignInPage() {
             <Chrome className="mr-2 h-4 w-4" />
             {isGoogleLoading ? "Redirecting..." : "Sign in with Google"}
           </Button>
+
+          <p className="mt-4 text-center text-sm text-slate-600">
+            Have an invite code?{" "}
+            <a href="/auth/sign-up" className="text-blue-600 hover:underline">
+              Create an account
+            </a>
+          </p>
         </CardContent>
       </Card>
     </div>

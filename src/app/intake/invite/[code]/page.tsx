@@ -1,5 +1,6 @@
 import { notFound, redirect } from 'next/navigation'
 import { supabaseAdmin } from '@/lib/supabase/server'
+import { getSessionWithProfile } from '@/lib/auth/server'
 
 interface PageProps {
   params: Promise<{ code: string }>
@@ -20,6 +21,14 @@ export default async function InviteRedemptionPage({ params }: PageProps) {
   // If invitation doesn't exist, show 404
   if (error || !invitation) {
     notFound()
+  }
+
+  // Check if user is authenticated
+  const { session } = await getSessionWithProfile()
+
+  // If not authenticated, redirect to sign-up with the invite code
+  if (!session) {
+    redirect(`/auth/sign-up?code=${code}`)
   }
 
   // Check if invitation is expired

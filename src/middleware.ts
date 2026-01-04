@@ -87,8 +87,8 @@ export async function middleware(req: NextRequest) {
     console.log("[middleware]", pathname, {
       isPublic,
       isProtected,
-      hasAuthCookie: Boolean(authCookie),
-      authCookieName: authCookie?.name,
+      hasAuthCookies: authCookies.length > 0,
+      authCookieNames: authCookies.map((c) => c.name),
       hasSessionCookie,
       allCookies: allCookies.map((c) => c.name),
     });
