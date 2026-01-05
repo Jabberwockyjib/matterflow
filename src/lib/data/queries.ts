@@ -1541,3 +1541,106 @@ export async function getActiveClients(): Promise<ActiveClientsResult> {
     return { success: false, error: "Failed to fetch active clients" };
   }
 }
+
+/**
+ * Fetch matters for the current client (client_id = current user)
+ */
+export async function fetchMattersForClient(): Promise<{
+  data: MatterSummary[];
+  source: DataSource;
+  error?: string;
+}> {
+  const { session, profile } = await getSessionWithProfile();
+
+  if (!session || profile?.role !== "client") {
+    return { data: [], source: "mock" };
+  }
+
+  if (!supabaseEnvReady()) {
+    return { data: [], source: "mock" };
+  }
+
+  try {
+    const supabase = supabaseAdmin();
+    const { data, error } = await supabase
+      .from("matters")
+      .select(
+        "id,title,stage,next_action,next_action_due_date,responsible_party,billing_model,matter_type,updated_at,created_at"
+      )
+      .eq("client_id", session.user.id)
+      .order("updated_at", { ascending: false });
+
+    if (error || !data) {
+      return {
+        data: [],
+        source: "supabase",
+        error: error?.message || "No matter data returned",
+      };
+    }
+
+    return {
+      data: data.map((row) => ({
+        id: row.id,
+        title: row.title,
+        stage: row.stage,
+        nextAction: row.next_action,
+        nextActionDueDate: row.next_action_due_date,
+        dueDate: row.next_action_due_date, // Alias for backwards compatibility
+        responsibleParty: row.responsible_party,
+        billingModel: row.billing_model,
+        matterType: row.matter_type,
+        clientName: null,
+        updatedAt: row.updated_at,
+        createdAt: row.created_at,
+      })),
+      source: "supabase",
+    };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Unknown error";
+    return { data: [], source: "mock", error: message };
+  }
+}
+
+/**
+ * Check if client has pending intake forms
+ */
+export async function getClientPendingIntake(): Promise<{
+  hasPendingIntake: boolean;
+  matterId: string | null;
+  matterTitle: string | null;
+}> {
+  const { session, profile } = await getSessionWithProfile();
+
+  if (!session || profile?.role !== "client") {
+    return { hasPendingIntake: false, matterId: null, matterTitle: null };
+  }
+
+  if (!supabaseEnvReady()) {
+    return { hasPendingIntake: false, matterId: null, matterTitle: null };
+  }
+
+  try {
+    const supabase = supabaseAdmin();
+
+    // Find matters in "Intake Sent" stage where this client is assigned
+    const { data: matters } = await supabase
+      .from("matters")
+      .select("id, title")
+      .eq("client_id", session.user.id)
+      .eq("stage", "Intake Sent")
+      .limit(1)
+      .maybeSingle();
+
+    if (matters) {
+      return {
+        hasPendingIntake: true,
+        matterId: matters.id,
+        matterTitle: matters.title,
+      };
+    }
+
+    return { hasPendingIntake: false, matterId: null, matterTitle: null };
+  } catch {
+    return { hasPendingIntake: false, matterId: null, matterTitle: null };
+  }
+}

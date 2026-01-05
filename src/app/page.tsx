@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -24,11 +25,14 @@ import {
 import {
   fetchInvoices,
   fetchMatters,
+  fetchMattersForClient,
   fetchTasks,
   fetchTimeEntries,
+  getClientPendingIntake,
 } from "@/lib/data/queries";
 import { getSessionWithProfile } from "@/lib/auth/server";
 import { cn, isOverdue, formatDueDate } from "@/lib/utils";
+import { ClientDashboard } from "@/components/client-dashboard";
 
 const automations = [
   {
@@ -88,13 +92,36 @@ const currency = (cents: number) =>
   );
 
 export default async function Home() {
-  const [{ data: matters, source: matterSource }, { data: tasks }, { data: invoices }, { data: timeEntries }, { profile }] =
+  const { profile } = await getSessionWithProfile();
+
+  // Client-specific dashboard
+  if (profile?.role === "client") {
+    const [{ data: clientMatters }, pendingIntake] = await Promise.all([
+      fetchMattersForClient(),
+      getClientPendingIntake(),
+    ]);
+
+    // Redirect to intake form if client has pending intake
+    if (pendingIntake.hasPendingIntake && pendingIntake.matterId) {
+      redirect(`/intake/${pendingIntake.matterId}`);
+    }
+
+    return (
+      <ClientDashboard
+        profileName={profile.full_name || null}
+        matters={clientMatters}
+        pendingIntake={pendingIntake}
+      />
+    );
+  }
+
+  // Staff/Admin dashboard
+  const [{ data: matters, source: matterSource }, { data: tasks }, { data: invoices }, { data: timeEntries }] =
     await Promise.all([
       fetchMatters(),
       fetchTasks(),
       fetchInvoices(),
       fetchTimeEntries(),
-      getSessionWithProfile(),
     ]);
 
   const stageCounts = stages.map((stage) => ({

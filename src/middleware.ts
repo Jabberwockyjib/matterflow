@@ -3,6 +3,17 @@ import { NextResponse, type NextRequest } from "next/server";
 const PUBLIC_PATHS = ["/auth/sign-in", "/auth/sign-out", "/auth/inactive", "/auth/change-password", "/auth", "/"];
 const MUTATING_METHODS = ["POST", "PUT", "PATCH", "DELETE"];
 
+// Routes that require staff/admin role
+const STAFF_ONLY_PATHS = [
+  "/matters",
+  "/tasks",
+  "/time",
+  "/billing",
+  "/documents",
+  "/admin",
+  "/clients",
+];
+
 // Debug logging for auth troubleshooting (disabled by default, enable for debugging)
 const DEBUG_AUTH = false;
 
@@ -109,6 +120,24 @@ export async function middleware(req: NextRequest) {
 
   const role = decodeRole(accessToken);
   const isMutating = MUTATING_METHODS.includes(req.method.toUpperCase());
+
+  // Block clients from accessing staff-only routes
+  if (role === "client") {
+    const isStaffOnly = STAFF_ONLY_PATHS.some((path) =>
+      pathname === path || pathname.startsWith(`${path}/`)
+    );
+
+    if (isStaffOnly) {
+      if (DEBUG_AUTH) {
+        console.log("[middleware] Client blocked from staff route:", pathname, "→ /");
+      }
+      const url = req.nextUrl.clone();
+      url.pathname = "/";
+      return NextResponse.redirect(url);
+    }
+  }
+
+  // Block client mutations on protected routes
   if (isProtected && isMutating && role === "client") {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }

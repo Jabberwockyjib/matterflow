@@ -26,13 +26,20 @@ type NavLink = {
   icon: React.ComponentType<{ className?: string }>;
 };
 
-const primaryLinks: NavLink[] = [
+// Links visible to staff and admin only
+const staffLinks: NavLink[] = [
   { href: "/", label: "Dashboard", icon: Home },
   { href: "/matters", label: "Matters", icon: Folder },
   { href: "/tasks", label: "Tasks", icon: CheckSquare },
   { href: "/time", label: "Time", icon: Clock },
   { href: "/billing", label: "Billing", icon: CreditCard },
   { href: "/documents", label: "Documents", icon: FileText },
+];
+
+// Links visible to clients only
+const clientLinks: NavLink[] = [
+  { href: "/", label: "My Dashboard", icon: Home },
+  { href: "/my-matters", label: "My Matters", icon: Folder },
 ];
 
 const adminLinks: NavLink[] = [
@@ -74,6 +81,10 @@ export function Sidebar({ role, profileName }: SidebarProps) {
   };
 
   const isAdmin = role === "admin" || role === "staff";
+  const isClient = role === "client";
+
+  // Choose which links to show based on role
+  const primaryLinks = isClient ? clientLinks : staffLinks;
 
   return (
     <aside
@@ -97,7 +108,7 @@ export function Sidebar({ role, profileName }: SidebarProps) {
               <p className="text-xs uppercase tracking-[0.2em] text-slate-500">
                 MatterFlow
               </p>
-              <p className="text-sm font-semibold text-slate-900">Control Center</p>
+              <p className="text-sm font-semibold text-slate-900">{isClient ? "Client Portal" : "Control Center"}</p>
             </div>
           </Link>
         )}
