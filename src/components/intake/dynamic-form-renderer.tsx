@@ -89,9 +89,17 @@ export function DynamicFormRenderer({
         const value = values[field.id];
 
         // Required field validation
-        if (field.required && !value) {
-          newErrors[field.id] = `${field.label} is required`;
-          continue;
+        if (field.required) {
+          // Handle arrays (multiselect, file) - check for empty array
+          if (Array.isArray(value) && value.length === 0) {
+            newErrors[field.id] = `${field.label} is required`;
+            continue;
+          }
+          // Handle other empty values
+          if (!value && value !== false && value !== 0) {
+            newErrors[field.id] = `${field.label} is required`;
+            continue;
+          }
         }
 
         if (!value) continue;
@@ -452,11 +460,41 @@ export function DynamicFormRenderer({
                   multiple={field.fileConfig?.maxFiles !== 1}
                   accept={field.fileConfig?.acceptedTypes?.join(",")}
                   onChange={(e) => {
-                    // File handling will be implemented in the parent component
-                    // This is just a placeholder for now
-                    console.log("Files selected:", e.target.files);
+                    const files = e.target.files;
+                    if (!files || files.length === 0) {
+                      handleChange(field.id, null);
+                      return;
+                    }
+                    // Store file metadata for validation and display
+                    // Actual file upload to Google Drive happens on form submission
+                    const fileData = Array.from(files).map((file) => ({
+                      id: `${Date.now()}-${file.name}`,
+                      fileName: file.name,
+                      fileSize: file.size,
+                      fileType: file.type,
+                      file: file, // Keep reference for upload
+                    }));
+                    handleChange(field.id, fileData);
                   }}
                 />
+                {/* Show selected files */}
+                {Array.isArray(value) && value.length > 0 && (
+                  <div className="mt-2 space-y-1">
+                    {value.map((file: any) => (
+                      <div
+                        key={file.id}
+                        className="flex items-center justify-between p-2 bg-green-50 border border-green-200 rounded-md text-sm"
+                      >
+                        <span className="text-green-800 font-medium truncate flex-1">
+                          {file.fileName}
+                        </span>
+                        <span className="text-green-600 ml-2">
+                          {(file.fileSize / 1024).toFixed(1)} KB
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
                 {field.fileConfig && (
                   <p className="text-xs text-gray-500">
                     {field.fileConfig.acceptedTypes && (
