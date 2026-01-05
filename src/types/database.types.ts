@@ -131,6 +131,53 @@ export type Database = {
           },
         ]
       }
+      document_templates: {
+        Row: {
+          category: string | null
+          created_at: string | null
+          created_by: string | null
+          description: string | null
+          id: string
+          name: string
+          original_file_url: string | null
+          status: string
+          updated_at: string | null
+          version: string
+        }
+        Insert: {
+          category?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          name: string
+          original_file_url?: string | null
+          status?: string
+          updated_at?: string | null
+          version?: string
+        }
+        Update: {
+          category?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          name?: string
+          original_file_url?: string | null
+          status?: string
+          updated_at?: string | null
+          version?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "document_templates_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+        ]
+      }
       documents: {
         Row: {
           created_at: string
@@ -350,6 +397,164 @@ export type Database = {
             columns: ["matter_id"]
             isOneToOne: false
             referencedRelation: "matters"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      matter_document_history: {
+        Row: {
+          action: string
+          changed_at: string | null
+          changed_by: string | null
+          details: Json | null
+          id: string
+          matter_document_id: string
+          previous_pdf_url: string | null
+        }
+        Insert: {
+          action: string
+          changed_at?: string | null
+          changed_by?: string | null
+          details?: Json | null
+          id?: string
+          matter_document_id: string
+          previous_pdf_url?: string | null
+        }
+        Update: {
+          action?: string
+          changed_at?: string | null
+          changed_by?: string | null
+          details?: Json | null
+          id?: string
+          matter_document_id?: string
+          previous_pdf_url?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "matter_document_history_changed_by_fkey"
+            columns: ["changed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "matter_document_history_matter_document_id_fkey"
+            columns: ["matter_document_id"]
+            isOneToOne: false
+            referencedRelation: "matter_documents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      matter_document_packages: {
+        Row: {
+          created_at: string | null
+          delivered_at: string | null
+          id: string
+          matter_id: string
+          package_type: string | null
+          selected_template_ids: string[] | null
+          status: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          delivered_at?: string | null
+          id?: string
+          matter_id: string
+          package_type?: string | null
+          selected_template_ids?: string[] | null
+          status?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          delivered_at?: string | null
+          id?: string
+          matter_id?: string
+          package_type?: string | null
+          selected_template_ids?: string[] | null
+          status?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "matter_document_packages_matter_id_fkey"
+            columns: ["matter_id"]
+            isOneToOne: true
+            referencedRelation: "matters"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      matter_documents: {
+        Row: {
+          created_at: string | null
+          customizations: Json | null
+          delivered_at: string | null
+          document_type: string
+          field_values: Json | null
+          generated_at: string | null
+          id: string
+          matter_id: string
+          name: string
+          notes: string | null
+          pdf_url: string | null
+          source: string | null
+          status: string | null
+          template_id: string | null
+          template_version: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          customizations?: Json | null
+          delivered_at?: string | null
+          document_type: string
+          field_values?: Json | null
+          generated_at?: string | null
+          id?: string
+          matter_id: string
+          name: string
+          notes?: string | null
+          pdf_url?: string | null
+          source?: string | null
+          status?: string | null
+          template_id?: string | null
+          template_version?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          customizations?: Json | null
+          delivered_at?: string | null
+          document_type?: string
+          field_values?: Json | null
+          generated_at?: string | null
+          id?: string
+          matter_id?: string
+          name?: string
+          notes?: string | null
+          pdf_url?: string | null
+          source?: string | null
+          status?: string | null
+          template_id?: string | null
+          template_version?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "matter_documents_matter_id_fkey"
+            columns: ["matter_id"]
+            isOneToOne: false
+            referencedRelation: "matters"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "matter_documents_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "document_templates"
             referencedColumns: ["id"]
           },
         ]
@@ -679,6 +884,128 @@ export type Database = {
             columns: ["matter_id"]
             isOneToOne: false
             referencedRelation: "matters"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      template_field_mappings: {
+        Row: {
+          field_id: string
+          id: string
+          template_id: string
+        }
+        Insert: {
+          field_id: string
+          id?: string
+          template_id: string
+        }
+        Update: {
+          field_id?: string
+          id?: string
+          template_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "template_field_mappings_field_id_fkey"
+            columns: ["field_id"]
+            isOneToOne: false
+            referencedRelation: "template_fields"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "template_field_mappings_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "document_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      template_fields: {
+        Row: {
+          created_at: string | null
+          default_value: string | null
+          field_type: string
+          id: string
+          intake_question_id: string | null
+          is_required: boolean | null
+          label: string
+          name: string
+          options: Json | null
+          output_type: string | null
+          source_type: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          default_value?: string | null
+          field_type: string
+          id?: string
+          intake_question_id?: string | null
+          is_required?: boolean | null
+          label: string
+          name: string
+          options?: Json | null
+          output_type?: string | null
+          source_type?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          default_value?: string | null
+          field_type?: string
+          id?: string
+          intake_question_id?: string | null
+          is_required?: boolean | null
+          label?: string
+          name?: string
+          options?: Json | null
+          output_type?: string | null
+          source_type?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      template_sections: {
+        Row: {
+          condition_rules: Json | null
+          content: string
+          created_at: string | null
+          id: string
+          is_conditional: boolean | null
+          name: string
+          sort_order: number
+          template_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          condition_rules?: Json | null
+          content: string
+          created_at?: string | null
+          id?: string
+          is_conditional?: boolean | null
+          name: string
+          sort_order?: number
+          template_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          condition_rules?: Json | null
+          content?: string
+          created_at?: string | null
+          id?: string
+          is_conditional?: boolean | null
+          name?: string
+          sort_order?: number
+          template_id?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "template_sections_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "document_templates"
             referencedColumns: ["id"]
           },
         ]
