@@ -435,6 +435,103 @@ export async function fetchInvoices(): Promise<{
   }
 }
 
+export async function getInvoice(invoiceId: string): Promise<{
+  data: {
+    id: string;
+    matterId: string;
+    matterTitle: string;
+    clientEmail: string | null;
+    clientName: string | null;
+    status: string;
+    totalCents: number;
+    dueDate: string | null;
+    squareInvoiceId: string | null;
+    lineItems: Array<{
+      description: string;
+      hours?: number;
+      rate?: number;
+      amount: number;
+    }>;
+    createdAt: string;
+    updatedAt: string;
+  } | null;
+  error?: string;
+}> {
+  if (!supabaseEnvReady()) {
+    return { data: null, error: "Supabase not configured" };
+  }
+
+  try {
+    const supabase = supabaseAdmin();
+    const { data, error } = await supabase
+      .from("invoices")
+      .select(`
+        id,
+        matter_id,
+        status,
+        total_cents,
+        due_date,
+        square_invoice_id,
+        line_items,
+        created_at,
+        updated_at,
+        matters (
+          title,
+          client_id
+        )
+      `)
+      .eq("id", invoiceId)
+      .single();
+
+    if (error || !data) {
+      return { data: null, error: error?.message || "Invoice not found" };
+    }
+
+    // Get client info if client_id exists
+    let clientEmail: string | null = null;
+    let clientName: string | null = null;
+
+    const matter = data.matters as { title: string; client_id: string | null } | null;
+
+    if (matter?.client_id) {
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("full_name")
+        .eq("user_id", matter.client_id)
+        .single();
+
+      const { data: { user } } = await supabase.auth.admin.getUserById(matter.client_id);
+
+      clientEmail = user?.email || null;
+      clientName = profile?.full_name || null;
+    }
+
+    return {
+      data: {
+        id: data.id,
+        matterId: data.matter_id,
+        matterTitle: matter?.title || "Unknown Matter",
+        clientEmail,
+        clientName,
+        status: data.status,
+        totalCents: data.total_cents,
+        dueDate: data.due_date,
+        squareInvoiceId: data.square_invoice_id,
+        lineItems: (data.line_items as Array<{
+          description: string;
+          hours?: number;
+          rate?: number;
+          amount: number;
+        }>) || [],
+        createdAt: data.created_at,
+        updatedAt: data.updated_at,
+      },
+    };
+  } catch (err) {
+    return { data: null, error: err instanceof Error ? err.message : "Unknown error" };
+  }
+}
+
 export async function fetchTimeEntries(): Promise<{
   data: TimeEntrySummary[];
   source: DataSource;

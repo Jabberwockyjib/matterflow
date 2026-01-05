@@ -11,6 +11,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { CalendarClock } from "lucide-react";
 import { MatterDocumentsTab } from "@/components/matter-documents-tab";
+import { AddTaskModal } from "@/components/matters/add-task-modal";
+import { AddTimeEntryModal } from "@/components/matters/add-time-entry-modal";
 
 interface MatterDetailPageProps {
   params: Promise<{ id: string }>;
@@ -157,9 +159,7 @@ export default async function MatterDetailPage({ params }: MatterDetailPageProps
           <div className="rounded-lg border border-slate-200 bg-white p-6">
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-xl font-semibold text-slate-900">Tasks</h2>
-              <Button size="sm" disabled>
-                Add Task
-              </Button>
+<AddTaskModal matterId={id} />
             </div>
 
             {tasks.length === 0 ? (
@@ -220,9 +220,7 @@ export default async function MatterDetailPage({ params }: MatterDetailPageProps
           <div className="rounded-lg border border-slate-200 bg-white p-6">
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-xl font-semibold text-slate-900">Time Entries</h2>
-              <Button size="sm" disabled>
-                Add Time Entry
-              </Button>
+<AddTimeEntryModal matterId={id} />
             </div>
 
             {/* Stats Row */}

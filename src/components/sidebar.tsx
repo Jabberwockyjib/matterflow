@@ -39,6 +39,7 @@ const adminLinks: NavLink[] = [
   { href: "/clients", label: "Clients", icon: UserPlus },
   { href: "/admin/users", label: "Users", icon: Users },
   { href: "/admin/intake", label: "Intakes", icon: ClipboardList },
+  { href: "/admin/templates", label: "Templates", icon: FileText },
 ];
 
 type SidebarProps = {

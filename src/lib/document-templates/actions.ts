@@ -14,7 +14,9 @@ import type {
   FieldType,
   SourceType,
   OutputType,
+  ParsedTemplate,
 } from "./types";
+import { parseDocumentTemplate } from "./parsing";
 
 type ActionResult<T = unknown> = {
   success: boolean;
@@ -518,4 +520,98 @@ export async function updateMatterDocumentStatus(
 
   revalidatePath(`/matters/${doc.matter_id}`);
   return { success: true };
+}
+
+// ============================================================================
+// Template Upload and Parsing
+// ============================================================================
+
+export async function uploadAndParseTemplate(
+  formData: FormData
+): Promise<ActionResult<{ template: DocumentTemplate; parsed: ParsedTemplate }>> {
+  const auth = await ensureStaffOrAdmin();
+  if ("error" in auth) return { success: false, error: auth.error };
+
+  if (!supabaseEnvReady()) {
+    return { success: false, error: "Service unavailable" };
+  }
+
+  const file = formData.get("file") as File;
+  if (!file) {
+    return { success: false, error: "No file provided" };
+  }
+
+  if (!file.name.endsWith(".docx")) {
+    return { success: false, error: "Only .docx files are supported" };
+  }
+
+  try {
+    // Convert File to Buffer
+    const arrayBuffer = await file.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
+
+    // Parse the document with AI
+    const parsed = await parseDocumentTemplate(buffer, file.name);
+
+    // Upload original file to Supabase Storage
+    const supabase = supabaseAdmin();
+    const storagePath = `templates/${Date.now()}-${file.name}`;
+
+    const { error: uploadError } = await supabase.storage
+      .from("documents")
+      .upload(storagePath, buffer, {
+        contentType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      });
+
+    if (uploadError) {
+      console.error("Storage upload error:", uploadError);
+      // Continue without storage - not critical for MVP
+    }
+
+    // Create template record
+    const { data: template, error: insertError } = await supabase
+      .from("document_templates")
+      .insert({
+        name: parsed.suggestedName || file.name.replace(".docx", ""),
+        description: null,
+        category: parsed.suggestedCategory || null,
+        original_file_url: uploadError ? null : storagePath,
+        created_by: auth.session.user.id,
+        status: "draft",
+        version: "1.0",
+      })
+      .select()
+      .single();
+
+    if (insertError) {
+      return { success: false, error: insertError.message };
+    }
+
+    revalidatePath("/admin/templates");
+
+    return {
+      success: true,
+      data: {
+        template: {
+          id: template.id,
+          name: template.name,
+          description: template.description,
+          category: template.category,
+          version: template.version,
+          status: template.status as TemplateStatus,
+          originalFileUrl: template.original_file_url,
+          createdBy: template.created_by,
+          createdAt: template.created_at ?? new Date().toISOString(),
+          updatedAt: template.updated_at ?? new Date().toISOString(),
+        },
+        parsed,
+      },
+    };
+  } catch (err) {
+    console.error("Template parsing error:", err);
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : "Failed to parse template",
+    };
+  }
 }

@@ -1,4 +1,5 @@
-import { ReceiptText, Wallet2 } from "lucide-react";
+import Link from "next/link";
+import { ReceiptText, Wallet2, Eye } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -158,6 +159,12 @@ export default async function BillingPage() {
                 ) : (
                   <Badge variant="warning">Not synced to Square</Badge>
                 )}
+                <Link href={`/billing/${invoice.id}`}>
+                  <Button size="sm" variant="ghost">
+                    <Eye className="h-4 w-4 mr-1" />
+                    View
+                  </Button>
+                </Link>
                 {canEdit ? (
                   <form action={updateInvoiceStatus as unknown as (formData: FormData) => void} className="flex items-center gap-2 text-xs">
                     <input type="hidden" name="id" value={invoice.id} />
