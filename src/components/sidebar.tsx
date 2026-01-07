@@ -16,6 +16,7 @@ import {
   Settings,
   ChevronLeft,
   ChevronRight,
+  BarChart3,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -33,6 +34,7 @@ const staffLinks: NavLink[] = [
   { href: "/tasks", label: "Tasks", icon: CheckSquare },
   { href: "/time", label: "Time", icon: Clock },
   { href: "/billing", label: "Billing", icon: CreditCard },
+  { href: "/reports", label: "Reports", icon: BarChart3 },
   { href: "/documents", label: "Documents", icon: FileText },
 ];
 

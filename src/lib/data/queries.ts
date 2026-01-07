@@ -1644,3 +1644,277 @@ export async function getClientPendingIntake(): Promise<{
     return { hasPendingIntake: false, matterId: null, matterTitle: null };
   }
 }
+
+// ============================================================================
+// Report Query Functions
+// ============================================================================
+
+export type TimeReportData = {
+  totalMinutes: number;
+  approvedMinutes: number;
+  draftMinutes: number;
+  totalEntries: number;
+  approvedEntries: number;
+  byMatterType: Array<{ matterType: string; minutes: number; count: number }>;
+};
+
+export type RevenueByMatterType = {
+  matterType: string;
+  totalCents: number;
+  paidCents: number;
+  invoiceCount: number;
+};
+
+export type InvoiceAgingItem = {
+  id: string;
+  matterId: string;
+  matterTitle: string;
+  totalCents: number;
+  dueDate: string | null;
+  status: string;
+  daysOverdue: number;
+  ageBucket: "current" | "1-30" | "31-60" | "61-90" | "90+";
+};
+
+/**
+ * Fetch time tracking report data
+ */
+export async function fetchTimeReport(): Promise<{
+  data: TimeReportData;
+  source: DataSource;
+  error?: string;
+}> {
+  const emptyReport: TimeReportData = {
+    totalMinutes: 0,
+    approvedMinutes: 0,
+    draftMinutes: 0,
+    totalEntries: 0,
+    approvedEntries: 0,
+    byMatterType: [],
+  };
+
+  if (!supabaseEnvReady()) {
+    return { data: emptyReport, source: "mock" };
+  }
+
+  try {
+    const supabase = supabaseAdmin();
+
+    // Fetch time entries with matter info
+    const { data: entries, error } = await supabase
+      .from("time_entries")
+      .select(`
+        id,
+        duration_minutes,
+        status,
+        matter_id,
+        matters (
+          matter_type
+        )
+      `)
+      .not("duration_minutes", "is", null);
+
+    if (error || !entries) {
+      return {
+        data: emptyReport,
+        source: "mock",
+        error: error?.message || "No time entry data returned",
+      };
+    }
+
+    // Calculate totals
+    let totalMinutes = 0;
+    let approvedMinutes = 0;
+    let draftMinutes = 0;
+    let approvedEntries = 0;
+    const byMatterTypeMap = new Map<string, { minutes: number; count: number }>();
+
+    for (const entry of entries) {
+      const minutes = entry.duration_minutes || 0;
+      totalMinutes += minutes;
+
+      if (entry.status === "approved" || entry.status === "locked") {
+        approvedMinutes += minutes;
+        approvedEntries++;
+      } else {
+        draftMinutes += minutes;
+      }
+
+      // Group by matter type
+      const matterType = (entry.matters as { matter_type: string } | null)?.matter_type || "Unknown";
+      const existing = byMatterTypeMap.get(matterType) || { minutes: 0, count: 0 };
+      byMatterTypeMap.set(matterType, {
+        minutes: existing.minutes + minutes,
+        count: existing.count + 1,
+      });
+    }
+
+    const byMatterType = Array.from(byMatterTypeMap.entries())
+      .map(([matterType, data]) => ({ matterType, ...data }))
+      .sort((a, b) => b.minutes - a.minutes);
+
+    return {
+      data: {
+        totalMinutes,
+        approvedMinutes,
+        draftMinutes,
+        totalEntries: entries.length,
+        approvedEntries,
+        byMatterType,
+      },
+      source: "supabase",
+    };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Unknown error";
+    return { data: emptyReport, source: "mock", error: message };
+  }
+}
+
+/**
+ * Fetch revenue by matter type
+ */
+export async function fetchRevenueByMatterType(): Promise<{
+  data: RevenueByMatterType[];
+  source: DataSource;
+  error?: string;
+}> {
+  if (!supabaseEnvReady()) {
+    return { data: [], source: "mock" };
+  }
+
+  try {
+    const supabase = supabaseAdmin();
+
+    // Fetch invoices with matter info
+    const { data: invoices, error } = await supabase
+      .from("invoices")
+      .select(`
+        id,
+        total_cents,
+        status,
+        matters (
+          matter_type
+        )
+      `);
+
+    if (error || !invoices) {
+      return {
+        data: [],
+        source: "mock",
+        error: error?.message || "No invoice data returned",
+      };
+    }
+
+    // Group by matter type
+    const byMatterTypeMap = new Map<string, { totalCents: number; paidCents: number; count: number }>();
+
+    for (const invoice of invoices) {
+      const matterType = (invoice.matters as { matter_type: string } | null)?.matter_type || "Unknown";
+      const existing = byMatterTypeMap.get(matterType) || { totalCents: 0, paidCents: 0, count: 0 };
+
+      const amount = invoice.total_cents || 0;
+      byMatterTypeMap.set(matterType, {
+        totalCents: existing.totalCents + amount,
+        paidCents: existing.paidCents + (invoice.status === "paid" ? amount : 0),
+        count: existing.count + 1,
+      });
+    }
+
+    const result = Array.from(byMatterTypeMap.entries())
+      .map(([matterType, data]) => ({
+        matterType,
+        totalCents: data.totalCents,
+        paidCents: data.paidCents,
+        invoiceCount: data.count,
+      }))
+      .sort((a, b) => b.totalCents - a.totalCents);
+
+    return { data: result, source: "supabase" };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Unknown error";
+    return { data: [], source: "mock", error: message };
+  }
+}
+
+/**
+ * Fetch invoice aging report
+ */
+export async function fetchInvoiceAging(): Promise<{
+  data: InvoiceAgingItem[];
+  source: DataSource;
+  error?: string;
+}> {
+  if (!supabaseEnvReady()) {
+    return { data: [], source: "mock" };
+  }
+
+  try {
+    const supabase = supabaseAdmin();
+
+    // Fetch unpaid/overdue invoices with matter info
+    const { data: invoices, error } = await supabase
+      .from("invoices")
+      .select(`
+        id,
+        matter_id,
+        total_cents,
+        due_date,
+        status,
+        matters (
+          title
+        )
+      `)
+      .in("status", ["sent", "overdue", "partial"])
+      .order("due_date", { ascending: true });
+
+    if (error || !invoices) {
+      return {
+        data: [],
+        source: "mock",
+        error: error?.message || "No invoice data returned",
+      };
+    }
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const result: InvoiceAgingItem[] = invoices.map((invoice) => {
+      const dueDate = invoice.due_date ? new Date(invoice.due_date) : null;
+      let daysOverdue = 0;
+      let ageBucket: InvoiceAgingItem["ageBucket"] = "current";
+
+      if (dueDate) {
+        dueDate.setHours(0, 0, 0, 0);
+        daysOverdue = Math.floor((today.getTime() - dueDate.getTime()) / (1000 * 60 * 60 * 24));
+
+        if (daysOverdue <= 0) {
+          ageBucket = "current";
+        } else if (daysOverdue <= 30) {
+          ageBucket = "1-30";
+        } else if (daysOverdue <= 60) {
+          ageBucket = "31-60";
+        } else if (daysOverdue <= 90) {
+          ageBucket = "61-90";
+        } else {
+          ageBucket = "90+";
+        }
+      }
+
+      return {
+        id: invoice.id,
+        matterId: invoice.matter_id,
+        matterTitle: (invoice.matters as { title: string } | null)?.title || "Unknown Matter",
+        totalCents: invoice.total_cents || 0,
+        dueDate: invoice.due_date,
+        status: invoice.status,
+        daysOverdue: Math.max(0, daysOverdue),
+        ageBucket,
+      };
+    });
+
+    return { data: result, source: "supabase" };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Unknown error";
+    return { data: [], source: "mock", error: message };
+  }
+}
