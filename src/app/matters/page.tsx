@@ -1,4 +1,5 @@
 import { ArrowRight } from "lucide-react";
+import Link from "next/link";
 
 import { fetchMatters, fetchClients } from "@/lib/data/queries";
 import { createMatter, updateMatterStage } from "@/lib/data/actions";
@@ -247,11 +248,11 @@ export default async function MattersPage() {
 
         {/* Back to Dashboard */}
         <div className="mt-8">
-          <a href="/">
+          <Link href="/">
             <Button variant="ghost" size="sm">
               ← Back to Control Center
             </Button>
-          </a>
+          </Link>
         </div>
       </main>
     </div>
