@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { Clock4 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
@@ -86,7 +87,12 @@ export default async function TimePage() {
                   {entry.description || "Untitled entry"}
                 </ContentCardTitle>
                 <ContentCardDescription className="text-xs text-slate-600">
-                  Matter ID: {entry.matterId}
+                  <Link
+                    href={`/matters/${entry.matterId}`}
+                    className="text-blue-600 hover:underline"
+                  >
+                    View Matter →
+                  </Link>
                   {entry.taskId ? ` • Task: ${entry.taskId}` : null}
                 </ContentCardDescription>
               </ContentCardHeader>

@@ -323,9 +323,10 @@ export default async function Home() {
             </ContentCardHeader>
             <ContentCardContent className="space-y-3">
               {billingRows.map((row) => (
-                <div
+                <Link
                   key={row.id}
-                  className="flex items-center justify-between rounded-lg border border-slate-200 px-4 py-3 dark:border-slate-700"
+                  href={`/billing/${row.id}`}
+                  className="flex items-center justify-between rounded-lg border border-slate-200 px-4 py-3 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
                 >
                   <div>
                     <p className="text-sm font-medium text-slate-900 dark:text-slate-50">
@@ -347,7 +348,7 @@ export default async function Home() {
                           : "view"}
                     </Button>
                   </div>
-                </div>
+                </Link>
               ))}
               <p className="text-xs text-slate-600 dark:text-slate-400">
                 No invoice can be created outside MatterFlow. Sync failures must

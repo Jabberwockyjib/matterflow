@@ -1,6 +1,8 @@
 'use client'
 
-import { Mail, Copy, Eye } from 'lucide-react'
+import Link from 'next/link'
+import { useState } from 'react'
+import { Mail, Copy, Eye, Check } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import type { ClientInvitation, IntakeReview } from '@/lib/data/queries'
@@ -16,6 +18,18 @@ type PipelineCardProps =
     }
 
 export function PipelineCard({ type, data }: PipelineCardProps) {
+  const [copied, setCopied] = useState(false)
+
+  const copyInviteCode = async (code: string) => {
+    try {
+      await navigator.clipboard.writeText(`${window.location.origin}/intake/invite/${code}`)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    } catch (err) {
+      console.error('Failed to copy:', err)
+    }
+  }
+
   if (type === 'invitation') {
     const invitation = data
     return (
@@ -41,12 +55,24 @@ export function PipelineCard({ type, data }: PipelineCardProps) {
         </div>
 
         <div className="flex gap-2 mt-3">
-          <Button size="sm" variant="ghost" className="flex-1" disabled>
-            <Eye className="h-3 w-3 mr-1" />
-            View
-          </Button>
-          <Button size="sm" variant="ghost" disabled aria-label="Copy invitation code">
-            <Copy className="h-3 w-3" />
+          <Button
+            size="sm"
+            variant="ghost"
+            className="flex-1"
+            onClick={() => copyInviteCode(invitation.inviteCode)}
+            aria-label="Copy invitation link"
+          >
+            {copied ? (
+              <>
+                <Check className="h-3 w-3 mr-1 text-green-600" />
+                Copied!
+              </>
+            ) : (
+              <>
+                <Copy className="h-3 w-3 mr-1" />
+                Copy Link
+              </>
+            )}
           </Button>
         </div>
       </div>
@@ -82,9 +108,11 @@ export function PipelineCard({ type, data }: PipelineCardProps) {
         {type === 'under-review' && 'Waiting on client response'}
       </div>
 
-      <Button size="sm" className="w-full" disabled>
-        Review Intake
-      </Button>
+      <Link href={`/admin/intake/${intake.id}`}>
+        <Button size="sm" className="w-full">
+          Review Intake
+        </Button>
+      </Link>
     </div>
   )
 }

@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { CalendarClock, Clock4 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
@@ -105,7 +106,12 @@ export default async function TasksPage() {
                     {task.responsibleParty} owns
                   </Badge>
                   <Badge variant="outline">{task.status}</Badge>
-                  <span className="text-slate-600">Matter ID: {task.matterId}</span>
+                  <Link
+                    href={`/matters/${task.matterId}`}
+                    className="text-blue-600 hover:underline"
+                  >
+                    View Matter →
+                  </Link>
                 </div>
                 {canEdit ? (
                   <TaskStatusForm taskId={task.id} currentStatus={task.status} />
