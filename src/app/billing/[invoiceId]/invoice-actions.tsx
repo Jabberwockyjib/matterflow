@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Mail, CheckCircle, Copy, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { updateInvoiceStatus } from "@/lib/data/actions";
+import { updateInvoiceStatus, resendInvoiceEmail } from "@/lib/data/actions";
 
 interface InvoiceActionsProps {
   invoiceId: string;
@@ -30,9 +30,12 @@ export function InvoiceActions({ invoiceId, status, squarePaymentUrl }: InvoiceA
 
   async function handleResendEmail() {
     setLoading("resend");
-    // TODO: Call sendInvoiceEmail action when available
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    const result = await resendInvoiceEmail(invoiceId);
     setLoading(null);
+    if ("error" in result) {
+      console.error("Failed to resend invoice email:", result.error);
+      // Could add toast notification here
+    }
     router.refresh();
   }
 

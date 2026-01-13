@@ -9,10 +9,13 @@ export type EmailType =
   | "task_assigned"
   | "intake_reminder"
   | "intake_submitted"
+  | "intake_declined"
   | "client_activity_reminder"
   | "lawyer_activity_reminder"
   | "payment_received"
-  | "matter_stage_changed";
+  | "matter_stage_changed"
+  | "info_request"
+  | "info_request_response";
 
 export interface EmailMetadata {
   type: EmailType;
@@ -20,6 +23,7 @@ export interface EmailMetadata {
   invoiceId?: string;
   taskId?: string;
   recipientRole?: "client" | "lawyer" | "staff";
+  actorId?: string; // User ID who triggered the email
   [key: string]: unknown;
 }
 

@@ -857,6 +857,103 @@ export async function updateInvoiceStatus(formData: FormData): Promise<ActionRes
   }
 }
 
+/**
+ * Resend invoice email to client
+ * Used to manually resend an invoice email for an already-sent invoice
+ */
+export async function resendInvoiceEmail(invoiceId: string): Promise<ActionResult> {
+  const roleCheck = await ensureStaffOrAdmin();
+  if ("error" in roleCheck) return roleCheck;
+
+  try {
+    const supabase = ensureSupabase();
+
+    // Get invoice details
+    const { data: invoice, error: invoiceError } = await supabase
+      .from("invoices")
+      .select("id, matter_id, total_cents, due_date, status, square_invoice_id")
+      .eq("id", invoiceId)
+      .single();
+
+    if (invoiceError || !invoice) {
+      return { error: "Invoice not found" };
+    }
+
+    if (invoice.status === "draft") {
+      return { error: "Cannot resend draft invoice. Mark it as 'sent' first." };
+    }
+
+    // Get matter and client info
+    const { data: matter } = await supabase
+      .from("matters")
+      .select("client_id, title")
+      .eq("id", invoice.matter_id)
+      .maybeSingle();
+
+    if (!matter?.client_id) {
+      return { error: "Matter has no client assigned" };
+    }
+
+    const { data: clientProfile } = await supabase
+      .from("profiles")
+      .select("full_name")
+      .eq("user_id", matter.client_id)
+      .maybeSingle();
+
+    const { data: { user: clientUser } } = await supabase.auth.admin.getUserById(matter.client_id);
+
+    if (!clientUser?.email) {
+      return { error: "Client has no email address" };
+    }
+
+    // Get payment URL if Square-synced
+    let squarePaymentUrl: string | undefined;
+    if (invoice.square_invoice_id) {
+      try {
+        const { getSquarePaymentUrl } = await import("@/lib/square");
+        const urlResult = await getSquarePaymentUrl(invoiceId);
+        if (!("error" in urlResult) && urlResult.data?.paymentUrl) {
+          squarePaymentUrl = urlResult.data.paymentUrl;
+        }
+      } catch (squareError) {
+        console.error("Failed to get Square payment URL:", squareError);
+      }
+    }
+
+    // Send the email
+    const amount = (invoice.total_cents / 100).toFixed(2);
+    await sendInvoiceEmail({
+      to: clientUser.email,
+      clientName: clientProfile?.full_name || "Client",
+      matterTitle: matter.title,
+      matterId: invoice.matter_id,
+      invoiceId: invoiceId,
+      invoiceAmount: `$${amount}`,
+      dueDate: invoice.due_date || "Upon receipt",
+      paymentLink: squarePaymentUrl,
+      invoiceNumber: invoiceId.substring(0, 8).toUpperCase(),
+    });
+
+    // Log to audit
+    await logAudit({
+      supabase,
+      actorId: roleCheck.session.user.id,
+      eventType: "resend_invoice_email",
+      entityType: "invoice",
+      entityId: invoiceId,
+      metadata: {
+        client_email: clientUser.email,
+        amount: invoice.total_cents,
+      },
+    });
+
+    return { ok: true };
+  } catch (err) {
+    console.error("Error resending invoice email:", err);
+    return { error: err instanceof Error ? err.message : "Failed to resend invoice email" };
+  }
+}
+
 // Auth Actions
 
 /**
@@ -1913,8 +2010,60 @@ export async function createInfoRequest(formData: FormData): Promise<ActionResul
       },
     });
 
-    // TODO: Send email notification to client about info request
-    // This will be implemented in the email integration phase
+    // Send email notification to client about info request
+    try {
+      // Get intake response with matter and client info
+      const { data: intakeResponse } = await supabase
+        .from("intake_responses")
+        .select(`
+          matter_id,
+          matters:matter_id (
+            id,
+            client_id,
+            profiles:client_id (
+              full_name,
+              user_id
+            )
+          )
+        `)
+        .eq("id", validated.intakeResponseId)
+        .single();
+
+      if (intakeResponse?.matters) {
+        const matter = intakeResponse.matters as any;
+        const clientProfile = matter.profiles;
+
+        if (clientProfile?.user_id) {
+          // Get client's email
+          const { data: { user: clientUser } } = await supabase.auth.admin.getUserById(
+            clientProfile.user_id
+          );
+
+          // Get lawyer's name
+          const { data: lawyerProfile } = await supabase
+            .from("profiles")
+            .select("full_name")
+            .eq("user_id", roleCheck.session.user.id)
+            .single();
+
+          if (clientUser?.email) {
+            const { sendInfoRequestEmail } = await import("@/lib/email/actions");
+            await sendInfoRequestEmail({
+              to: clientUser.email,
+              clientName: clientProfile.full_name || "Client",
+              lawyerName: lawyerProfile?.full_name || "Your Attorney",
+              matterId: matter.id,
+              infoRequestId: infoRequest.id,
+              message: validated.message,
+              deadline: validated.deadline,
+            });
+          }
+        }
+      }
+    } catch (emailError) {
+      console.error("Failed to send info request email:", emailError);
+      // Don't fail the operation if email fails
+    }
 
     revalidatePath("/admin/clients");
     revalidatePath("/admin/intake");
@@ -1982,8 +2131,63 @@ export async function submitInfoResponse(formData: FormData): Promise<ActionResu
       // Don't fail the whole operation if status update fails
     }
 
-    // TODO: Send email notification to lawyer about completed info request
-    // This will be implemented in the email integration phase
+    // Send email notification to lawyer about completed info request
+    try {
+      // Get info request with lawyer and matter details
+      const { data: infoRequestDetails } = await supabase
+        .from("info_requests")
+        .select(`
+          requested_by,
+          questions,
+          intake_responses:intake_response_id (
+            matter_id,
+            matters:matter_id (
+              id,
+              title,
+              client_id,
+              profiles:client_id (
+                full_name
+              )
+            )
+          )
+        `)
+        .eq("id", validated.infoRequestId)
+        .single();
+
+      if (infoRequestDetails?.requested_by) {
+        // Get lawyer's email and name
+        const { data: { user: lawyerUser } } = await supabase.auth.admin.getUserById(
+          infoRequestDetails.requested_by
+        );
+        const { data: lawyerProfile } = await supabase
+          .from("profiles")
+          .select("full_name")
+          .eq("user_id", infoRequestDetails.requested_by)
+          .single();
+
+        const intakeResponse = infoRequestDetails.intake_responses as any;
+        const matter = intakeResponse?.matters;
+        const clientProfile = matter?.profiles;
+
+        if (lawyerUser?.email && matter) {
+          const { sendInfoResponseReceivedEmail } = await import("@/lib/email/actions");
+          await sendInfoResponseReceivedEmail({
+            to: lawyerUser.email,
+            lawyerName: lawyerProfile?.full_name || "Attorney",
+            clientName: clientProfile?.full_name || "Client",
+            matterTitle: matter.title,
+            matterId: matter.id,
+            infoRequestId: validated.infoRequestId,
+            questionCount: Array.isArray(infoRequestDetails.questions)
+              ? infoRequestDetails.questions.length
+              : 0,
+          });
+        }
+      }
+    } catch (emailError) {
+      console.error("Failed to send info response email:", emailError);
+      // Don't fail the operation if email fails
+    }
 
     revalidatePath("/admin/clients");
     revalidatePath("/admin/intake");
@@ -2076,8 +2280,56 @@ export async function declineIntakeForm(formData: FormData): Promise<ActionResul
       },
     });
 
-    // TODO: Send email notification to client
-    // This will be implemented in email integration phase
+    // Send email notification to client
+    try {
+      // Fetch matter with client details
+      const { data: matter } = await supabase
+        .from("matters")
+        .select(`
+          title,
+          client_id,
+          profiles:client_id (
+            full_name,
+            user_id
+          )
+        `)
+        .eq("id", intakeResponse.matter_id)
+        .single();
+
+      if (matter) {
+        const clientProfile = matter.profiles as any;
+
+        // Get client email
+        if (clientProfile?.user_id) {
+          const { data: { user: clientUser } } = await supabase.auth.admin.getUserById(
+            clientProfile.user_id
+          );
+
+          // Get lawyer name (person declining)
+          const { data: lawyerProfile } = await supabase
+            .from("profiles")
+            .select("full_name")
+            .eq("user_id", roleCheck.session.user.id)
+            .single();
+
+          if (clientUser?.email) {
+            const { sendIntakeDeclinedEmail } = await import("@/lib/email/actions");
+            await sendIntakeDeclinedEmail({
+              to: clientUser.email,
+              clientName: clientProfile.full_name || "Client",
+              matterTitle: matter.title,
+              matterId: intakeResponse.matter_id,
+              lawyerName: lawyerProfile?.full_name || "Your attorney",
+              reason: validated.reason,
+              notes: validated.notes,
+            });
+          }
+        }
+      }
+    } catch (emailError) {
+      console.error("Failed to send intake declined email:", emailError);
+      // Don't fail the decline action if email fails
+    }
 
     revalidatePath("/admin/intake");
     revalidatePath(`/admin/intake/${validated.intakeResponseId}`);

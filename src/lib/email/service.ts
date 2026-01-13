@@ -2,6 +2,7 @@
 
 import { render } from "@react-email/components";
 import { FROM_EMAIL, isResendConfigured, resend } from "./client";
+import { supabaseAdmin } from "@/lib/supabase/server";
 import type { EmailMetadata, EmailSendRequest, EmailSendResult } from "./types";
 
 /**
@@ -44,12 +45,28 @@ export async function sendEmail(request: EmailSendRequest): Promise<EmailSendRes
       };
     }
 
-    // TODO: Log to audit_logs and communications table
-    console.log(`Email sent successfully: ${data?.id}`, {
-      to: request.to,
-      subject: request.subject,
-      metadata: request.metadata,
-    });
+    // Log to audit_logs for compliance and debugging
+    try {
+      const supabase = supabaseAdmin();
+      await supabase.from("audit_logs").insert({
+        actor_id: request.metadata?.actorId || null,
+        event_type: "email_sent",
+        entity_type: "email",
+        entity_id: request.metadata?.matterId || null,
+        metadata: {
+          emailType: request.metadata?.type,
+          to: Array.isArray(request.to) ? request.to : [request.to],
+          subject: request.subject,
+          messageId: data?.id,
+          recipientRole: request.metadata?.recipientRole,
+          invoiceId: request.metadata?.invoiceId,
+          taskId: request.metadata?.taskId,
+        },
+      });
+    } catch (auditError) {
+      // Don't fail email send if audit logging fails
+      console.error("Failed to log email to audit_logs:", auditError);
+    }
 
     return {
       success: true,

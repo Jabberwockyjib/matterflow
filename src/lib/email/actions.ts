@@ -1,10 +1,14 @@
 "use server";
 
 import { ActivityReminderEmail } from "./templates/activity-reminder";
+import { InfoRequestEmail } from "./templates/info-request";
+import { InfoResponseReceivedEmail } from "./templates/info-response-received";
+import { IntakeDeclinedEmail } from "./templates/intake-declined";
 import { IntakeReminderEmail } from "./templates/intake-reminder";
 import { IntakeSubmittedEmail } from "./templates/intake-submitted";
 import { InvoiceSentEmail } from "./templates/invoice-sent";
 import { MatterCreatedEmail } from "./templates/matter-created";
+import { PaymentReceivedEmail } from "./templates/payment-received";
 import { TaskAssignedEmail } from "./templates/task-assigned";
 import type { EmailSendResult } from "./types";
 import { sendTemplateEmail } from "./service";
@@ -259,6 +263,149 @@ export async function sendIntakeSubmittedEmail(
       type: "intake_submitted",
       matterId: params.matterId,
       recipientRole: "lawyer",
+    },
+  );
+}
+
+interface SendInfoRequestEmailParams {
+  to: string;
+  clientName: string;
+  lawyerName: string;
+  matterId: string;
+  infoRequestId: string;
+  message?: string;
+  deadline?: string;
+}
+
+export async function sendInfoRequestEmail(
+  params: SendInfoRequestEmailParams,
+): Promise<EmailSendResult> {
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+  const responseUrl = `${appUrl}/info-response/${params.infoRequestId}`;
+
+  const template = InfoRequestEmail({
+    clientName: params.clientName,
+    lawyerName: params.lawyerName,
+    message: params.message,
+    responseUrl,
+    deadline: params.deadline,
+  });
+
+  return sendTemplateEmail(
+    params.to,
+    `Additional Information Needed - ${params.lawyerName}`,
+    template,
+    {
+      type: "info_request",
+      matterId: params.matterId,
+      recipientRole: "client",
+    },
+  );
+}
+
+interface SendInfoResponseReceivedEmailParams {
+  to: string;
+  lawyerName: string;
+  clientName: string;
+  matterTitle: string;
+  matterId: string;
+  infoRequestId: string;
+  questionCount: number;
+}
+
+export async function sendInfoResponseReceivedEmail(
+  params: SendInfoResponseReceivedEmailParams,
+): Promise<EmailSendResult> {
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+  const reviewUrl = `${appUrl}/clients/${params.matterId}`;
+
+  const template = InfoResponseReceivedEmail({
+    lawyerName: params.lawyerName,
+    clientName: params.clientName,
+    matterTitle: params.matterTitle,
+    reviewUrl,
+    questionCount: params.questionCount,
+  });
+
+  return sendTemplateEmail(
+    params.to,
+    `Client Response Received - ${params.clientName}`,
+    template,
+    {
+      type: "info_request_response",
+      matterId: params.matterId,
+      recipientRole: "lawyer",
+    },
+  );
+}
+
+interface SendPaymentReceivedEmailParams {
+  to: string;
+  recipientName: string;
+  matterTitle: string;
+  matterId: string;
+  invoiceId: string;
+  invoiceAmount: string;
+  paymentAmount: string;
+  paymentDate: string;
+  invoiceNumber?: string;
+  isClient: boolean;
+}
+
+export async function sendPaymentReceivedEmail(
+  params: SendPaymentReceivedEmailParams,
+): Promise<EmailSendResult> {
+  const template = PaymentReceivedEmail({
+    recipientName: params.recipientName,
+    matterTitle: params.matterTitle,
+    invoiceAmount: params.invoiceAmount,
+    paymentAmount: params.paymentAmount,
+    paymentDate: params.paymentDate,
+    invoiceNumber: params.invoiceNumber,
+    isClient: params.isClient,
+  });
+
+  const subject = params.isClient
+    ? `Payment Received - Thank You!`
+    : `Payment Received - ${params.matterTitle}`;
+
+  return sendTemplateEmail(params.to, subject, template, {
+    type: "payment_received",
+    matterId: params.matterId,
+    invoiceId: params.invoiceId,
+    recipientRole: params.isClient ? "client" : "lawyer",
+  });
+}
+
+interface SendIntakeDeclinedEmailParams {
+  to: string;
+  clientName: string;
+  matterTitle: string;
+  matterId: string;
+  lawyerName: string;
+  reason: string;
+  notes?: string;
+}
+
+export async function sendIntakeDeclinedEmail(
+  params: SendIntakeDeclinedEmailParams,
+): Promise<EmailSendResult> {
+  const template = IntakeDeclinedEmail({
+    clientName: params.clientName,
+    matterTitle: params.matterTitle,
+    lawyerName: params.lawyerName,
+    reason: params.reason,
+    notes: params.notes,
+  });
+
+  return sendTemplateEmail(
+    params.to,
+    `Update regarding ${params.matterTitle}`,
+    template,
+    {
+      type: "intake_declined",
+      matterId: params.matterId,
+      recipientRole: "client",
     },
   );
 }

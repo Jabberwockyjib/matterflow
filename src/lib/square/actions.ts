@@ -179,6 +179,15 @@ export async function syncSquarePaymentStatus(
     // Map Square status to MatterFlow status
     const matterFlowStatus = mapSquareStatusToMatterFlow(squareResult.status!);
 
+    // Get the MatterFlow invoice to check previous status
+    const { data: existingInvoice } = await supabase
+      .from("invoices")
+      .select("id, status, total_cents, matter_id")
+      .eq("square_invoice_id", squareInvoiceId)
+      .single();
+
+    const previousStatus = existingInvoice?.status;
+
     // Update invoice in database
     const { error: updateError } = await supabase
       .from("invoices")
@@ -190,6 +199,91 @@ export async function syncSquarePaymentStatus(
 
     if (updateError) {
       return { error: "Failed to update invoice status in database" };
+    }
+
+    // Send payment confirmation emails when payment is received
+    const paymentReceived =
+      (matterFlowStatus === "paid" || matterFlowStatus === "partial") &&
+      previousStatus !== "paid" &&
+      previousStatus !== "partial";
+
+    if (paymentReceived && existingInvoice) {
+      try {
+        // Get matter and client/lawyer details
+        const { data: matter } = await supabase
+          .from("matters")
+          .select(`
+            id,
+            title,
+            client_id,
+            owner_id,
+            profiles:client_id (
+              full_name,
+              user_id
+            )
+          `)
+          .eq("id", existingInvoice.matter_id)
+          .single();
+
+        if (matter) {
+          const clientProfile = matter.profiles as any;
+          const amount = (existingInvoice.total_cents / 100).toFixed(2);
+          const paymentDate = new Date().toLocaleDateString();
+          const invoiceNumber = existingInvoice.id.substring(0, 8).toUpperCase();
+
+          // Get client email
+          if (clientProfile?.user_id) {
+            const { data: { user: clientUser } } = await supabase.auth.admin.getUserById(
+              clientProfile.user_id
+            );
+
+            if (clientUser?.email) {
+              const { sendPaymentReceivedEmail } = await import("@/lib/email/actions");
+              await sendPaymentReceivedEmail({
+                to: clientUser.email,
+                recipientName: clientProfile.full_name || "Client",
+                matterTitle: matter.title,
+                matterId: matter.id,
+                invoiceId: existingInvoice.id,
+                invoiceAmount: `$${amount}`,
+                paymentAmount: `$${amount}`,
+                paymentDate,
+                invoiceNumber,
+                isClient: true,
+              });
+            }
+          }
+
+          // Get lawyer email
+          const { data: { user: lawyerUser } } = await supabase.auth.admin.getUserById(
+            matter.owner_id
+          );
+          const { data: lawyerProfile } = await supabase
+            .from("profiles")
+            .select("full_name")
+            .eq("user_id", matter.owner_id)
+            .single();
+
+          if (lawyerUser?.email) {
+            const { sendPaymentReceivedEmail } = await import("@/lib/email/actions");
+            await sendPaymentReceivedEmail({
+              to: lawyerUser.email,
+              recipientName: lawyerProfile?.full_name || "Attorney",
+              matterTitle: matter.title,
+              matterId: matter.id,
+              invoiceId: existingInvoice.id,
+              invoiceAmount: `$${amount}`,
+              paymentAmount: `$${amount}`,
+              paymentDate,
+              invoiceNumber,
+              isClient: false,
+            });
+          }
+        }
+      } catch (emailError) {
+        console.error("Failed to send payment confirmation emails:", emailError);
+        // Don't fail the sync if email fails
+      }
     }
 
     revalidatePath("/billing");

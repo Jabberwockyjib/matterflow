@@ -107,19 +107,21 @@ function validateFieldValue(
       break;
 
     case "number":
-      if (typeof value !== "number" || isNaN(value)) {
+      // Handle both number and string representations (form inputs return strings)
+      const numValue = typeof value === "number" ? value : parseFloat(String(value));
+      if (isNaN(numValue)) {
         errors.push({
           field: field.id,
           message: `${field.label} must be a number`,
         });
       } else {
-        if (field.validation?.min !== undefined && value < field.validation.min) {
+        if (field.validation?.min !== undefined && numValue < field.validation.min) {
           errors.push({
             field: field.id,
             message: `${field.label} must be at least ${field.validation.min}`,
           });
         }
-        if (field.validation?.max !== undefined && value > field.validation.max) {
+        if (field.validation?.max !== undefined && numValue > field.validation.max) {
           errors.push({
             field: field.id,
             message: `${field.label} must be at most ${field.validation.max}`,
@@ -244,10 +246,13 @@ function validateFieldValue(
             });
           }
 
+          // Support both mimeType (server) and fileType (form renderer) property names
+          const fileMimeType = file.mimeType || file.fileType;
           if (
             field.fileConfig?.acceptedTypes &&
+            fileMimeType &&
             !field.fileConfig.acceptedTypes.some((type) =>
-              matchesMimeType(file.mimeType, type),
+              matchesMimeType(fileMimeType, type),
             )
           ) {
             errors.push({

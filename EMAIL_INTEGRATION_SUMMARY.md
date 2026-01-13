@@ -1,5 +1,7 @@
 # Email Integration - Implementation Summary
 
+*Last Updated: January 2026*
+
 ## ✅ What Was Implemented
 
 ### 1. Transactional Email System (COMPLETE)
@@ -10,16 +12,29 @@
 - `src/lib/email/client.ts` - Resend client initialization
 - `src/lib/email/types.ts` - TypeScript interfaces for emails
 - `src/lib/email/service.ts` - Core email sending logic
-- `src/lib/email/actions.ts` - High-level email functions
+- `src/lib/email/actions.ts` - High-level email functions (11 email action functions)
+- `src/lib/email/automations.ts` - Scheduled reminder logic
+- `src/lib/email/gmail-client.ts` - Gmail API client (for future integration)
 - `src/lib/email/index.ts` - Public exports
 
-**Email Templates** (5 templates created):
-- ✅ `invoice-sent.tsx` - Invoice notification with payment link
-- ✅ `matter-created.tsx` - Welcome email for new matters
-- ✅ `task-assigned.tsx` - Task assignment notification
-- ✅ `intake-reminder.tsx` - Reminder to complete intake form
-- ✅ `activity-reminder.tsx` - Idle matter reminder
-- ✅ `base-layout.tsx` - Shared email layout/branding
+**Email Templates** (14 templates created):
+
+| Template | Purpose | Recipient |
+|----------|---------|-----------|
+| `base-layout.tsx` | Shared email layout/branding | - |
+| `matter-created.tsx` | Welcome email for new matters | Client |
+| `invoice-sent.tsx` | Invoice notification with payment link | Client |
+| `task-assigned.tsx` | Task assignment notification | Client/Lawyer |
+| `intake-reminder.tsx` | Reminder to complete intake form | Client |
+| `intake-submitted.tsx` | Notification when intake is submitted | Lawyer |
+| `intake-declined.tsx` | Notification when intake is declined | Client |
+| `activity-reminder.tsx` | Idle matter reminder | Client/Lawyer |
+| `info-request.tsx` | Request for additional information | Client |
+| `info-response-received.tsx` | Notification when client responds | Lawyer |
+| `payment-received.tsx` | Payment confirmation | Client/Lawyer |
+| `user-invitation.tsx` | New user invitation | New User |
+| `password-reset.tsx` | Password reset link | User |
+| `admin-password-reset.tsx` | Admin password reset | Admin |
 
 **Automatic Email Triggers** (integrated into existing server actions):
 ```typescript
@@ -31,6 +46,21 @@ updateInvoiceStatus() → sends invoice email with payment link
 
 // When task is assigned to client
 createTask() → sends task notification to client
+
+// When intake form is submitted
+submitIntakeForm() → sends notification to lawyer
+
+// When intake is declined
+declineIntake() → sends notification to client
+
+// When info request is created
+createInfoRequest() → sends request email to client
+
+// When client responds to info request
+submitInfoResponse() → sends notification to lawyer
+
+// When payment is received (via Square webhook)
+syncSquarePaymentStatus() → sends confirmation to client and lawyer
 ```
 
 ### 2. Email Automation System (COMPLETE)
@@ -119,7 +149,14 @@ Use cron-job.org, EasyCron, or Cronitor to call the endpoint daily.
 |---------|------------|-----------|------|
 | Matter created with client | Welcome Email | Client | Immediately |
 | Invoice marked as "sent" | Invoice Email | Client | Immediately |
-| Task assigned to client | Task Notification | Client | Immediately |
+| Task assigned | Task Notification | Client/Lawyer | Immediately |
+| Intake form submitted | Intake Submitted | Lawyer | Immediately |
+| Intake declined | Intake Declined | Client | Immediately |
+| Info request created | Info Request | Client | Immediately |
+| Client responds to info request | Info Response Received | Lawyer | Immediately |
+| Payment received (Square webhook) | Payment Received | Client + Lawyer | Immediately |
+| User invited | User Invitation | New User | Immediately |
+| Password reset requested | Password Reset | User | Immediately |
 
 ### Scheduled (Via cron job):
 
@@ -179,11 +216,14 @@ curl -X POST http://localhost:3000/api/cron/email-automations \
 | Component | Status | Notes |
 |-----------|--------|-------|
 | Resend Integration | ✅ Complete | Ready to use |
-| Email Templates | ✅ Complete | 5 templates created |
-| Transactional Emails | ✅ Complete | Auto-send on actions |
+| Email Templates | ✅ Complete | 14 templates created |
+| Transactional Emails | ✅ Complete | 11 email action functions |
 | Automation System | ✅ Complete | Cron endpoint ready |
+| Payment Notifications | ✅ Complete | Square webhook integration |
+| Info Request System | ✅ Complete | Client-lawyer communication |
+| Intake Workflow Emails | ✅ Complete | Submitted/declined notifications |
 | Documentation | ✅ Complete | Full guide in EMAIL_INTEGRATION.md |
-| Gmail Integration | ⏳ Pending | Planned for future |
+| Gmail Integration | ⏳ Pending | Gmail client scaffolded |
 | Communications UI | ⏳ Pending | Planned for future |
 
 ## 📖 Documentation
@@ -274,13 +314,23 @@ These should be fixed separately.
 
 ## 🎉 Summary
 
-**Complete email system implemented in ~2-3 hours**:
-- ✅ 5 React Email templates
-- ✅ Transactional email integration
-- ✅ Automated reminder system
+**Comprehensive email notification system for MatterFlow MVP**:
+- ✅ 14 React Email templates covering all user workflows
+- ✅ 11 email action functions for different notification types
+- ✅ Transactional emails integrated with server actions
+- ✅ Automated reminder system (intake, activity, invoices)
+- ✅ Square payment webhook integration for payment notifications
+- ✅ Info request/response email workflow
 - ✅ Cron endpoint for scheduled emails
-- ✅ Comprehensive documentation
+- ✅ Complete documentation
 
 **Ready to use**: Just add Resend API key and start sending emails!
+
+**Key Integration Points**:
+- Matter creation triggers welcome email with intake link
+- Invoice status changes trigger invoice emails with Square payment links
+- Intake form submissions notify lawyers
+- Info requests enable client-lawyer communication
+- Payment webhooks trigger confirmation emails to both parties
 
 **Next phase**: Gmail API integration for full email management (30-40 hours).

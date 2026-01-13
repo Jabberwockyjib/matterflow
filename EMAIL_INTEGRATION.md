@@ -74,12 +74,26 @@ await sendMatterCreatedEmail({
 
 All in `src/lib/email/actions.ts`:
 
+**Core Workflow Emails:**
 - `sendMatterCreatedEmail()` - Welcome email when matter is created
 - `sendInvoiceEmail()` - Invoice notification with payment link
 - `sendTaskAssignedEmail()` - Task assignment notification
+
+**Intake Form Workflow:**
 - `sendIntakeReminderEmail()` - Reminder to complete intake form
-- `sendActivityReminderEmail()` - Reminder when matter is idle
+- `sendIntakeSubmittedEmail()` - Notification to lawyer when form submitted
+- `sendIntakeDeclinedEmail()` - Notification to client when intake declined
+
+**Client Communication:**
+- `sendInfoRequestEmail()` - Request additional information from client
+- `sendInfoResponseReceivedEmail()` - Notification when client responds
+
+**Payment & Billing:**
 - `sendInvoiceReminderEmail()` - Payment reminder for overdue invoices
+- `sendPaymentReceivedEmail()` - Payment confirmation to client and lawyer
+
+**Activity Reminders:**
+- `sendActivityReminderEmail()` - Reminder when matter is idle
 
 ## Email Templates
 
@@ -314,17 +328,26 @@ tsx scripts/test-email.ts
 ```
 src/lib/email/
 ├── client.ts              # Resend client initialization
+├── gmail-client.ts        # Gmail API client (future integration)
 ├── types.ts               # TypeScript interfaces
 ├── service.ts             # Core email sending logic
-├── actions.ts             # High-level email functions
+├── actions.ts             # High-level email functions (11 functions)
 ├── automations.ts         # Scheduled reminder logic
 ├── templates/
-│   ├── base-layout.tsx    # Base email layout
-│   ├── invoice-sent.tsx   # Invoice email template
-│   ├── matter-created.tsx # Matter welcome email
-│   ├── task-assigned.tsx  # Task notification email
-│   ├── intake-reminder.tsx # Intake form reminder
-│   └── activity-reminder.tsx # Activity reminder
+│   ├── base-layout.tsx        # Base email layout
+│   ├── matter-created.tsx     # Matter welcome email
+│   ├── invoice-sent.tsx       # Invoice email template
+│   ├── task-assigned.tsx      # Task notification email
+│   ├── intake-reminder.tsx    # Intake form reminder
+│   ├── intake-submitted.tsx   # Intake submitted notification
+│   ├── intake-declined.tsx    # Intake declined notification
+│   ├── activity-reminder.tsx  # Activity reminder
+│   ├── info-request.tsx       # Info request to client
+│   ├── info-response-received.tsx # Info response notification
+│   ├── payment-received.tsx   # Payment confirmation
+│   ├── user-invitation.tsx    # New user invitation
+│   ├── password-reset.tsx     # Password reset email
+│   └── admin-password-reset.tsx # Admin password reset
 └── index.ts               # Public exports
 
 src/app/api/cron/
