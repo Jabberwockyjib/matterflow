@@ -144,6 +144,20 @@ export type ActiveClientsResult = {
   error?: string;
 };
 
+export type MatterEmail = {
+  id: string;
+  gmailMessageId: string;
+  direction: "sent" | "received";
+  fromEmail: string;
+  toEmail: string;
+  subject: string | null;
+  snippet: string | null;
+  aiSummary: string | null;
+  actionNeeded: boolean;
+  gmailDate: string;
+  gmailLink: string | null;
+};
+
 type DataSource = "supabase" | "mock";
 
 // Get today's date in ISO format for mock data
@@ -1702,4 +1716,34 @@ export async function getFirmSettings(): Promise<FirmSettings> {
 export function invalidateFirmSettingsCache(): void {
   firmSettingsCache = null;
   firmSettingsCacheTime = 0;
+}
+
+/**
+ * Get emails associated with a matter
+ */
+export async function getMatterEmails(matterId: string): Promise<MatterEmail[]> {
+  if (!supabaseEnvReady()) return [];
+
+  const supabase = supabaseAdmin();
+  const { data, error } = await supabase
+    .from("matter_emails")
+    .select("*")
+    .eq("matter_id", matterId)
+    .order("gmail_date", { ascending: false });
+
+  if (error || !data) return [];
+
+  return data.map((row) => ({
+    id: row.id,
+    gmailMessageId: row.gmail_message_id,
+    direction: row.direction as "sent" | "received",
+    fromEmail: row.from_email,
+    toEmail: row.to_email,
+    subject: row.subject,
+    snippet: row.snippet,
+    aiSummary: row.ai_summary,
+    actionNeeded: row.action_needed ?? false,
+    gmailDate: row.gmail_date,
+    gmailLink: row.gmail_link,
+  }));
 }
