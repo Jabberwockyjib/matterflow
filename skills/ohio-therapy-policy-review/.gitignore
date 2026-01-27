@@ -1,0 +1,5 @@
+# Exclude test review files (may contain client data)
+test-review/
+
+# OS files
+.DS_Store
