@@ -199,3 +199,94 @@ export function isGmailConfigured(): boolean {
       process.env.GOOGLE_REDIRECT_URI
   )
 }
+
+/**
+ * Gmail email metadata from fetched messages
+ */
+export interface GmailEmail {
+  id: string
+  threadId?: string
+  from: string
+  to: string
+  subject: string
+  date: string
+  snippet: string
+  internalDate: string
+}
+
+/**
+ * Fetch emails matching a query
+ */
+export async function fetchGmailEmails({
+  refreshToken,
+  query,
+  maxResults = 50,
+}: {
+  refreshToken: string
+  query: string
+  maxResults?: number
+}): Promise<{
+  ok: boolean
+  emails?: GmailEmail[]
+  error?: string
+}> {
+  try {
+    const oauth2Client = getOAuth2Client(refreshToken)
+    const gmail = google.gmail({ version: 'v1', auth: oauth2Client })
+
+    // Search for messages
+    const listResponse = await gmail.users.messages.list({
+      userId: 'me',
+      q: query,
+      maxResults,
+    })
+
+    if (!listResponse.data.messages) {
+      return { ok: true, emails: [] }
+    }
+
+    // Fetch full message details
+    const emails: GmailEmail[] = []
+    for (const msg of listResponse.data.messages) {
+      if (!msg.id) continue
+
+      const msgResponse = await gmail.users.messages.get({
+        userId: 'me',
+        id: msg.id,
+        format: 'metadata',
+        metadataHeaders: ['From', 'To', 'Subject', 'Date'],
+      })
+
+      const headers = msgResponse.data.payload?.headers || []
+      const getHeader = (name: string) =>
+        headers.find((h) => h.name?.toLowerCase() === name.toLowerCase())?.value || ''
+
+      emails.push({
+        id: msg.id,
+        threadId: msgResponse.data.threadId || undefined,
+        from: getHeader('From'),
+        to: getHeader('To'),
+        subject: getHeader('Subject'),
+        date: getHeader('Date'),
+        snippet: msgResponse.data.snippet || '',
+        internalDate: msgResponse.data.internalDate || '',
+      })
+    }
+
+    return { ok: true, emails }
+  } catch (error) {
+    console.error('Gmail fetch error:', error)
+    return {
+      ok: false,
+      error: error instanceof Error ? error.message : 'Failed to fetch emails',
+    }
+  }
+}
+
+/**
+ * Extract email address from "Name <email@example.com>" format
+ */
+export function extractEmailAddress(fullAddress: string): string {
+  const match = fullAddress.match(/<([^>]+)>/)
+  return match ? match[1].toLowerCase() : fullAddress.toLowerCase().trim()
+}
