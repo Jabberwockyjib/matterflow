@@ -282,9 +282,83 @@ Use this structure for redline suggestions:
 | Telehealth too brief | Ohio requires crisis numbers and contingency plan |
 | No AI consent | Required if practice uses any AI tools |
 
+## PII Redaction (Before LLM Processing)
+
+When processing documents through an LLM, redact personally identifiable information first to protect client privacy.
+
+### What to Redact
+
+| Data Type | Pattern/Method | Replace With |
+|-----------|----------------|--------------|
+| Phone numbers | `\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}` | `[PHONE]` |
+| Email addresses | `[\w.-]+@[\w.-]+\.\w+` | `[EMAIL]` |
+| SSN | `\d{3}-\d{2}-\d{4}` | `[SSN]` |
+| Street addresses | NER + street patterns | `[ADDRESS]` |
+| Person names | NER (therapist, client, staff) | `[PERSON_NAME]` |
+| Practice names | NER | `[PRACTICE_NAME]` |
+| License numbers | State patterns | `[LICENSE_#]` |
+| Dates of birth | Context-aware | `[DOB]` |
+| Financial accounts | Card/bank patterns | `[ACCOUNT_#]` |
+| Specific dates | `\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4}` | `[DATE]` |
+
+### What NOT to Redact
+
+- Generic role references ("the therapist", "the client", "staff")
+- Ohio CSWMFT Board name and contact info
+- Legal citations (ORC, OAC numbers)
+- Generic policy language and boilerplate
+- Template placeholders already in documents (e.g., "[Insert name here]")
+- Crisis hotline numbers (these are public resources)
+
+### Redaction Process
+
+```dot
+digraph redaction_flow {
+    rankdir=LR;
+
+    "Original Document" [shape=box];
+    "Pattern Redaction" [shape=box];
+    "NER Redaction" [shape=box];
+    "Redacted Document" [shape=box];
+    "LLM Review" [shape=box];
+    "Report with Placeholders" [shape=box];
+
+    "Original Document" -> "Pattern Redaction" [label="regex"];
+    "Pattern Redaction" -> "NER Redaction" [label="names/orgs"];
+    "NER Redaction" -> "Redacted Document";
+    "Redacted Document" -> "LLM Review";
+    "LLM Review" -> "Report with Placeholders";
+}
+```
+
+### Implementation Notes
+
+1. **Two-pass approach:** First use regex patterns (fast, no API), then NER for names/organizations
+2. **Preserve redaction map:** Store original → placeholder mapping if you need to restore later
+3. **Context matters:** "John Smith, LPCC" should become "[PERSON_NAME], LPCC" (keep credential)
+4. **Report output:** Use placeholders in the report; attorney fills in actual names when delivering to client
+5. **Audit trail:** Log that redaction occurred, but don't log the redacted content
+
+### Sample Regex Patterns (JavaScript/TypeScript)
+
+```typescript
+const REDACTION_PATTERNS = {
+  phone: /\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}/g,
+  email: /[\w.-]+@[\w.-]+\.\w+/g,
+  ssn: /\d{3}-\d{2}-\d{4}/g,
+  date: /\b\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4}\b/g,
+  address: /\d+\s+[\w\s]+(?:Street|St|Avenue|Ave|Road|Rd|Drive|Dr|Lane|Ln|Way|Boulevard|Blvd|Suite|Ste|Floor|Fl)\.?(?:\s+#?\d+)?/gi
+};
+```
+
+### For MatterFlow Integration
+
+See `docs/OHIO_THERAPY_POLICY_REVIEW_IMPLEMENTATION.md` for server-side redaction service implementation that integrates with the policy review workflow.
+
 ## Notes
 
 - **More robust than template is acceptable** - only flag if contradictions exist
 - **Do not assign severity** - reviewing attorney determines priority
 - **All findings must be addressed** before returning to client
 - **Content over location** - required items may be in non-standard places
+- **Always redact PII** before sending documents to LLM for automated review

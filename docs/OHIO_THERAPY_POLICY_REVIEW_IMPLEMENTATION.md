@@ -1151,6 +1151,360 @@ skills/
 
 ---
 
+## Phase 7: PII Redaction Service
+
+**Critical for privacy:** Redact personally identifiable information before sending documents to LLM for automated analysis.
+
+### Redaction Service
+
+**File:** `src/lib/policy-review/redaction.ts`
+
+```typescript
+import Anthropic from '@anthropic-ai/sdk';
+
+export interface RedactionResult {
+  redactedText: string;
+  redactionMap: Map<string, string>; // placeholder -> original (for restoration if needed)
+  redactionCount: number;
+  redactionTypes: Record<string, number>; // counts by type
+}
+
+export interface RedactionOptions {
+  preserveCredentials?: boolean; // Keep "LPCC", "LISW" etc. when adjacent to names
+  useNER?: boolean; // Use NER for names (requires API call)
+  redactDates?: boolean; // Some dates may be relevant to policy effective dates
+}
+
+// Regex patterns for PII detection
+const PATTERNS = {
+  phone: /\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}/g,
+  email: /[\w.-]+@[\w.-]+\.\w+/g,
+  ssn: /\d{3}-\d{2}-\d{4}/g,
+  date: /\b\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4}\b/g,
+  address: /\d+\s+[\w\s]+(?:Street|St|Avenue|Ave|Road|Rd|Drive|Dr|Lane|Ln|Way|Boulevard|Blvd|Suite|Ste|Floor|Fl|Unit|Apt|#)\.?(?:\s*(?:#|Unit|Apt|Suite|Ste)?\s*\d+)?/gi,
+  zipCode: /\b\d{5}(?:-\d{4})?\b/g,
+  creditCard: /\b\d{4}[-\s]?\d{4}[-\s]?\d{4}[-\s]?\d{4}\b/g,
+  bankAccount: /\b\d{8,17}\b/g, // Very broad - use with caution
+};
+
+// Patterns to PRESERVE (don't redact these)
+const PRESERVE_PATTERNS = [
+  /Ohio\s+(?:Counselor|CSWMFT|Board)/gi,
+  /ORC\s+\d+\.\d+/gi,
+  /OAC\s+\d+-\d+-\d+/gi,
+  /614-466-0912/g, // Ohio Board phone
+  /77\s+(?:South\s+)?High\s+Street/gi, // Ohio Board address
+  /\d{3}-\d{3}-8255/g, // Crisis hotlines (988 format varies)
+  /988/g, // Suicide hotline
+  /911/g, // Emergency
+];
+
+/**
+ * Pattern-based redaction (fast, no API calls)
+ */
+export function redactPatterns(
+  text: string,
+  options: RedactionOptions = {}
+): RedactionResult {
+  const redactionMap = new Map<string, string>();
+  const redactionTypes: Record<string, number> = {};
+  let redactedText = text;
+  let count = 0;
+
+  // First, mark text to preserve
+  const preserveMarkers: { start: number; end: number }[] = [];
+  for (const pattern of PRESERVE_PATTERNS) {
+    let match;
+    const regex = new RegExp(pattern.source, pattern.flags);
+    while ((match = regex.exec(text)) !== null) {
+      preserveMarkers.push({ start: match.index, end: match.index + match[0].length });
+    }
+  }
+
+  const shouldPreserve = (index: number, length: number): boolean => {
+    return preserveMarkers.some(
+      m => index >= m.start && index + length <= m.end
+    );
+  };
+
+  // Redact each pattern type
+  const redactPattern = (
+    pattern: RegExp,
+    type: string,
+    placeholder: string
+  ) => {
+    redactedText = redactedText.replace(pattern, (match, offset) => {
+      // Check if this match is in a preserve zone
+      if (shouldPreserve(offset, match.length)) {
+        return match;
+      }
+
+      const key = `${placeholder}_${++count}`;
+      redactionMap.set(key, match);
+      redactionTypes[type] = (redactionTypes[type] || 0) + 1;
+      return `[${key}]`;
+    });
+  };
+
+  // Apply redactions in order of specificity
+  redactPattern(PATTERNS.ssn, 'ssn', 'SSN');
+  redactPattern(PATTERNS.creditCard, 'credit_card', 'CARD');
+  redactPattern(PATTERNS.email, 'email', 'EMAIL');
+  redactPattern(PATTERNS.phone, 'phone', 'PHONE');
+  redactPattern(PATTERNS.address, 'address', 'ADDRESS');
+
+  if (options.redactDates !== false) {
+    redactPattern(PATTERNS.date, 'date', 'DATE');
+  }
+
+  return {
+    redactedText,
+    redactionMap,
+    redactionCount: count,
+    redactionTypes
+  };
+}
+
+/**
+ * NER-based redaction using Claude Haiku (for names and organizations)
+ * Use after pattern-based redaction for best results
+ */
+export async function redactWithNER(
+  text: string,
+  options: RedactionOptions = {}
+): Promise<RedactionResult> {
+  // First do pattern-based redaction
+  const patternResult = redactPatterns(text, options);
+
+  // Use Claude Haiku for NER (fast and cheap)
+  const anthropic = new Anthropic();
+
+  const response = await anthropic.messages.create({
+    model: 'claude-3-haiku-20240307',
+    max_tokens: 8192,
+    system: `You are a PII redaction assistant. Your task is to identify and replace personal information in therapy practice policy documents.
+
+REPLACE these with placeholders:
+- Person names (therapists, clients, staff) → [PERSON_NAME_1], [PERSON_NAME_2], etc.
+- Practice/clinic names → [PRACTICE_NAME]
+- Specific license numbers → [LICENSE_NUMBER]
+
+DO NOT REPLACE:
+- Generic role references ("the therapist", "the client", "your therapist")
+- Ohio CSWMFT Board or any government agency names
+- Legal citations (ORC, OAC, HIPAA references)
+- Crisis hotline numbers
+- Credential abbreviations alone (LPCC, LISW, LMFT)
+- Template placeholders that are already bracketed
+
+${options.preserveCredentials ? 'When you see a name followed by credentials like "Jane Smith, LPCC", replace only the name: "[PERSON_NAME], LPCC"' : ''}
+
+Return ONLY the redacted text. Do not include any explanation or commentary.`,
+    messages: [{
+      role: 'user',
+      content: patternResult.redactedText
+    }]
+  });
+
+  const nerRedactedText = response.content[0].type === 'text'
+    ? response.content[0].text
+    : patternResult.redactedText;
+
+  // Count NER redactions
+  const nerMatches = nerRedactedText.match(/\[(PERSON_NAME|PRACTICE_NAME|LICENSE_NUMBER)_?\d*\]/g) || [];
+
+  return {
+    redactedText: nerRedactedText,
+    redactionMap: patternResult.redactionMap,
+    redactionCount: patternResult.redactionCount + nerMatches.length,
+    redactionTypes: {
+      ...patternResult.redactionTypes,
+      person_name: (nerRedactedText.match(/\[PERSON_NAME_?\d*\]/g) || []).length,
+      practice_name: (nerRedactedText.match(/\[PRACTICE_NAME\]/g) || []).length,
+      license_number: (nerRedactedText.match(/\[LICENSE_NUMBER\]/g) || []).length
+    }
+  };
+}
+
+/**
+ * Full redaction pipeline for policy review documents
+ */
+export async function redactDocument(
+  text: string,
+  options: RedactionOptions = { preserveCredentials: true, useNER: true }
+): Promise<RedactionResult> {
+  if (options.useNER) {
+    return redactWithNER(text, options);
+  }
+  return redactPatterns(text, options);
+}
+
+/**
+ * Restore original values from redacted text (for final report delivery)
+ */
+export function restoreRedactions(
+  redactedText: string,
+  redactionMap: Map<string, string>
+): string {
+  let restoredText = redactedText;
+
+  for (const [placeholder, original] of redactionMap) {
+    restoredText = restoredText.replace(`[${placeholder}]`, original);
+  }
+
+  return restoredText;
+}
+```
+
+### Integration with Review Workflow
+
+**File:** `src/lib/policy-review/actions.ts` (add to existing)
+
+```typescript
+import { redactDocument, RedactionResult } from './redaction';
+import { extractTextFromDocument } from '@/lib/document-processing';
+
+export async function analyzeDocumentWithLLM(
+  matterId: string,
+  documentId: string
+): Promise<{
+  analysis: string;
+  redactionStats: RedactionResult['redactionTypes'];
+}> {
+  await ensureStaffOrAdmin();
+
+  // 1. Get document from Google Drive
+  const document = await getDocument(documentId);
+  const rawText = await extractTextFromDocument(document.drive_file_id);
+
+  // 2. Redact PII before sending to LLM
+  const redactionResult = await redactDocument(rawText, {
+    preserveCredentials: true,
+    useNER: true,
+    redactDates: false // Keep dates - relevant for policy effective dates
+  });
+
+  // 3. Log redaction stats (not the content)
+  await logAuditEvent({
+    action: 'document_redacted_for_analysis',
+    matter_id: matterId,
+    metadata: {
+      document_id: documentId,
+      redaction_count: redactionResult.redactionCount,
+      redaction_types: redactionResult.redactionTypes
+    }
+  });
+
+  // 4. Send redacted text to Claude for analysis
+  const anthropic = new Anthropic();
+  const analysisResponse = await anthropic.messages.create({
+    model: 'claude-sonnet-4-20250514',
+    max_tokens: 4096,
+    system: `You are reviewing Ohio therapy practice policies for compliance.
+Use the ohio-therapy-policy-review checklist to analyze this document.
+Note: Personal information has been redacted with placeholders like [PERSON_NAME], [PHONE], etc.
+Focus on policy content and compliance, not the specific names/numbers.`,
+    messages: [{
+      role: 'user',
+      content: `Analyze this therapy policy document for Ohio compliance:\n\n${redactionResult.redactedText}`
+    }]
+  });
+
+  const analysis = analysisResponse.content[0].type === 'text'
+    ? analysisResponse.content[0].text
+    : 'Analysis failed';
+
+  return {
+    analysis,
+    redactionStats: redactionResult.redactionTypes
+  };
+}
+```
+
+### Database: Track Redaction Stats
+
+Add to migration:
+
+```sql
+-- Add redaction tracking to policy_review_summaries
+ALTER TABLE policy_review_summaries
+ADD COLUMN redaction_stats JSONB DEFAULT '{}';
+
+-- Example stored value:
+-- {
+--   "phone": 3,
+--   "email": 2,
+--   "address": 1,
+--   "person_name": 5,
+--   "practice_name": 1
+-- }
+```
+
+### UI: Show Redaction Status
+
+**File:** `src/components/policy-review/redaction-badge.tsx`
+
+```typescript
+import { Shield } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger
+} from '@/components/ui/tooltip';
+
+interface RedactionBadgeProps {
+  stats: Record<string, number>;
+}
+
+export function RedactionBadge({ stats }: RedactionBadgeProps) {
+  const total = Object.values(stats).reduce((a, b) => a + b, 0);
+
+  if (total === 0) return null;
+
+  return (
+    <Tooltip>
+      <TooltipTrigger>
+        <Badge variant="outline" className="gap-1">
+          <Shield className="h-3 w-3" />
+          {total} items redacted
+        </Badge>
+      </TooltipTrigger>
+      <TooltipContent>
+        <div className="text-sm">
+          <p className="font-medium mb-1">PII Redacted Before Analysis:</p>
+          <ul className="text-xs space-y-1">
+            {Object.entries(stats).map(([type, count]) => (
+              <li key={type}>
+                {type.replace(/_/g, ' ')}: {count}
+              </li>
+            ))}
+          </ul>
+        </div>
+      </TooltipContent>
+    </Tooltip>
+  );
+}
+```
+
+### Estimated Effort
+
+| Task | Time |
+|------|------|
+| Pattern-based redaction | 1 day |
+| NER integration with Haiku | 1 day |
+| Integration with review workflow | 1 day |
+| Testing & edge cases | 1 day |
+| **Total** | **4 days** |
+
+### Cost Estimate (LLM)
+
+- Claude Haiku for NER: ~$0.001 per document (very cheap)
+- Claude Sonnet for analysis: ~$0.01-0.05 per document
+- Total per policy review: **< $0.10**
+
+---
+
 ## Testing
 
 ### Unit Tests
