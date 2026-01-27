@@ -310,6 +310,28 @@ When processing documents through an LLM, redact personally identifiable informa
 - Template placeholders already in documents (e.g., "[Insert name here]")
 - Crisis hotline numbers (these are public resources)
 
+### Preserve Patterns (regex)
+
+```typescript
+const PRESERVE_PATTERNS = [
+  /Ohio\s+(?:Counselor|CSWMFT|Board)/gi,
+  /ORC\s+\d+\.\d+/gi,                    // Ohio Revised Code
+  /OAC\s+\d+-\d+-\d+/gi,                 // Ohio Administrative Code
+  /614-466-0912/g,                       // Ohio Board phone
+  /77\s+(?:South\s+)?High\s+Street/gi,   // Ohio Board address
+  /Columbus,?\s+Ohio\s+43215/gi,         // Ohio Board city/zip
+  /43215/g,                              // Ohio Board zip standalone
+  /\(800\)\s*273-8255/g,                 // National crisis line
+  /800-273-8255/g,
+  /988/g,                                // Suicide hotline
+  /911/g,                                // Emergency
+  /419-904-(?:CARE|2273)/gi,             // Local crisis (Zepf - Toledo area)
+  /SimplePractice/gi,                    // EHR platform name
+  /HIPAA/gi,
+  /45\s+CFR/gi,                          // Federal regulation citation
+];
+```
+
 ### Redaction Process
 
 ```dot
@@ -347,7 +369,10 @@ const REDACTION_PATTERNS = {
   email: /[\w.-]+@[\w.-]+\.\w+/g,
   ssn: /\d{3}-\d{2}-\d{4}/g,
   date: /\b\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4}\b/g,
-  address: /\d+\s+[\w\s]+(?:Street|St|Avenue|Ave|Road|Rd|Drive|Dr|Lane|Ln|Way|Boulevard|Blvd|Suite|Ste|Floor|Fl)\.?(?:\s+#?\d+)?/gi
+  address: /\d+\s+[\w\s]+(?:Street|St|Avenue|Ave|Road|Rd|Drive|Dr|Lane|Ln|Way|Boulevard|Blvd|Suite|Ste|Floor|Fl|Pkwy|Parkway)\.?(?:\s+(?:Suite|Ste|Unit|Apt|#)\s*\w+)?/gi,
+  zipCode: /\b\d{5}(?:-\d{4})?\b/g,
+  practiceHeader: /(?:Inner Garden Therapy|Breanna DeSandro LPCC,? LLC)/gi, // Customize per practice
+  personWithCredential: /\b[A-Z][a-z]+\s+[A-Z][a-z]+(?:,?\s+(?:LPCC|LPC|LISW|LSW|LMFT|PhD|PsyD|MD|MA|MS))/g,
 };
 ```
 
