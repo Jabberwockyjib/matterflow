@@ -519,6 +519,68 @@ export type Database = {
           },
         ]
       }
+      matter_emails: {
+        Row: {
+          id: string
+          matter_id: string
+          gmail_message_id: string
+          thread_id: string | null
+          direction: string
+          from_email: string
+          to_email: string
+          subject: string | null
+          snippet: string | null
+          ai_summary: string | null
+          action_needed: boolean | null
+          gmail_date: string
+          gmail_link: string | null
+          synced_at: string | null
+          created_at: string | null
+        }
+        Insert: {
+          id?: string
+          matter_id: string
+          gmail_message_id: string
+          thread_id?: string | null
+          direction: string
+          from_email: string
+          to_email: string
+          subject?: string | null
+          snippet?: string | null
+          ai_summary?: string | null
+          action_needed?: boolean | null
+          gmail_date: string
+          gmail_link?: string | null
+          synced_at?: string | null
+          created_at?: string | null
+        }
+        Update: {
+          id?: string
+          matter_id?: string
+          gmail_message_id?: string
+          thread_id?: string | null
+          direction?: string
+          from_email?: string
+          to_email?: string
+          subject?: string | null
+          snippet?: string | null
+          ai_summary?: string | null
+          action_needed?: boolean | null
+          gmail_date?: string
+          gmail_link?: string | null
+          synced_at?: string | null
+          created_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "matter_emails_matter_id_fkey"
+            columns: ["matter_id"]
+            isOneToOne: false
+            referencedRelation: "matters"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       matter_documents: {
         Row: {
           created_at: string | null
@@ -788,6 +850,9 @@ export type Database = {
           emergency_contact_name: string | null
           emergency_contact_phone: string | null
           full_name: string | null
+          gmail_history_id: string | null
+          gmail_last_sync: string | null
+          gmail_sync_enabled: boolean | null
           google_connected_at: string | null
           google_refresh_token: string | null
           internal_notes: string | null
@@ -818,6 +883,9 @@ export type Database = {
           emergency_contact_name?: string | null
           emergency_contact_phone?: string | null
           full_name?: string | null
+          gmail_history_id?: string | null
+          gmail_last_sync?: string | null
+          gmail_sync_enabled?: boolean | null
           google_connected_at?: string | null
           google_refresh_token?: string | null
           internal_notes?: string | null
@@ -848,6 +916,9 @@ export type Database = {
           emergency_contact_name?: string | null
           emergency_contact_phone?: string | null
           full_name?: string | null
+          gmail_history_id?: string | null
+          gmail_last_sync?: string | null
+          gmail_sync_enabled?: boolean | null
           google_connected_at?: string | null
           google_refresh_token?: string | null
           internal_notes?: string | null
