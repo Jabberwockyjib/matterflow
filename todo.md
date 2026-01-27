@@ -3,17 +3,13 @@
 ## In Progress
 - (none)
 
-## Next Up (Launch Blockers)
-- [ ] Commit email branding feature: 22 modified files, 3 new files
-- [ ] Build: Gmail incoming email sync with AI summaries
-- [ ] Build: Automation configuration UI (`/admin/settings/automations`)
-- [ ] Build: AI document summary on upload
-
 ## Next Up (Pre-Launch)
+- [ ] Apply database migrations when Docker is running
 - [ ] Push all commits to origin: `git push`
-- [ ] Manual E2E test: Full matter lifecycle
+- [ ] Add OPENAI_API_KEY to environment
+- [ ] Manual E2E test: Full matter lifecycle with Gmail sync
 - [ ] Test Square webhook with ngrok for payment confirmation emails
-- [ ] Production environment setup (Supabase, Google OAuth, Square, Resend)
+- [ ] Production environment setup (Supabase, Google OAuth, Square, Resend, OpenAI)
 - [ ] CaseFox data migration
 
 ## Backlog
