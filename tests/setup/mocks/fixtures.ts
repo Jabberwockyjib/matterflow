@@ -271,6 +271,10 @@ export function mockDocument(overrides: Partial<Document> = {}): Document {
     file_size: null,
     mime_type: null,
     web_view_link: null,
+    ai_document_type: null,
+    ai_summary: null,
+    ai_suggested_folder: null,
+    ai_processed_at: null,
     created_at: now,
     ...overrides,
   }

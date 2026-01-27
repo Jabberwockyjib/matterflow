@@ -5,6 +5,7 @@ import { supabaseAdmin } from "@/lib/supabase/server";
 import { getSessionWithProfile } from "@/lib/auth/server";
 import { createMatterFolders, getMatterFolders } from "./folders";
 import { uploadFileToDrive, deleteFileFromDrive, shareFileWithEmail } from "./documents";
+import { summarizeDocument } from "@/lib/ai/document-summary";
 import type { FolderType, DriveFolder } from "./types";
 import type { Json } from "@/types/database.types";
 
@@ -202,6 +203,50 @@ export async function uploadDocument(formData: FormData): Promise<ActionResult> 
     if (docError) {
       console.error("Error storing document metadata:", docError);
       // Don't fail if metadata storage fails - file is already uploaded
+    }
+
+    // Process AI summary for supported file types (PDFs and text files)
+    if (document?.id) {
+      try {
+        let textContent = "";
+
+        // Extract text based on file type
+        if (file.type === "application/pdf") {
+          // Dynamic import to avoid bundling issues - pdf-parse v2 uses class-based API
+          const { PDFParse } = await import("pdf-parse");
+          const parser = new PDFParse({ data: buffer });
+          const textResult = await parser.getText();
+          textContent = textResult.text;
+          await parser.destroy();
+        } else if (
+          file.type.includes("text") ||
+          file.name.endsWith(".txt") ||
+          file.name.endsWith(".md")
+        ) {
+          textContent = new TextDecoder().decode(buffer);
+        }
+
+        if (textContent && textContent.length > 0) {
+          const aiResult = await summarizeDocument({
+            filename: file.name,
+            textContent,
+          });
+
+          // Update document record with AI summary
+          await supabase
+            .from("documents")
+            .update({
+              ai_document_type: aiResult.documentType,
+              ai_summary: aiResult.summary,
+              ai_suggested_folder: aiResult.suggestedFolder,
+              ai_processed_at: new Date().toISOString(),
+            })
+            .eq("id", document.id);
+        }
+      } catch (aiError) {
+        console.error("AI summary failed:", aiError);
+        // Continue without AI summary - don't fail the upload
+      }
     }
 
     revalidatePath(`/matters/${matterId}`);

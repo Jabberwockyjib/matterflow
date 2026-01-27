@@ -180,6 +180,10 @@ export type Database = {
       }
       documents: {
         Row: {
+          ai_document_type: string | null
+          ai_processed_at: string | null
+          ai_suggested_folder: string | null
+          ai_summary: string | null
           created_at: string
           drive_file_id: string | null
           file_size: number | null
@@ -195,6 +199,10 @@ export type Database = {
           web_view_link: string | null
         }
         Insert: {
+          ai_document_type?: string | null
+          ai_processed_at?: string | null
+          ai_suggested_folder?: string | null
+          ai_summary?: string | null
           created_at?: string
           drive_file_id?: string | null
           file_size?: number | null
@@ -210,6 +218,10 @@ export type Database = {
           web_view_link?: string | null
         }
         Update: {
+          ai_document_type?: string | null
+          ai_processed_at?: string | null
+          ai_suggested_folder?: string | null
+          ai_summary?: string | null
           created_at?: string
           drive_file_id?: string | null
           file_size?: number | null
