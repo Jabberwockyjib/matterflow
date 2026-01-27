@@ -1,9 +1,25 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { initializeMatterFolders } from "@/lib/google-drive/actions";
-import { FolderIcon, CheckCircle2, AlertCircle, Loader2 } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { initializeMatterFolders, getMatterDocuments } from "@/lib/google-drive/actions";
+import { FolderIcon, CheckCircle2, AlertCircle, Loader2, FileText, ExternalLink, Sparkles } from "lucide-react";
+
+interface Document {
+  id: string;
+  title: string;
+  folderPath: string | null;
+  version: number;
+  status: string;
+  metadata: unknown;
+  createdAt: string;
+  aiDocumentType: string | null;
+  aiSummary: string | null;
+  aiProcessedAt: string | null;
+  webViewLink: string | null;
+  mimeType: string | null;
+}
 
 interface MatterDocumentsTabProps {
   matterId: string;
@@ -19,6 +35,22 @@ export function MatterDocumentsTab({
   const [isInitializing, setIsInitializing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+  const [documents, setDocuments] = useState<Document[]>([]);
+  const [isLoadingDocuments, setIsLoadingDocuments] = useState(false);
+
+  // Fetch documents when folders are initialized
+  useEffect(() => {
+    if (isInitialized) {
+      setIsLoadingDocuments(true);
+      getMatterDocuments(matterId)
+        .then((result) => {
+          if (result.data) {
+            setDocuments(result.data);
+          }
+        })
+        .finally(() => setIsLoadingDocuments(false));
+    }
+  }, [matterId, isInitialized]);
 
   const handleInitialize = async () => {
     setIsInitializing(true);
@@ -115,37 +147,124 @@ export function MatterDocumentsTab({
         </div>
       ) : (
         <>
-          {/* Folder Structure */}
-          <div className="space-y-2 mb-6">
-            <div className="flex items-center justify-between mb-3">
+          {/* Document List */}
+          <div className="mb-6">
+            <div className="flex items-center justify-between mb-4">
               <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
-                Folder Structure
+                Documents ({documents.length})
               </p>
               <div className="flex items-center gap-1 text-xs text-green-600">
                 <CheckCircle2 className="h-4 w-4" />
-                <span>Initialized</span>
+                <span>Drive Connected</span>
               </div>
             </div>
-            {folderList.map((folder) => (
-              <div
-                key={folder}
-                className="flex items-center gap-2 p-2 rounded hover:bg-slate-50 cursor-pointer"
-              >
-                <FolderIcon className="h-5 w-5 text-blue-500" />
-                <span className="text-sm text-slate-700">{folder}</span>
+
+            {isLoadingDocuments ? (
+              <div className="flex items-center justify-center py-8 text-slate-500">
+                <Loader2 className="h-5 w-5 animate-spin mr-2" />
+                <span>Loading documents...</span>
               </div>
-            ))}
+            ) : documents.length === 0 ? (
+              <div className="text-center py-8 border border-dashed border-slate-200 rounded-lg">
+                <FileText className="h-10 w-10 text-slate-300 mx-auto mb-2" />
+                <p className="text-sm text-slate-500">No documents uploaded yet</p>
+                <p className="text-xs text-slate-400 mt-1">
+                  Upload documents to see them here with AI summaries
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {documents.map((doc) => (
+                  <div
+                    key={doc.id}
+                    className="border border-slate-200 rounded-lg p-4 hover:bg-slate-50 transition-colors"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <FileText className="h-4 w-4 text-slate-400 flex-shrink-0" />
+                          <h4 className="font-medium text-slate-900 truncate">
+                            {doc.title}
+                          </h4>
+                        </div>
+
+                        {/* AI Summary Section */}
+                        {doc.aiSummary && (
+                          <div className="mt-2">
+                            <div className="flex items-center gap-2 mb-1">
+                              {doc.aiDocumentType && (
+                                <Badge variant="outline" className="text-xs">
+                                  {doc.aiDocumentType}
+                                </Badge>
+                              )}
+                              <span className="flex items-center gap-1 text-xs text-purple-600">
+                                <Sparkles className="h-3 w-3" />
+                                AI Summary
+                              </span>
+                            </div>
+                            <p className="text-sm text-muted-foreground line-clamp-2">
+                              {doc.aiSummary}
+                            </p>
+                          </div>
+                        )}
+
+                        {/* Document metadata */}
+                        <div className="mt-2 flex items-center gap-3 text-xs text-slate-500">
+                          {doc.folderPath && (
+                            <span className="flex items-center gap-1">
+                              <FolderIcon className="h-3 w-3" />
+                              {doc.folderPath}
+                            </span>
+                          )}
+                          <span>
+                            {new Date(doc.createdAt).toLocaleDateString()}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Actions */}
+                      {doc.webViewLink && (
+                        <a
+                          href={doc.webViewLink}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800"
+                        >
+                          <ExternalLink className="h-3 w-3" />
+                          Open
+                        </a>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
-          <div className="border-t border-slate-200 pt-4">
-            <p className="text-sm text-slate-600">
+          {/* Folder Structure (collapsed) */}
+          <details className="border-t border-slate-200 pt-4">
+            <summary className="cursor-pointer text-xs font-medium uppercase tracking-wide text-slate-500 hover:text-slate-700">
+              Folder Structure
+            </summary>
+            <div className="mt-3 space-y-2">
+              {folderList.map((folder) => (
+                <div
+                  key={folder}
+                  className="flex items-center gap-2 p-2 rounded hover:bg-slate-50"
+                >
+                  <FolderIcon className="h-4 w-4 text-blue-500" />
+                  <span className="text-sm text-slate-700">{folder}</span>
+                </div>
+              ))}
+            </div>
+            <p className="text-sm text-slate-500 mt-3">
               Documents are organized in your Google Drive under:
               <br />
               <span className="font-mono text-xs bg-slate-100 px-2 py-1 rounded mt-1 inline-block">
                 MatterFlow / Client Name / {folders ? "Matter Name" : "..."}
               </span>
             </p>
-          </div>
+          </details>
         </>
       )}
     </div>

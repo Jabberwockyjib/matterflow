@@ -338,6 +338,11 @@ export async function getMatterDocuments(matterId: string): Promise<{
     status: string;
     metadata: unknown;
     createdAt: string;
+    aiDocumentType: string | null;
+    aiSummary: string | null;
+    aiProcessedAt: string | null;
+    webViewLink: string | null;
+    mimeType: string | null;
   }>;
   error?: string;
 }> {
@@ -351,7 +356,7 @@ export async function getMatterDocuments(matterId: string): Promise<{
 
     const { data, error } = await supabase
       .from("documents")
-      .select("id, title, folder_path, version, status, metadata, created_at")
+      .select("id, title, folder_path, version, status, metadata, created_at, ai_document_type, ai_summary, ai_processed_at, web_view_link, mime_type")
       .eq("matter_id", matterId)
       .order("created_at", { ascending: false });
 
@@ -368,6 +373,11 @@ export async function getMatterDocuments(matterId: string): Promise<{
         status: doc.status,
         metadata: doc.metadata,
         createdAt: doc.created_at,
+        aiDocumentType: doc.ai_document_type,
+        aiSummary: doc.ai_summary,
+        aiProcessedAt: doc.ai_processed_at,
+        webViewLink: doc.web_view_link,
+        mimeType: doc.mime_type,
       })),
     };
   } catch (error) {
