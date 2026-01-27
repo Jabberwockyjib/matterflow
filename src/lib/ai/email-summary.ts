@@ -1,7 +1,7 @@
-import OpenAI from 'openai'
+import Anthropic from '@anthropic-ai/sdk'
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
+const anthropic = new Anthropic({
+  apiKey: process.env.ANTHROPIC_API_KEY,
 })
 
 export interface EmailSummaryResult {
@@ -33,14 +33,13 @@ Respond in JSON format:
   "actionNeeded": true/false (does the recipient need to respond or take action?)
 }`
 
-    const response = await openai.chat.completions.create({
-      model: 'gpt-4o-mini',
-      messages: [{ role: 'user', content: prompt }],
-      response_format: { type: 'json_object' },
+    const response = await anthropic.messages.create({
+      model: 'claude-3-5-haiku-latest',
       max_tokens: 150,
+      messages: [{ role: 'user', content: prompt }],
     })
 
-    const content = response.choices[0]?.message?.content
+    const content = response.content[0]?.type === 'text' ? response.content[0].text : null
     if (!content) {
       return { summary: snippet.slice(0, 100), actionNeeded: false }
     }

@@ -49,12 +49,12 @@ MatterFlow is feature-complete for launch. All 3 launch blockers have been imple
 - `src/components/matter-documents-tab.tsx` - Display AI summaries
 
 ### New Dependencies
-- `openai` - AI summaries (GPT-4o-mini)
+- `@anthropic-ai/sdk` - AI summaries (Claude 3.5 Haiku)
 - `pdf-parse` - PDF text extraction
 - `@radix-ui/react-switch` - UI component
 
 ### New Environment Variables Needed
-- `OPENAI_API_KEY` - For AI summaries
+- `ANTHROPIC_API_KEY` - For AI summaries
 
 ## Pre-Launch Checklist
 

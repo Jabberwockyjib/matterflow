@@ -6,7 +6,7 @@
 ## Next Up (Pre-Launch)
 - [ ] Apply database migrations when Docker is running
 - [ ] Push all commits to origin: `git push`
-- [ ] Add OPENAI_API_KEY to environment
+- [ ] Add ANTHROPIC_API_KEY to environment
 - [ ] Manual E2E test: Full matter lifecycle with Gmail sync
 - [ ] Test Square webhook with ngrok for payment confirmation emails
 - [ ] Production environment setup (Supabase, Google OAuth, Square, Resend, OpenAI)
