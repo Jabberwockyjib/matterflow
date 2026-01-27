@@ -1,6 +1,7 @@
 "use server";
 
 import { supabaseAdmin } from "@/lib/supabase/server";
+import { getFirmSettings } from "@/lib/data/queries";
 import { sendActivityReminderEmail, sendIntakeReminderEmail, sendInvoiceReminderEmail } from "./actions";
 
 /**
@@ -21,16 +22,24 @@ export async function sendIntakeReminders(): Promise<AutomationResult> {
   const result: AutomationResult = { sent: 0, failed: 0, errors: [] };
 
   try {
-    const supabase = supabaseAdmin();
-    const oneDayAgo = new Date();
-    oneDayAgo.setDate(oneDayAgo.getDate() - 1);
+    const settings = await getFirmSettings();
 
-    // Find matters in "Intake Sent" stage that haven't been updated in 24h
+    // Check if automation is enabled
+    if (settings.automation_intake_reminder_enabled !== "true") {
+      return result;
+    }
+
+    const hoursThreshold = parseInt(settings.automation_intake_reminder_hours || "24", 10);
+    const supabase = supabaseAdmin();
+    const thresholdDate = new Date();
+    thresholdDate.setHours(thresholdDate.getHours() - hoursThreshold);
+
+    // Find matters in "Intake Sent" stage that haven't been updated within threshold
     const { data: matters, error } = await supabase
       .from("matters")
       .select("id, title, client_id, updated_at")
       .eq("stage", "Intake Sent")
-      .lt("updated_at", oneDayAgo.toISOString());
+      .lt("updated_at", thresholdDate.toISOString());
 
     if (error || !matters) {
       result.errors.push(error?.message || "No matters found");
@@ -85,115 +94,127 @@ export async function sendIntakeReminders(): Promise<AutomationResult> {
 }
 
 /**
- * Send activity reminders for matters that have been idle for 3+ days (client) or 7+ days (lawyer)
+ * Send activity reminders for matters that have been idle for configurable days (client/lawyer)
  */
 export async function sendActivityReminders(): Promise<AutomationResult> {
   const result: AutomationResult = { sent: 0, failed: 0, errors: [] };
 
   try {
+    const settings = await getFirmSettings();
     const supabase = supabaseAdmin();
-    const threeDaysAgo = new Date();
-    threeDaysAgo.setDate(threeDaysAgo.getDate() - 3);
 
-    const sevenDaysAgo = new Date();
-    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+    // Check if client idle automation is enabled
+    const clientIdleEnabled = settings.automation_client_idle_enabled === "true";
+    const clientIdleDays = parseInt(settings.automation_client_idle_days || "3", 10);
+    const clientThreshold = new Date();
+    clientThreshold.setDate(clientThreshold.getDate() - clientIdleDays);
 
-    // Find matters waiting on client (3+ days idle)
-    const { data: clientMatters } = await supabase
-      .from("matters")
-      .select("id, title, client_id, next_action, updated_at")
-      .eq("responsible_party", "client")
-      .lt("updated_at", threeDaysAgo.toISOString())
-      .not("stage", "in", '("Completed", "Archived")');
+    // Check if lawyer idle automation is enabled
+    const lawyerIdleEnabled = settings.automation_lawyer_idle_enabled === "true";
+    const lawyerIdleDays = parseInt(settings.automation_lawyer_idle_days || "7", 10);
+    const lawyerThreshold = new Date();
+    lawyerThreshold.setDate(lawyerThreshold.getDate() - lawyerIdleDays);
 
-    if (clientMatters) {
-      for (const matter of clientMatters) {
-        if (!matter.client_id) continue;
+    // Find matters waiting on client (configurable days idle)
+    if (clientIdleEnabled) {
+      const { data: clientMatters } = await supabase
+        .from("matters")
+        .select("id, title, client_id, next_action, updated_at")
+        .eq("responsible_party", "client")
+        .lt("updated_at", clientThreshold.toISOString())
+        .not("stage", "in", '("Completed", "Archived")');
 
-        try {
-          const { data: clientProfile } = await supabase
-            .from("profiles")
-            .select("full_name")
-            .eq("user_id", matter.client_id)
-            .maybeSingle();
+      if (clientMatters) {
+        for (const matter of clientMatters) {
+          if (!matter.client_id) continue;
 
-          const { data: { user: clientUser } } = await supabase.auth.admin.getUserById(matter.client_id);
+          try {
+            const { data: clientProfile } = await supabase
+              .from("profiles")
+              .select("full_name")
+              .eq("user_id", matter.client_id)
+              .maybeSingle();
 
-          if (clientUser?.email && clientProfile) {
-            const daysIdle = Math.floor(
-              (Date.now() - new Date(matter.updated_at).getTime()) / (1000 * 60 * 60 * 24),
-            );
+            const { data: { user: clientUser } } = await supabase.auth.admin.getUserById(matter.client_id);
 
-            const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
-            const emailResult = await sendActivityReminderEmail({
-              to: clientUser.email,
-              recipientName: clientProfile.full_name || "Client",
-              matterTitle: matter.title,
-              matterId: matter.id,
-              nextAction: matter.next_action || "Review and respond",
-              daysIdle,
-              matterLink: `${appUrl}/matters/${matter.id}`,
-              isClientReminder: true,
-            });
+            if (clientUser?.email && clientProfile) {
+              const daysIdle = Math.floor(
+                (Date.now() - new Date(matter.updated_at).getTime()) / (1000 * 60 * 60 * 24),
+              );
 
-            if (emailResult.success) {
-              result.sent++;
-            } else {
-              result.failed++;
-              result.errors.push(`Failed to send client reminder for matter ${matter.id}`);
+              const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+              const emailResult = await sendActivityReminderEmail({
+                to: clientUser.email,
+                recipientName: clientProfile.full_name || "Client",
+                matterTitle: matter.title,
+                matterId: matter.id,
+                nextAction: matter.next_action || "Review and respond",
+                daysIdle,
+                matterLink: `${appUrl}/matters/${matter.id}`,
+                isClientReminder: true,
+              });
+
+              if (emailResult.success) {
+                result.sent++;
+              } else {
+                result.failed++;
+                result.errors.push(`Failed to send client reminder for matter ${matter.id}`);
+              }
             }
+          } catch (err) {
+            result.failed++;
           }
-        } catch (err) {
-          result.failed++;
         }
       }
     }
 
-    // Find matters waiting on lawyer (7+ days idle)
-    const { data: lawyerMatters } = await supabase
-      .from("matters")
-      .select("id, title, owner_id, next_action, updated_at")
-      .eq("responsible_party", "lawyer")
-      .lt("updated_at", sevenDaysAgo.toISOString())
-      .not("stage", "in", '("Completed", "Archived")');
+    // Find matters waiting on lawyer (configurable days idle)
+    if (lawyerIdleEnabled) {
+      const { data: lawyerMatters } = await supabase
+        .from("matters")
+        .select("id, title, owner_id, next_action, updated_at")
+        .eq("responsible_party", "lawyer")
+        .lt("updated_at", lawyerThreshold.toISOString())
+        .not("stage", "in", '("Completed", "Archived")');
 
-    if (lawyerMatters) {
-      for (const matter of lawyerMatters) {
-        try {
-          const { data: ownerProfile } = await supabase
-            .from("profiles")
-            .select("full_name")
-            .eq("user_id", matter.owner_id)
-            .maybeSingle();
+      if (lawyerMatters) {
+        for (const matter of lawyerMatters) {
+          try {
+            const { data: ownerProfile } = await supabase
+              .from("profiles")
+              .select("full_name")
+              .eq("user_id", matter.owner_id)
+              .maybeSingle();
 
-          const { data: { user: ownerUser } } = await supabase.auth.admin.getUserById(matter.owner_id);
+            const { data: { user: ownerUser } } = await supabase.auth.admin.getUserById(matter.owner_id);
 
-          if (ownerUser?.email && ownerProfile) {
-            const daysIdle = Math.floor(
-              (Date.now() - new Date(matter.updated_at).getTime()) / (1000 * 60 * 60 * 24),
-            );
+            if (ownerUser?.email && ownerProfile) {
+              const daysIdle = Math.floor(
+                (Date.now() - new Date(matter.updated_at).getTime()) / (1000 * 60 * 60 * 24),
+              );
 
-            const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
-            const emailResult = await sendActivityReminderEmail({
-              to: ownerUser.email,
-              recipientName: ownerProfile.full_name || "Lawyer",
-              matterTitle: matter.title,
-              matterId: matter.id,
-              nextAction: matter.next_action || "Review matter",
-              daysIdle,
-              matterLink: `${appUrl}/matters/${matter.id}`,
-              isClientReminder: false,
-            });
+              const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+              const emailResult = await sendActivityReminderEmail({
+                to: ownerUser.email,
+                recipientName: ownerProfile.full_name || "Lawyer",
+                matterTitle: matter.title,
+                matterId: matter.id,
+                nextAction: matter.next_action || "Review matter",
+                daysIdle,
+                matterLink: `${appUrl}/matters/${matter.id}`,
+                isClientReminder: false,
+              });
 
-            if (emailResult.success) {
-              result.sent++;
-            } else {
-              result.failed++;
-              result.errors.push(`Failed to send lawyer reminder for matter ${matter.id}`);
+              if (emailResult.success) {
+                result.sent++;
+              } else {
+                result.failed++;
+                result.errors.push(`Failed to send lawyer reminder for matter ${matter.id}`);
+              }
             }
+          } catch (err) {
+            result.failed++;
           }
-        } catch (err) {
-          result.failed++;
         }
       }
     }
@@ -206,12 +227,26 @@ export async function sendActivityReminders(): Promise<AutomationResult> {
 
 /**
  * Send invoice reminders for unpaid invoices
- * Reminders at: 3 days, 7 days, 14 days overdue
+ * Reminders at configurable day intervals (default: 3, 7, 14 days overdue)
  */
 export async function sendInvoiceReminders(): Promise<AutomationResult> {
   const result: AutomationResult = { sent: 0, failed: 0, errors: [] };
 
   try {
+    const settings = await getFirmSettings();
+
+    // Check if automation is enabled
+    if (settings.automation_invoice_reminder_enabled !== "true") {
+      return result;
+    }
+
+    // Parse reminder days from settings (comma-separated list)
+    const reminderDaysStr = settings.automation_invoice_reminder_days || "3,7,14";
+    const reminderDays = reminderDaysStr
+      .split(",")
+      .map((d) => parseInt(d.trim(), 10))
+      .filter((d) => !isNaN(d) && d > 0);
+
     const supabase = supabaseAdmin();
     const today = new Date();
 
@@ -234,8 +269,8 @@ export async function sendInvoiceReminders(): Promise<AutomationResult> {
         (Date.now() - new Date(invoice.due_date).getTime()) / (1000 * 60 * 60 * 24),
       );
 
-      // Send reminders at specific intervals: 3, 7, 14 days
-      const shouldSendReminder = [3, 7, 14].includes(daysOverdue);
+      // Send reminders at configured intervals
+      const shouldSendReminder = reminderDays.includes(daysOverdue);
 
       if (!shouldSendReminder) continue;
 
