@@ -4,13 +4,14 @@ import Link from "next/link";
 
 import { getMatter } from "@/lib/data/actions";
 import { getSessionWithProfile } from "@/lib/auth/server";
-import { fetchTasksForMatter, fetchTimeEntriesForMatter } from "@/lib/data/queries";
+import { fetchTasksForMatter, fetchTimeEntriesForMatter, getMatterEmails } from "@/lib/data/queries";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { CalendarClock } from "lucide-react";
 import { MatterDocumentsTab } from "@/components/matter-documents-tab";
+import { CommunicationsTab } from "@/components/matter/communications-tab";
 import { AddTaskModal } from "@/components/matters/add-task-modal";
 import { AddTimeEntryModal } from "@/components/matters/add-time-entry-modal";
 
@@ -29,9 +30,10 @@ export default async function MatterDetailPage({ params }: MatterDetailPageProps
     notFound();
   }
 
-  // Fetch tasks and time entries for this matter
+  // Fetch tasks, time entries, and emails for this matter
   const { data: tasks } = await fetchTasksForMatter(id);
   const { data: timeEntries } = await fetchTimeEntriesForMatter(id);
+  const emails = await getMatterEmails(id);
 
   // Check if Google Drive folders are initialized
   const supabase = supabaseAdmin();
@@ -93,9 +95,10 @@ export default async function MatterDetailPage({ params }: MatterDetailPageProps
 
       {/* Tabs */}
       <Tabs defaultValue="overview" className="w-full">
-        <TabsList className="grid w-full grid-cols-4">
+        <TabsList className="grid w-full grid-cols-5">
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="documents">Documents</TabsTrigger>
+          <TabsTrigger value="communications">Communications</TabsTrigger>
           <TabsTrigger value="tasks">Tasks</TabsTrigger>
           <TabsTrigger value="time">Time</TabsTrigger>
         </TabsList>
@@ -152,6 +155,13 @@ export default async function MatterDetailPage({ params }: MatterDetailPageProps
             isInitialized={foldersInitialized}
             folders={matterFolders?.folder_structure as any}
           />
+        </TabsContent>
+
+        {/* Communications Tab */}
+        <TabsContent value="communications" className="space-y-4">
+          <div className="rounded-lg border border-slate-200 bg-white p-6">
+            <CommunicationsTab matterId={id} emails={emails} />
+          </div>
         </TabsContent>
 
         {/* Tasks Tab */}
