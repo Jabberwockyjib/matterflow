@@ -11,6 +11,8 @@ import type { Database } from "@/types/database.types";
 import type { Json } from "@/types/database.types";
 import { sendMatterCreatedEmail, sendTaskAssignedEmail, sendInvoiceEmail } from "@/lib/email/actions";
 import { resend, FROM_EMAIL } from "@/lib/email/client";
+import { fetchGmailEmails, extractEmailAddress } from "@/lib/email/gmail-client";
+import { summarizeEmail } from "@/lib/ai/email-summary";
 import UserInvitationEmail from "@/lib/email/templates/user-invitation";
 import AdminPasswordResetEmail from "@/lib/email/templates/admin-password-reset";
 import { inviteUserSchema, passwordResetSchema, changePasswordSchema, declineIntakeSchema, scheduleCallSchema, updateIntakeNotesSchema, updateClientProfileSchema } from "@/lib/validation/schemas";
@@ -2705,4 +2707,120 @@ export async function updateFirmSettings(
     console.error("Error updating firm settings:", error);
     return { error: "An unexpected error occurred" };
   }
+}
+
+/**
+ * Sync Gmail emails for a specific matter
+ */
+export async function syncGmailForMatter(matterId: string): Promise<ActionResult> {
+  const roleCheck = await ensureStaffOrAdmin();
+  if ("error" in roleCheck) return roleCheck;
+
+  const supabase = ensureSupabase();
+
+  // Get matter with client info
+  const { data: matter, error: matterError } = await supabase
+    .from("matters")
+    .select("id, client_id")
+    .eq("id", matterId)
+    .single();
+
+  if (matterError || !matter) {
+    return { error: "Matter not found" };
+  }
+
+  if (!matter.client_id) {
+    return { error: "Matter has no client assigned" };
+  }
+
+  // Get client email
+  const { data: { user: clientUser } } = await supabase.auth.admin.getUserById(matter.client_id);
+  if (!clientUser?.email) {
+    return { error: "Client email not found" };
+  }
+
+  // Get lawyer's refresh token
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("google_refresh_token")
+    .eq("user_id", roleCheck.session.user.id)
+    .single();
+
+  if (!profile?.google_refresh_token) {
+    return { error: "Google account not connected. Please connect in Settings." };
+  }
+
+  const clientEmail = clientUser.email.toLowerCase();
+
+  // Fetch emails to/from client
+  const query = `from:${clientEmail} OR to:${clientEmail}`;
+  const result = await fetchGmailEmails({
+    refreshToken: profile.google_refresh_token,
+    query,
+    maxResults: 100,
+  });
+
+  if (!result.ok || !result.emails) {
+    return { error: result.error || "Failed to fetch emails" };
+  }
+
+  let synced = 0;
+  let skipped = 0;
+
+  for (const email of result.emails) {
+    // Check if already synced
+    const { data: existing } = await supabase
+      .from("matter_emails")
+      .select("id")
+      .eq("gmail_message_id", email.id)
+      .maybeSingle();
+
+    if (existing) {
+      skipped++;
+      continue;
+    }
+
+    // Determine direction
+    const fromEmail = extractEmailAddress(email.from);
+    const direction = fromEmail === clientEmail ? "received" : "sent";
+
+    // Generate AI summary
+    const { summary, actionNeeded } = await summarizeEmail({
+      subject: email.subject,
+      snippet: email.snippet,
+      direction,
+    });
+
+    // Insert into database
+    const { error: insertError } = await supabase.from("matter_emails").insert({
+      matter_id: matterId,
+      gmail_message_id: email.id,
+      thread_id: email.threadId,
+      direction,
+      from_email: email.from,
+      to_email: email.to,
+      subject: email.subject,
+      snippet: email.snippet,
+      ai_summary: summary,
+      action_needed: actionNeeded,
+      gmail_date: new Date(parseInt(email.internalDate)).toISOString(),
+      gmail_link: `https://mail.google.com/mail/u/0/#inbox/${email.id}`,
+    });
+
+    if (!insertError) {
+      synced++;
+    }
+  }
+
+  await logAudit({
+    supabase,
+    actorId: roleCheck.session.user.id,
+    eventType: "gmail_sync",
+    entityType: "matter",
+    entityId: matterId,
+    metadata: { synced, skipped },
+  });
+
+  revalidatePath(`/matters/${matterId}`);
+  return { ok: true, data: { synced, skipped } };
 }
