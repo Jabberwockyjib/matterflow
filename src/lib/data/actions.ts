@@ -2634,14 +2634,30 @@ export async function updateClientProfile(formData: FormData): Promise<ActionRes
 
 // Firm Settings Actions
 
-const firmSettingsSchema = z.object({
-  firm_name: z.string().min(1, "Firm name is required").max(100),
+// Schema for branding-related settings (validated when present)
+const brandingSettingsSchema = z.object({
+  firm_name: z.string().min(1, "Firm name is required").max(100).optional(),
   tagline: z.string().max(200).optional(),
   logo_url: z.string().url("Invalid URL").nullable().optional(),
   primary_color: z.string().regex(/^#[0-9A-Fa-f]{6}$/, "Invalid hex color").optional(),
   reply_to_email: z.string().email("Invalid email").nullable().optional(),
   footer_text: z.string().max(500).nullable().optional(),
 });
+
+// Schema for automation settings (all string values for enabled/hours/days)
+const automationSettingsSchema = z.object({
+  automation_intake_reminder_enabled: z.enum(["true", "false"]).optional(),
+  automation_intake_reminder_hours: z.string().regex(/^\d+$/, "Must be a number").optional(),
+  automation_client_idle_enabled: z.enum(["true", "false"]).optional(),
+  automation_client_idle_days: z.string().regex(/^\d+$/, "Must be a number").optional(),
+  automation_lawyer_idle_enabled: z.enum(["true", "false"]).optional(),
+  automation_lawyer_idle_days: z.string().regex(/^\d+$/, "Must be a number").optional(),
+  automation_invoice_reminder_enabled: z.enum(["true", "false"]).optional(),
+  automation_invoice_reminder_days: z.string().regex(/^[\d,]+$/, "Must be comma-separated numbers").optional(),
+});
+
+// Combined schema for all firm settings
+const firmSettingsSchema = brandingSettingsSchema.merge(automationSettingsSchema);
 
 /**
  * Update firm settings (admin only)
@@ -2653,16 +2669,22 @@ export async function updateFirmSettings(
   if ("error" in roleCheck) return roleCheck;
 
   try {
-    // Validate settings
-    const parsed = firmSettingsSchema.safeParse(settings);
+    // Filter to only known keys first
+    const filteredSettings: Record<string, string | null> = {};
+    for (const key of Object.keys(settings)) {
+      if (FIRM_SETTING_KEYS.includes(key as FirmSettingKey)) {
+        filteredSettings[key] = settings[key];
+      }
+    }
+
+    // Validate filtered settings
+    const parsed = firmSettingsSchema.safeParse(filteredSettings);
     if (!parsed.success) {
       return { error: parsed.error.issues[0]?.message || "Validation failed" };
     }
 
-    // Only allow known keys
-    const validKeys = Object.keys(settings).filter((key) =>
-      FIRM_SETTING_KEYS.includes(key as FirmSettingKey)
-    );
+    // Get list of valid keys to update
+    const validKeys = Object.keys(filteredSettings);
 
     if (validKeys.length === 0) {
       return { error: "No valid settings to update" };
@@ -2675,7 +2697,7 @@ export async function updateFirmSettings(
       const { error } = await supabase
         .from("firm_settings")
         .update({
-          value: settings[key],
+          value: filteredSettings[key],
           updated_at: new Date().toISOString(),
           updated_by: roleCheck.session.user.id,
         })
@@ -2701,6 +2723,7 @@ export async function updateFirmSettings(
     });
 
     revalidatePath("/admin/settings");
+    revalidatePath("/admin/settings/automations");
 
     return { ok: true };
   } catch (error) {
