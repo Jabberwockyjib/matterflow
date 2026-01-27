@@ -1,6 +1,7 @@
 import { Button, Text } from "@react-email/components";
 import * as React from "react";
 import { BaseLayout } from "./base-layout";
+import type { FirmSettings } from "@/types/firm-settings";
 
 interface MatterCreatedEmailProps {
   clientName: string;
@@ -9,6 +10,7 @@ interface MatterCreatedEmailProps {
   lawyerName: string;
   nextAction: string;
   intakeLink: string;
+  settings?: FirmSettings;
 }
 
 export const MatterCreatedEmail = ({
@@ -17,10 +19,12 @@ export const MatterCreatedEmail = ({
   matterType,
   lawyerName,
   intakeLink,
+  settings,
 }: MatterCreatedEmailProps) => (
   <BaseLayout
     preview={`Complete your intake form for ${matterTitle}`}
     heading="Complete Your Intake Form"
+    settings={settings}
   >
     <Text style={paragraph}>Hi {clientName},</Text>
     <Text style={paragraph}>

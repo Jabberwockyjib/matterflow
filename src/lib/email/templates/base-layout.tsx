@@ -4,49 +4,76 @@ import {
   Head,
   Heading,
   Html,
+  Img,
   Preview,
   Section,
   Text,
 } from "@react-email/components";
 import * as React from "react";
+import { DEFAULT_FIRM_SETTINGS, type FirmSettings } from "@/types/firm-settings";
 
 interface BaseLayoutProps {
   preview: string;
   heading: string;
   children: React.ReactNode;
+  settings?: FirmSettings;
 }
 
 /**
  * Base email layout for all MatterFlow emails
  * Provides consistent branding and structure
  */
-export const BaseLayout = ({ preview, heading, children }: BaseLayoutProps) => (
-  <Html>
-    <Head />
-    <Preview>{preview}</Preview>
-    <Body style={main}>
-      <Container style={container}>
-        <Section style={header}>
-          <Heading style={h1}>MatterFlow™</Heading>
-        </Section>
-        <Section style={content}>
-          <Heading as="h2" style={h2}>
-            {heading}
-          </Heading>
-          {children}
-        </Section>
-        <Section style={footer}>
-          <Text style={footerText}>
-            © {new Date().getFullYear()} MatterFlow. Workflow-first legal practice system.
-          </Text>
-          <Text style={footerText}>
-            This is an automated message. Please do not reply to this email.
-          </Text>
-        </Section>
-      </Container>
-    </Body>
-  </Html>
-);
+export const BaseLayout = ({
+  preview,
+  heading,
+  children,
+  settings = DEFAULT_FIRM_SETTINGS,
+}: BaseLayoutProps) => {
+  const primaryColor = settings.primary_color || DEFAULT_FIRM_SETTINGS.primary_color;
+  const firmName = settings.firm_name || DEFAULT_FIRM_SETTINGS.firm_name;
+  const tagline = settings.tagline || DEFAULT_FIRM_SETTINGS.tagline;
+  const footerText = settings.footer_text;
+
+  return (
+    <Html>
+      <Head />
+      <Preview>{preview}</Preview>
+      <Body style={main}>
+        <Container style={container}>
+          <Section style={header}>
+            {settings.logo_url ? (
+              <Img
+                src={settings.logo_url}
+                alt={firmName}
+                height="40"
+                style={{ maxWidth: "200px", height: "auto" }}
+              />
+            ) : (
+              <Heading style={{ ...h1, color: primaryColor }}>{firmName}</Heading>
+            )}
+          </Section>
+          <Section style={content}>
+            <Heading as="h2" style={{ ...h2, color: primaryColor }}>
+              {heading}
+            </Heading>
+            {children}
+          </Section>
+          <Section style={footer}>
+            <Text style={footerTextStyle}>
+              © {new Date().getFullYear()} {firmName}. {tagline}
+            </Text>
+            {footerText && (
+              <Text style={footerTextStyle}>{footerText}</Text>
+            )}
+            <Text style={footerTextStyle}>
+              This is an automated message. Please do not reply to this email.
+            </Text>
+          </Section>
+        </Container>
+      </Body>
+    </Html>
+  );
+};
 
 // Styles
 const main = {
@@ -92,7 +119,7 @@ const footer = {
   paddingTop: "32px",
 };
 
-const footerText = {
+const footerTextStyle = {
   color: "#64748b",
   fontSize: "12px",
   lineHeight: "16px",

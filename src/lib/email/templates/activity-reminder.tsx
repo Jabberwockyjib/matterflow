@@ -1,6 +1,7 @@
 import { Button, Text } from "@react-email/components";
 import * as React from "react";
 import { BaseLayout } from "./base-layout";
+import type { FirmSettings } from "@/types/firm-settings";
 
 interface ActivityReminderEmailProps {
   recipientName: string;
@@ -9,6 +10,7 @@ interface ActivityReminderEmailProps {
   daysIdle: number;
   matterLink: string;
   isClientReminder: boolean;
+  settings?: FirmSettings;
 }
 
 export const ActivityReminderEmail = ({
@@ -18,10 +20,12 @@ export const ActivityReminderEmail = ({
   daysIdle,
   matterLink,
   isClientReminder,
+  settings,
 }: ActivityReminderEmailProps) => (
   <BaseLayout
     preview={`Reminder: ${matterTitle} needs attention`}
     heading="Matter Requires Your Attention"
+    settings={settings}
   >
     <Text style={paragraph}>Hi {recipientName},</Text>
     <Text style={paragraph}>

@@ -11,6 +11,7 @@ import {
   Text,
 } from "@react-email/components";
 import { BaseLayout } from "./base-layout";
+import type { FirmSettings } from "@/types/firm-settings";
 
 interface IntakeSubmittedEmailProps {
   lawyerName: string;
@@ -18,6 +19,7 @@ interface IntakeSubmittedEmailProps {
   formType: string;
   matterId: string;
   reviewLink: string;
+  settings?: FirmSettings;
 }
 
 export const IntakeSubmittedEmail = ({
@@ -26,11 +28,13 @@ export const IntakeSubmittedEmail = ({
   formType = "Contract Review Intake",
   matterId = "matter-123",
   reviewLink = "https://app.matterflow.com/intake/matter-123",
+  settings,
 }: IntakeSubmittedEmailProps) => {
   return (
     <BaseLayout
       preview={`${clientName} submitted intake form`}
       heading="Intake Form Submitted"
+      settings={settings}
     >
 
       <Text style={textStyle}>Hi {lawyerName},</Text>

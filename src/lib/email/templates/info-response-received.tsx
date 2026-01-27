@@ -7,6 +7,7 @@
 import { Button, Hr, Section, Text } from "@react-email/components";
 import * as React from "react";
 import { BaseLayout } from "./base-layout";
+import type { FirmSettings } from "@/types/firm-settings";
 
 interface InfoResponseReceivedEmailProps {
   lawyerName: string;
@@ -14,6 +15,7 @@ interface InfoResponseReceivedEmailProps {
   matterTitle: string;
   reviewUrl: string;
   questionCount: number;
+  settings?: FirmSettings;
 }
 
 export const InfoResponseReceivedEmail = ({
@@ -22,11 +24,13 @@ export const InfoResponseReceivedEmail = ({
   matterTitle,
   reviewUrl,
   questionCount,
+  settings,
 }: InfoResponseReceivedEmailProps) => {
   return (
     <BaseLayout
       preview={`${clientName} has responded to your information request`}
       heading="Client Response Received"
+      settings={settings}
     >
       <Text style={textStyle}>Hi {lawyerName},</Text>
 

@@ -7,6 +7,7 @@
 import { Text } from "@react-email/components";
 import * as React from "react";
 import { BaseLayout } from "./base-layout";
+import type { FirmSettings } from "@/types/firm-settings";
 
 interface IntakeDeclinedEmailProps {
   clientName: string;
@@ -14,6 +15,7 @@ interface IntakeDeclinedEmailProps {
   lawyerName: string;
   reason: string;
   notes?: string;
+  settings?: FirmSettings;
 }
 
 export const IntakeDeclinedEmail = ({
@@ -22,10 +24,12 @@ export const IntakeDeclinedEmail = ({
   lawyerName,
   reason,
   notes,
+  settings,
 }: IntakeDeclinedEmailProps) => (
   <BaseLayout
     preview={`Update regarding ${matterTitle}`}
     heading="Matter Update"
+    settings={settings}
   >
     <Text style={paragraph}>Hi {clientName},</Text>
 

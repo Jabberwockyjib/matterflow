@@ -15,6 +15,8 @@ import UserInvitationEmail from "@/lib/email/templates/user-invitation";
 import AdminPasswordResetEmail from "@/lib/email/templates/admin-password-reset";
 import { inviteUserSchema, passwordResetSchema, changePasswordSchema, declineIntakeSchema, scheduleCallSchema, updateIntakeNotesSchema, updateClientProfileSchema } from "@/lib/validation/schemas";
 import { infoRequestSchema, infoResponseSchema } from "@/lib/validation/info-request-schemas";
+import { FIRM_SETTING_KEYS, type FirmSettingKey } from "@/types/firm-settings";
+import { invalidateFirmSettingsCache } from "@/lib/data/queries";
 import { z } from "zod";
 
 type ActionResult = {
@@ -49,6 +51,17 @@ const ensureStaffOrAdmin = async () => {
   }
   if (profile?.role === "client") {
     return { error: "Forbidden: clients cannot perform this action" } as const;
+  }
+  return { session, profile } as const;
+};
+
+const ensureAdmin = async () => {
+  const { profile, session } = await getSessionWithProfile();
+  if (!session) {
+    return { error: "Unauthorized: please sign in" } as const;
+  }
+  if (profile?.role !== "admin") {
+    return { error: "Forbidden: only admins can perform this action" } as const;
   }
   return { session, profile } as const;
 };
@@ -2613,6 +2626,83 @@ export async function updateClientProfile(formData: FormData): Promise<ActionRes
     return { ok: true };
   } catch (error) {
     console.error("Error in updateClientProfile:", error);
+    return { error: "An unexpected error occurred" };
+  }
+}
+
+// Firm Settings Actions
+
+const firmSettingsSchema = z.object({
+  firm_name: z.string().min(1, "Firm name is required").max(100),
+  tagline: z.string().max(200).optional(),
+  logo_url: z.string().url("Invalid URL").nullable().optional(),
+  primary_color: z.string().regex(/^#[0-9A-Fa-f]{6}$/, "Invalid hex color").optional(),
+  reply_to_email: z.string().email("Invalid email").nullable().optional(),
+  footer_text: z.string().max(500).nullable().optional(),
+});
+
+/**
+ * Update firm settings (admin only)
+ */
+export async function updateFirmSettings(
+  settings: Record<string, string | null>
+): Promise<ActionResult> {
+  const roleCheck = await ensureAdmin();
+  if ("error" in roleCheck) return roleCheck;
+
+  try {
+    // Validate settings
+    const parsed = firmSettingsSchema.safeParse(settings);
+    if (!parsed.success) {
+      return { error: parsed.error.issues[0]?.message || "Validation failed" };
+    }
+
+    // Only allow known keys
+    const validKeys = Object.keys(settings).filter((key) =>
+      FIRM_SETTING_KEYS.includes(key as FirmSettingKey)
+    );
+
+    if (validKeys.length === 0) {
+      return { error: "No valid settings to update" };
+    }
+
+    const supabase = ensureSupabase();
+
+    // Update each setting
+    for (const key of validKeys) {
+      const { error } = await supabase
+        .from("firm_settings")
+        .update({
+          value: settings[key],
+          updated_at: new Date().toISOString(),
+          updated_by: roleCheck.session.user.id,
+        })
+        .eq("key", key);
+
+      if (error) {
+        console.error(`Error updating firm setting ${key}:`, error);
+        return { error: `Failed to update ${key}` };
+      }
+    }
+
+    // Invalidate cache
+    invalidateFirmSettingsCache();
+
+    // Log to audit
+    await logAudit({
+      supabase,
+      actorId: roleCheck.session.user.id,
+      eventType: "firm_settings_updated",
+      entityType: "firm_settings",
+      entityId: null,
+      metadata: { updatedKeys: validKeys },
+    });
+
+    revalidatePath("/admin/settings");
+
+    return { ok: true };
+  } catch (error) {
+    console.error("Error updating firm settings:", error);
     return { error: "An unexpected error occurred" };
   }
 }

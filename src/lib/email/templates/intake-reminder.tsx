@@ -1,12 +1,14 @@
 import { Button, Text } from "@react-email/components";
 import * as React from "react";
 import { BaseLayout } from "./base-layout";
+import type { FirmSettings } from "@/types/firm-settings";
 
 interface IntakeReminderEmailProps {
   clientName: string;
   matterTitle: string;
   intakeLink: string;
   daysWaiting: number;
+  settings?: FirmSettings;
 }
 
 export const IntakeReminderEmail = ({
@@ -14,10 +16,12 @@ export const IntakeReminderEmail = ({
   matterTitle,
   intakeLink,
   daysWaiting,
+  settings,
 }: IntakeReminderEmailProps) => (
   <BaseLayout
     preview="Reminder: Complete your intake form"
     heading="Action Required: Complete Your Intake Form"
+    settings={settings}
   >
     <Text style={paragraph}>Hi {clientName},</Text>
     <Text style={paragraph}>

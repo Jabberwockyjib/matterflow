@@ -1,6 +1,7 @@
 import { Button, Text } from "@react-email/components";
 import * as React from "react";
 import { BaseLayout } from "./base-layout";
+import type { FirmSettings } from "@/types/firm-settings";
 
 interface InvitationEmailProps {
   clientName: string;
@@ -8,6 +9,7 @@ interface InvitationEmailProps {
   inviteLink: string;
   lawyerName: string;
   message?: string;
+  settings?: FirmSettings;
 }
 
 export const InvitationEmail = ({
@@ -16,10 +18,12 @@ export const InvitationEmail = ({
   inviteLink,
   lawyerName,
   message,
+  settings,
 }: InvitationEmailProps) => (
   <BaseLayout
     preview="Complete your intake form for MatterFlow"
     heading="Complete Your Intake Form"
+    settings={settings}
   >
     <Text style={paragraph}>Hi {clientName},</Text>
 

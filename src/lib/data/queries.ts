@@ -1,6 +1,7 @@
 import { supabaseAdmin, supabaseEnvReady } from "@/lib/supabase/server";
 import { getSessionWithProfile } from "@/lib/auth/server";
 import type { Database } from "@/types/database.types";
+import { DEFAULT_FIRM_SETTINGS, type FirmSettings } from "@/types/firm-settings";
 
 export type MatterSummary = {
   id: string;
@@ -1643,4 +1644,62 @@ export async function getClientPendingIntake(): Promise<{
   } catch {
     return { hasPendingIntake: false, matterId: null, matterTitle: null };
   }
+}
+
+// In-memory cache for firm settings
+let firmSettingsCache: FirmSettings | null = null;
+let firmSettingsCacheTime: number = 0;
+const FIRM_SETTINGS_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
+/**
+ * Get firm settings for email branding
+ * Cached in memory for 5 minutes to avoid DB hits on every email
+ */
+export async function getFirmSettings(): Promise<FirmSettings> {
+  // Check cache first
+  const now = Date.now();
+  if (firmSettingsCache && now - firmSettingsCacheTime < FIRM_SETTINGS_CACHE_TTL) {
+    return firmSettingsCache;
+  }
+
+  if (!supabaseEnvReady()) {
+    return DEFAULT_FIRM_SETTINGS;
+  }
+
+  try {
+    const supabase = supabaseAdmin();
+    const { data, error } = await supabase
+      .from("firm_settings")
+      .select("key, value");
+
+    if (error || !data) {
+      console.error("Error fetching firm settings:", error);
+      return DEFAULT_FIRM_SETTINGS;
+    }
+
+    // Convert array of key-value pairs to object
+    const settings: FirmSettings = { ...DEFAULT_FIRM_SETTINGS };
+    for (const row of data) {
+      if (row.key in settings) {
+        (settings as unknown as Record<string, string | null>)[row.key] = row.value;
+      }
+    }
+
+    // Update cache
+    firmSettingsCache = settings;
+    firmSettingsCacheTime = now;
+
+    return settings;
+  } catch (err) {
+    console.error("Error fetching firm settings:", err);
+    return DEFAULT_FIRM_SETTINGS;
+  }
+}
+
+/**
+ * Invalidate firm settings cache (call after updates)
+ */
+export function invalidateFirmSettingsCache(): void {
+  firmSettingsCache = null;
+  firmSettingsCacheTime = 0;
 }

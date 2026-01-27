@@ -7,6 +7,7 @@
 import { Button, Text } from "@react-email/components";
 import * as React from "react";
 import { BaseLayout } from "./base-layout";
+import type { FirmSettings } from "@/types/firm-settings";
 
 interface InfoRequestEmailProps {
   clientName: string;
@@ -14,6 +15,7 @@ interface InfoRequestEmailProps {
   message?: string;
   responseUrl: string;
   deadline?: string;
+  settings?: FirmSettings;
 }
 
 export const InfoRequestEmail = ({
@@ -22,10 +24,12 @@ export const InfoRequestEmail = ({
   message,
   responseUrl,
   deadline,
+  settings,
 }: InfoRequestEmailProps) => (
   <BaseLayout
     preview="Additional information needed for your matter"
     heading="Additional Information Needed"
+    settings={settings}
   >
     <Text style={paragraph}>Hi {clientName},</Text>
 

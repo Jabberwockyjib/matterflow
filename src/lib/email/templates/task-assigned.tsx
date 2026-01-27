@@ -1,6 +1,7 @@
 import { Button, Text } from "@react-email/components";
 import * as React from "react";
 import { BaseLayout } from "./base-layout";
+import type { FirmSettings } from "@/types/firm-settings";
 
 interface TaskAssignedEmailProps {
   recipientName: string;
@@ -9,6 +10,7 @@ interface TaskAssignedEmailProps {
   dueDate?: string;
   taskLink: string;
   isClientTask: boolean;
+  settings?: FirmSettings;
 }
 
 export const TaskAssignedEmail = ({
@@ -18,8 +20,9 @@ export const TaskAssignedEmail = ({
   dueDate,
   taskLink,
   isClientTask,
+  settings,
 }: TaskAssignedEmailProps) => (
-  <BaseLayout preview={`New task: ${taskTitle}`} heading="You Have a New Task">
+  <BaseLayout preview={`New task: ${taskTitle}`} heading="You Have a New Task" settings={settings}>
     <Text style={paragraph}>Hi {recipientName},</Text>
     <Text style={paragraph}>
       A new task has been assigned to you for the matter: <strong>{matterTitle}</strong>

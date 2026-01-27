@@ -1,6 +1,7 @@
 import { Button, Text } from "@react-email/components";
 import * as React from "react";
 import { BaseLayout } from "./base-layout";
+import type { FirmSettings } from "@/types/firm-settings";
 
 interface InvoiceSentEmailProps {
   clientName: string;
@@ -9,6 +10,7 @@ interface InvoiceSentEmailProps {
   dueDate: string;
   paymentLink?: string;
   invoiceNumber?: string;
+  settings?: FirmSettings;
 }
 
 export const InvoiceSentEmail = ({
@@ -18,10 +20,12 @@ export const InvoiceSentEmail = ({
   dueDate,
   paymentLink,
   invoiceNumber,
+  settings,
 }: InvoiceSentEmailProps) => (
   <BaseLayout
     preview={`Invoice for ${matterTitle} - ${invoiceAmount}`}
     heading="New Invoice"
+    settings={settings}
   >
     <Text style={paragraph}>Hi {clientName},</Text>
     <Text style={paragraph}>

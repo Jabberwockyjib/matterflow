@@ -12,6 +12,8 @@ import { PaymentReceivedEmail } from "./templates/payment-received";
 import { TaskAssignedEmail } from "./templates/task-assigned";
 import type { EmailSendResult } from "./types";
 import { sendTemplateEmail } from "./service";
+import { getFirmSettings } from "@/lib/data/queries";
+import type { FirmSettings } from "@/types/firm-settings";
 
 /**
  * Email actions for MatterFlow
@@ -33,6 +35,7 @@ interface SendInvoiceEmailParams {
 export async function sendInvoiceEmail(
   params: SendInvoiceEmailParams,
 ): Promise<EmailSendResult> {
+  const settings = await getFirmSettings();
   const template = InvoiceSentEmail({
     clientName: params.clientName,
     matterTitle: params.matterTitle,
@@ -40,6 +43,7 @@ export async function sendInvoiceEmail(
     dueDate: params.dueDate,
     paymentLink: params.paymentLink,
     invoiceNumber: params.invoiceNumber,
+    settings,
   });
 
   return sendTemplateEmail(
@@ -69,6 +73,7 @@ interface SendMatterCreatedEmailParams {
 export async function sendMatterCreatedEmail(
   params: SendMatterCreatedEmailParams,
 ): Promise<EmailSendResult> {
+  const settings = await getFirmSettings();
   const template = MatterCreatedEmail({
     clientName: params.clientName,
     matterTitle: params.matterTitle,
@@ -76,6 +81,7 @@ export async function sendMatterCreatedEmail(
     lawyerName: params.lawyerName,
     nextAction: params.nextAction,
     intakeLink: params.intakeLink,
+    settings,
   });
 
   return sendTemplateEmail(
@@ -105,6 +111,7 @@ interface SendTaskAssignedEmailParams {
 export async function sendTaskAssignedEmail(
   params: SendTaskAssignedEmailParams,
 ): Promise<EmailSendResult> {
+  const settings = await getFirmSettings();
   const template = TaskAssignedEmail({
     recipientName: params.recipientName,
     taskTitle: params.taskTitle,
@@ -112,6 +119,7 @@ export async function sendTaskAssignedEmail(
     dueDate: params.dueDate,
     taskLink: params.taskLink,
     isClientTask: params.isClientTask,
+    settings,
   });
 
   return sendTemplateEmail(
@@ -139,11 +147,13 @@ interface SendIntakeReminderEmailParams {
 export async function sendIntakeReminderEmail(
   params: SendIntakeReminderEmailParams,
 ): Promise<EmailSendResult> {
+  const settings = await getFirmSettings();
   const template = IntakeReminderEmail({
     clientName: params.clientName,
     matterTitle: params.matterTitle,
     intakeLink: params.intakeLink,
     daysWaiting: params.daysWaiting,
+    settings,
   });
 
   return sendTemplateEmail(
@@ -172,6 +182,7 @@ interface SendActivityReminderEmailParams {
 export async function sendActivityReminderEmail(
   params: SendActivityReminderEmailParams,
 ): Promise<EmailSendResult> {
+  const settings = await getFirmSettings();
   const template = ActivityReminderEmail({
     recipientName: params.recipientName,
     matterTitle: params.matterTitle,
@@ -179,6 +190,7 @@ export async function sendActivityReminderEmail(
     daysIdle: params.daysIdle,
     matterLink: params.matterLink,
     isClientReminder: params.isClientReminder,
+    settings,
   });
 
   const emailType = params.isClientReminder
@@ -211,6 +223,7 @@ interface SendInvoiceReminderEmailParams {
 export async function sendInvoiceReminderEmail(
   params: SendInvoiceReminderEmailParams,
 ): Promise<EmailSendResult> {
+  const settings = await getFirmSettings();
   const urgency = params.daysOverdue > 14 ? "URGENT: " : "";
   const template = InvoiceSentEmail({
     clientName: params.clientName,
@@ -218,6 +231,7 @@ export async function sendInvoiceReminderEmail(
     invoiceAmount: params.invoiceAmount,
     dueDate: `Overdue by ${params.daysOverdue} days`,
     paymentLink: params.paymentLink,
+    settings,
   });
 
   return sendTemplateEmail(
@@ -244,6 +258,7 @@ interface SendIntakeSubmittedEmailParams {
 export async function sendIntakeSubmittedEmail(
   params: SendIntakeSubmittedEmailParams,
 ): Promise<EmailSendResult> {
+  const settings = await getFirmSettings();
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
   const reviewLink = `${appUrl}/intake/${params.matterId}`;
 
@@ -253,6 +268,7 @@ export async function sendIntakeSubmittedEmail(
     formType: params.formType,
     matterId: params.matterId,
     reviewLink,
+    settings,
   });
 
   return sendTemplateEmail(
@@ -280,6 +296,7 @@ interface SendInfoRequestEmailParams {
 export async function sendInfoRequestEmail(
   params: SendInfoRequestEmailParams,
 ): Promise<EmailSendResult> {
+  const settings = await getFirmSettings();
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
   const responseUrl = `${appUrl}/info-response/${params.infoRequestId}`;
 
@@ -289,6 +306,7 @@ export async function sendInfoRequestEmail(
     message: params.message,
     responseUrl,
     deadline: params.deadline,
+    settings,
   });
 
   return sendTemplateEmail(
@@ -316,6 +334,7 @@ interface SendInfoResponseReceivedEmailParams {
 export async function sendInfoResponseReceivedEmail(
   params: SendInfoResponseReceivedEmailParams,
 ): Promise<EmailSendResult> {
+  const settings = await getFirmSettings();
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
   const reviewUrl = `${appUrl}/clients/${params.matterId}`;
 
@@ -325,6 +344,7 @@ export async function sendInfoResponseReceivedEmail(
     matterTitle: params.matterTitle,
     reviewUrl,
     questionCount: params.questionCount,
+    settings,
   });
 
   return sendTemplateEmail(
@@ -355,6 +375,7 @@ interface SendPaymentReceivedEmailParams {
 export async function sendPaymentReceivedEmail(
   params: SendPaymentReceivedEmailParams,
 ): Promise<EmailSendResult> {
+  const settings = await getFirmSettings();
   const template = PaymentReceivedEmail({
     recipientName: params.recipientName,
     matterTitle: params.matterTitle,
@@ -363,6 +384,7 @@ export async function sendPaymentReceivedEmail(
     paymentDate: params.paymentDate,
     invoiceNumber: params.invoiceNumber,
     isClient: params.isClient,
+    settings,
   });
 
   const subject = params.isClient
@@ -390,12 +412,14 @@ interface SendIntakeDeclinedEmailParams {
 export async function sendIntakeDeclinedEmail(
   params: SendIntakeDeclinedEmailParams,
 ): Promise<EmailSendResult> {
+  const settings = await getFirmSettings();
   const template = IntakeDeclinedEmail({
     clientName: params.clientName,
     matterTitle: params.matterTitle,
     lawyerName: params.lawyerName,
     reason: params.reason,
     notes: params.notes,
+    settings,
   });
 
   return sendTemplateEmail(

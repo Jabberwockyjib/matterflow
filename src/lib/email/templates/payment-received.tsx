@@ -7,6 +7,7 @@
 import { Text } from "@react-email/components";
 import * as React from "react";
 import { BaseLayout } from "./base-layout";
+import type { FirmSettings } from "@/types/firm-settings";
 
 interface PaymentReceivedEmailProps {
   recipientName: string;
@@ -16,6 +17,7 @@ interface PaymentReceivedEmailProps {
   paymentDate: string;
   invoiceNumber?: string;
   isClient: boolean;
+  settings?: FirmSettings;
 }
 
 export const PaymentReceivedEmail = ({
@@ -26,10 +28,12 @@ export const PaymentReceivedEmail = ({
   paymentDate,
   invoiceNumber,
   isClient,
+  settings,
 }: PaymentReceivedEmailProps) => (
   <BaseLayout
     preview={`Payment received - ${paymentAmount}`}
     heading="Payment Received"
+    settings={settings}
   >
     <Text style={paragraph}>Hi {recipientName},</Text>
 

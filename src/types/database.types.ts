@@ -234,6 +234,38 @@ export type Database = {
           },
         ]
       }
+      firm_settings: {
+        Row: {
+          id: string
+          key: string
+          value: string | null
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          id?: string
+          key: string
+          value?: string | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          id?: string
+          key?: string
+          value?: string | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "firm_settings_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+        ]
+      }
       info_requests: {
         Row: {
           created_at: string
