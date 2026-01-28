@@ -95,6 +95,66 @@ const currency = (cents: number) =>
 export default async function Home() {
   const { profile } = await getSessionWithProfile();
 
+  // Landing page for unauthenticated users
+  if (!profile) {
+    return (
+      <div className="min-h-screen bg-slate-50 dark:bg-black flex flex-col">
+        <header className="border-b border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-950">
+          <div className="container flex items-center justify-between py-4">
+            <div>
+              <p className="text-lg font-semibold text-slate-900 dark:text-slate-50">
+                MatterFlow
+              </p>
+            </div>
+            <Link href="/auth/sign-in">
+              <Button size="sm">Sign In</Button>
+            </Link>
+          </div>
+        </header>
+        <main className="flex-1 flex items-center justify-center">
+          <div className="container max-w-2xl text-center py-16">
+            <h1 className="text-4xl font-bold text-slate-900 dark:text-slate-50 mb-4">
+              Legal Practice Management
+            </h1>
+            <p className="text-lg text-slate-600 dark:text-slate-400 mb-8">
+              Streamline your workflow with matter tracking, time management, billing, and client communication — all in one place.
+            </p>
+            <div className="flex gap-4 justify-center">
+              <Link href="/auth/sign-in">
+                <Button size="lg">
+                  Sign In
+                  <ArrowRight className="ml-2 h-4 w-4" />
+                </Button>
+              </Link>
+            </div>
+            <div className="mt-16 grid gap-6 md:grid-cols-3 text-left">
+              <div className="p-6 rounded-lg border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900">
+                <FileText className="h-8 w-8 text-slate-600 dark:text-slate-400 mb-3" />
+                <h3 className="font-semibold text-slate-900 dark:text-slate-50 mb-2">Matter Pipeline</h3>
+                <p className="text-sm text-slate-600 dark:text-slate-400">Track every case from intake to completion with clear next actions.</p>
+              </div>
+              <div className="p-6 rounded-lg border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900">
+                <Timer className="h-8 w-8 text-slate-600 dark:text-slate-400 mb-3" />
+                <h3 className="font-semibold text-slate-900 dark:text-slate-50 mb-2">Time Tracking</h3>
+                <p className="text-sm text-slate-600 dark:text-slate-400">One-click timers and manual entry with approval workflow.</p>
+              </div>
+              <div className="p-6 rounded-lg border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900">
+                <Wallet2 className="h-8 w-8 text-slate-600 dark:text-slate-400 mb-3" />
+                <h3 className="font-semibold text-slate-900 dark:text-slate-50 mb-2">Integrated Billing</h3>
+                <p className="text-sm text-slate-600 dark:text-slate-400">Generate invoices and accept payments with Square integration.</p>
+              </div>
+            </div>
+          </div>
+        </main>
+        <footer className="border-t border-slate-200 dark:border-slate-800 py-6">
+          <div className="container text-center text-sm text-slate-500 dark:text-slate-400">
+            © {new Date().getFullYear()} MatterFlow. Workflow-first legal practice management.
+          </div>
+        </footer>
+      </div>
+    );
+  }
+
   // Client-specific dashboard
   if (profile?.role === "client") {
     const [{ data: clientMatters }, pendingIntake] = await Promise.all([
