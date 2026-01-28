@@ -58,9 +58,9 @@ MatterFlow is feature-complete for launch. All 3 launch blockers have been imple
 
 ## Pre-Launch Checklist
 
-- [ ] Apply database migrations (Docker must be running)
-- [ ] Push all commits: `git push`
-- [ ] Add `OPENAI_API_KEY` to `.env.local`
+- [x] Apply database migrations (Docker must be running)
+- [x] Push all commits: `git push`
+- [x] Add `ANTHROPIC_API_KEY` to `.env.local`
 - [ ] Manual E2E test: Create matter, sync Gmail, upload document
 - [ ] Test automation settings at `/admin/settings/automations`
 - [ ] Production environment setup

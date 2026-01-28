@@ -1,5 +1,6 @@
 'use client'
 
+import Link from 'next/link'
 import { Mail, Copy, Eye } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -56,12 +57,16 @@ export function PipelineCard({ type, data }: PipelineCardProps) {
   const intake = data
   const isNew = intake.isNew
 
+  // Prefer client email from auth, fallback to form response
+  const displayEmail = intake.clientEmail || intake.responses.email || 'No email provided'
+  const displayName = intake.clientName || intake.responses.full_name || 'Unknown'
+
   return (
     <div className="bg-white rounded-lg border border-slate-200 p-4 hover:shadow-md transition-shadow">
       <div className="flex items-start justify-between mb-2">
         <div className="flex-1">
           <div className="font-semibold text-slate-900 flex items-center gap-2">
-            {intake.responses.full_name || 'Unknown'}
+            {displayName}
             {isNew && (
               <Badge variant="danger" className="text-xs">
                 NEW
@@ -69,7 +74,7 @@ export function PipelineCard({ type, data }: PipelineCardProps) {
             )}
           </div>
           <div className="text-sm text-slate-600">
-            {intake.responses.email || 'No email provided'}
+            {displayEmail}
           </div>
         </div>
       </div>
@@ -82,9 +87,11 @@ export function PipelineCard({ type, data }: PipelineCardProps) {
         {type === 'under-review' && 'Waiting on client response'}
       </div>
 
-      <Button size="sm" className="w-full" disabled>
-        Review Intake
-      </Button>
+      <Link href={`/admin/intake/${intake.id}`}>
+        <Button size="sm" className="w-full">
+          Review Intake
+        </Button>
+      </Link>
     </div>
   )
 }

@@ -73,6 +73,8 @@ export type IntakeReview = {
   responses: Record<string, any>;
   internalNotes: string | null;
   isNew: boolean;
+  clientEmail: string | null;
+  clientName: string | null;
 };
 
 export type ClientProfile = {
@@ -1016,6 +1018,8 @@ export async function fetchIntakesByReviewStatus(): Promise<{
       },
       internalNotes: null,
       isNew: true,
+      clientEmail: "jane@example.com",
+      clientName: "Jane Smith",
     };
 
     return {
@@ -1027,9 +1031,16 @@ export async function fetchIntakesByReviewStatus(): Promise<{
 
   try {
     const supabase = supabaseAdmin();
+
+    // Fetch intake responses with joined matter to get client_id
     const { data, error } = await supabase
       .from("intake_responses")
-      .select("*")
+      .select(`
+        *,
+        matters!intake_responses_matter_id_fkey (
+          client_id
+        )
+      `)
       .in("review_status", ["pending", "under_review"])
       .order("submitted_at", { ascending: false });
 
@@ -1043,19 +1054,55 @@ export async function fetchIntakesByReviewStatus(): Promise<{
       };
     }
 
+    // Collect all client IDs to fetch their emails in bulk
+    const clientIds = (data || [])
+      .map((intake) => (intake.matters as { client_id: string | null })?.client_id)
+      .filter((id): id is string => id !== null && id !== undefined);
+
+    // Fetch client profiles
+    const profileMap = new Map<string, string>();
+    if (clientIds.length > 0) {
+      const { data: profiles } = await supabase
+        .from("profiles")
+        .select("user_id, full_name")
+        .in("user_id", clientIds);
+
+      if (profiles) {
+        profiles.forEach((p) => profileMap.set(p.user_id, p.full_name || ""));
+      }
+    }
+
+    // Fetch client emails from auth
+    const emailMap = new Map<string, string>();
+    for (const clientId of clientIds) {
+      const { data: userData } = await supabase.auth.admin.getUserById(clientId);
+      if (userData?.user?.email) {
+        emailMap.set(clientId, userData.user.email);
+      }
+    }
+
     const now = new Date();
-    const mapped = (data || []).map((intake) => ({
-      id: intake.id,
-      matterId: intake.matter_id,
-      formType: intake.form_type,
-      reviewStatus: intake.review_status || "pending",
-      submittedAt: intake.submitted_at,
-      responses: (intake.responses as Record<string, any>) || {},
-      internalNotes: intake.internal_notes,
-      isNew: intake.submitted_at
-        ? now.getTime() - new Date(intake.submitted_at).getTime() < 24 * 60 * 60 * 1000
-        : false,
-    }));
+    const mapped = (data || []).map((intake) => {
+      const matter = intake.matters as { client_id: string | null } | null;
+      const clientId = matter?.client_id || null;
+      const clientEmail = clientId ? emailMap.get(clientId) || null : null;
+      const clientName = clientId ? profileMap.get(clientId) || null : null;
+
+      return {
+        id: intake.id,
+        matterId: intake.matter_id,
+        formType: intake.form_type,
+        reviewStatus: intake.review_status || "pending",
+        submittedAt: intake.submitted_at,
+        responses: (intake.responses as Record<string, any>) || {},
+        internalNotes: intake.internal_notes,
+        isNew: intake.submitted_at
+          ? now.getTime() - new Date(intake.submitted_at).getTime() < 24 * 60 * 60 * 1000
+          : false,
+        clientEmail,
+        clientName,
+      };
+    });
 
     return {
       pending: mapped.filter((i) => i.reviewStatus === "pending"),
