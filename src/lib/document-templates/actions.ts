@@ -291,6 +291,41 @@ export async function deleteTemplateSection(id: string): Promise<ActionResult> {
   return { success: true };
 }
 
+export async function reorderTemplateSections(
+  templateId: string,
+  sectionIds: string[]
+): Promise<ActionResult> {
+  const auth = await ensureStaffOrAdmin();
+  if ("error" in auth) return { success: false, error: auth.error };
+
+  if (!supabaseEnvReady()) {
+    return { success: false, error: "Service unavailable" };
+  }
+
+  const supabase = supabaseAdmin();
+
+  // Update each section's sort_order based on its position in the array
+  const updates = sectionIds.map((id, index) =>
+    supabase
+      .from("template_sections")
+      .update({ sort_order: index })
+      .eq("id", id)
+      .eq("template_id", templateId)
+  );
+
+  const results = await Promise.all(updates);
+  const errors = results.filter((r) => r.error);
+
+  if (errors.length > 0) {
+    console.error("Error reordering sections:", errors[0].error);
+    return { success: false, error: "Failed to reorder sections" };
+  }
+
+  revalidatePath(`/admin/templates/${templateId}`);
+  revalidatePath(`/admin/templates/${templateId}/edit`);
+  return { success: true };
+}
+
 // ============================================================================
 // Field Actions
 // ============================================================================
