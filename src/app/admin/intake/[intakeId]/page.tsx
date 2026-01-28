@@ -6,6 +6,9 @@ import { DynamicFormRenderer } from "@/components/intake/dynamic-form-renderer";
 import { Badge } from "@/components/ui/badge";
 import { getInfoRequests } from "@/lib/data/queries";
 
+// Force dynamic rendering - this page requires runtime database access
+export const dynamic = "force-dynamic";
+
 interface IntakeReviewPageProps {
   params: Promise<{ intakeId: string }>;
 }
