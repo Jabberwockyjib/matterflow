@@ -106,14 +106,20 @@ export function PracticeSettingsForm({ settings }: PracticeSettingsFormProps) {
             </div>
 
             <div>
-              <Label htmlFor="contactEmail">Contact Email</Label>
+              <Label htmlFor="contactEmail">
+                Contact Email <span className="text-red-500">*</span>
+              </Label>
               <Input
                 id="contactEmail"
                 type="email"
                 value={contactEmail}
                 onChange={(e) => setContactEmail(e.target.value)}
                 placeholder="contact@lawfirm.com"
+                required
               />
+              <p className="text-xs text-slate-500 mt-1">
+                Required for sending client invitations and notifications via Gmail
+              </p>
             </div>
 
             <div>
