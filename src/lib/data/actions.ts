@@ -10,7 +10,7 @@ import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/types/database.types";
 import type { Json } from "@/types/database.types";
 import { sendMatterCreatedEmail, sendTaskAssignedEmail, sendInvoiceEmail } from "@/lib/email/actions";
-import { resend, FROM_EMAIL } from "@/lib/email/client";
+import { sendEmail } from "@/lib/email/service";
 import { fetchGmailEmails, extractEmailAddress } from "@/lib/email/gmail-client";
 import { summarizeEmail } from "@/lib/ai/email-summary";
 import UserInvitationEmail from "@/lib/email/templates/user-invitation";
@@ -1066,11 +1066,14 @@ export async function inviteUser(data: {
         })
       );
 
-      await resend.emails.send({
-        from: FROM_EMAIL,
+      await sendEmail({
         to: email,
-        subject: "Welcome to MatterFlow™",
+        subject: "Welcome to MatterFlow\u2122",
         html: emailHtml,
+        metadata: {
+          type: "matter_created", // Using closest type for user invitation
+          recipientRole: role === "client" ? "client" : "staff",
+        },
       });
     } catch (emailError) {
       console.error("Email sending error:", emailError);
@@ -1368,11 +1371,14 @@ export async function adminResetPassword(userId: string): Promise<{
         })
       );
 
-      await resend.emails.send({
-        from: FROM_EMAIL,
+      await sendEmail({
         to: authUser.user.email || "",
-        subject: "Your MatterFlow™ password was reset",
+        subject: "Your MatterFlow\u2122 password was reset",
         html: emailHtml,
+        metadata: {
+          type: "matter_created", // Using closest type for password reset
+          recipientRole: "staff",
+        },
       });
     } catch (emailError) {
       console.error("Email sending error:", emailError);
