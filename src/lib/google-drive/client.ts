@@ -12,11 +12,18 @@ const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
 const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
 const GOOGLE_REDIRECT_URI = process.env.GOOGLE_REDIRECT_URI || "http://localhost:3000/api/auth/google/callback";
 
-// Scopes required for Drive operations
-export const GOOGLE_DRIVE_SCOPES = [
+// Scopes required for Drive and Gmail operations
+export const GOOGLE_SCOPES = [
+  // Drive scopes
   "https://www.googleapis.com/auth/drive.file",
   "https://www.googleapis.com/auth/drive.appdata",
+  // Gmail scopes
+  "https://www.googleapis.com/auth/gmail.readonly",
+  "https://www.googleapis.com/auth/gmail.send",
 ];
+
+// Legacy alias for backwards compatibility
+export const GOOGLE_DRIVE_SCOPES = GOOGLE_SCOPES;
 
 /**
  * Check if Google Drive is configured
