@@ -13,7 +13,7 @@ type IntegrationsPanelProps = {
 export async function IntegrationsPanel({ profile: _profile }: IntegrationsPanelProps) {
   // Fetch practice settings for all integrations
   const supabase = supabaseAdmin();
-  const { data: practiceSettings } = await supabase
+  const { data: practiceSettings, error } = await supabase
     .from("practice_settings")
     .select(`
       google_refresh_token,
@@ -28,6 +28,13 @@ export async function IntegrationsPanel({ profile: _profile }: IntegrationsPanel
     `)
     .limit(1)
     .maybeSingle();
+
+  // Debug logging
+  console.log("[IntegrationsPanel] Query result:", {
+    hasData: !!practiceSettings,
+    hasGoogleToken: !!practiceSettings?.google_refresh_token,
+    error: error?.message,
+  });
 
   // Google connection status
   const isGoogleConnected = Boolean(practiceSettings?.google_refresh_token);
