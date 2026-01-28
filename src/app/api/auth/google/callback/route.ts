@@ -4,6 +4,9 @@ import { getTokensFromCode } from "@/lib/google-drive/client";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { getSessionWithProfile } from "@/lib/auth/server";
 
+// Use the public app URL for redirects (handles reverse proxy/Docker scenarios)
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3001";
+
 /**
  * Handle Google OAuth callback
  * GET /api/auth/google/callback
@@ -19,13 +22,13 @@ export async function GET(request: Request) {
     if (error) {
       console.error("Google OAuth error:", error);
       return NextResponse.redirect(
-        new URL("/?error=google_auth_failed", request.url)
+        new URL("/?error=google_auth_failed", APP_URL)
       );
     }
 
     if (!code) {
       return NextResponse.redirect(
-        new URL("/?error=missing_code", request.url)
+        new URL("/?error=missing_code", APP_URL)
       );
     }
 
@@ -48,7 +51,7 @@ export async function GET(request: Request) {
     if (!tokens.refresh_token) {
       console.error("No refresh token received from Google");
       return NextResponse.redirect(
-        new URL("/?error=no_refresh_token", request.url)
+        new URL("/?error=no_refresh_token", APP_URL)
       );
     }
 
@@ -57,7 +60,7 @@ export async function GET(request: Request) {
 
     if (!session) {
       return NextResponse.redirect(
-        new URL("/auth/sign-in?error=not_authenticated", request.url)
+        new URL("/auth/sign-in?error=not_authenticated", APP_URL)
       );
     }
 
@@ -75,7 +78,7 @@ export async function GET(request: Request) {
     if (!settings) {
       console.error("No practice_settings row found");
       return NextResponse.redirect(
-        new URL("/?error=practice_settings_not_found", request.url)
+        new URL("/?error=practice_settings_not_found", APP_URL)
       );
     }
 
@@ -90,7 +93,7 @@ export async function GET(request: Request) {
     if (updateError) {
       console.error("Error storing Google tokens:", updateError);
       return NextResponse.redirect(
-        new URL("/?error=token_storage_failed", request.url)
+        new URL("/?error=token_storage_failed", APP_URL)
       );
     }
 
@@ -100,12 +103,12 @@ export async function GET(request: Request) {
     // Redirect to return URL with success
     const separator = returnUrl.includes("?") ? "&" : "?";
     return NextResponse.redirect(
-      new URL(`${returnUrl}${separator}google_connected=true`, request.url)
+      new URL(`${returnUrl}${separator}google_connected=true`, APP_URL)
     );
   } catch (error) {
     console.error("Google OAuth callback error:", error);
     return NextResponse.redirect(
-      new URL("/?error=auth_callback_failed", request.url)
+      new URL("/?error=auth_callback_failed", APP_URL)
     );
   }
 }
