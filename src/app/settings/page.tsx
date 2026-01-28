@@ -5,6 +5,8 @@ import { ProfileSettingsForm } from "./profile-settings-form";
 import { PracticeSettingsForm } from "./practice-settings-form";
 import { IntegrationsPanel } from "./integrations-panel";
 
+export const dynamic = 'force-dynamic';
+
 export default async function SettingsPage() {
   const { session, profile } = await getSessionWithProfile();
   const { data: practiceSettings } = await getPracticeSettings();
