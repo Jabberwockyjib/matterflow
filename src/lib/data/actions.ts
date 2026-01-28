@@ -2762,15 +2762,15 @@ export async function syncGmailForMatter(matterId: string): Promise<ActionResult
     return { error: "Client email not found" };
   }
 
-  // Get lawyer's refresh token
-  const { data: profile } = await supabase
-    .from("profiles")
+  // Get practice-wide Google refresh token
+  const { data: practiceSettings } = await supabase
+    .from("practice_settings")
     .select("google_refresh_token")
-    .eq("user_id", roleCheck.session.user.id)
+    .limit(1)
     .single();
 
-  if (!profile?.google_refresh_token) {
-    return { error: "Google account not connected. Please connect in Settings." };
+  if (!practiceSettings?.google_refresh_token) {
+    return { error: "Google account not connected. Please connect in Settings > Integrations." };
   }
 
   const clientEmail = clientUser.email.toLowerCase();
@@ -2778,7 +2778,7 @@ export async function syncGmailForMatter(matterId: string): Promise<ActionResult
   // Fetch emails to/from client
   const query = `from:${clientEmail} OR to:${clientEmail}`;
   const result = await fetchGmailEmails({
-    refreshToken: profile.google_refresh_token,
+    refreshToken: practiceSettings.google_refresh_token,
     query,
     maxResults: 100,
   });
@@ -2846,4 +2846,109 @@ export async function syncGmailForMatter(matterId: string): Promise<ActionResult
 
   revalidatePath(`/matters/${matterId}`);
   return { ok: true, data: { synced, skipped } };
+}
+
+/**
+ * Sync Gmail emails for a matter (internal function for cron jobs)
+ * Does not require authentication - uses service role
+ */
+export async function syncGmailForMatterInternal(
+  matterId: string,
+  refreshToken: string
+): Promise<{ ok: boolean; synced?: number; skipped?: number; error?: string }> {
+  const supabase = supabaseAdmin();
+
+  // Get matter with client info
+  const { data: matter, error: matterError } = await supabase
+    .from("matters")
+    .select("id, client_id")
+    .eq("id", matterId)
+    .single();
+
+  if (matterError || !matter) {
+    return { ok: false, error: "Matter not found" };
+  }
+
+  if (!matter.client_id) {
+    return { ok: false, error: "Matter has no client assigned" };
+  }
+
+  // Get client email
+  const { data: { user: clientUser } } = await supabase.auth.admin.getUserById(matter.client_id);
+  if (!clientUser?.email) {
+    return { ok: false, error: "Client email not found" };
+  }
+
+  const clientEmail = clientUser.email.toLowerCase();
+
+  // Fetch emails to/from client
+  const query = `from:${clientEmail} OR to:${clientEmail}`;
+  const result = await fetchGmailEmails({
+    refreshToken,
+    query,
+    maxResults: 100,
+  });
+
+  if (!result.ok || !result.emails) {
+    return { ok: false, error: result.error || "Failed to fetch emails" };
+  }
+
+  let synced = 0;
+  let skipped = 0;
+
+  for (const email of result.emails) {
+    // Check if already synced
+    const { data: existing } = await supabase
+      .from("matter_emails")
+      .select("id")
+      .eq("gmail_message_id", email.id)
+      .maybeSingle();
+
+    if (existing) {
+      skipped++;
+      continue;
+    }
+
+    // Determine direction
+    const fromEmail = extractEmailAddress(email.from);
+    const direction = fromEmail === clientEmail ? "received" : "sent";
+
+    // Generate AI summary
+    const { summary, actionNeeded } = await summarizeEmail({
+      subject: email.subject,
+      snippet: email.snippet,
+      direction,
+    });
+
+    // Insert into database
+    const { error: insertError } = await supabase.from("matter_emails").insert({
+      matter_id: matterId,
+      gmail_message_id: email.id,
+      thread_id: email.threadId,
+      direction,
+      from_email: email.from,
+      to_email: email.to,
+      subject: email.subject,
+      snippet: email.snippet,
+      ai_summary: summary,
+      action_needed: actionNeeded,
+      gmail_date: new Date(parseInt(email.internalDate)).toISOString(),
+      gmail_link: `https://mail.google.com/mail/u/0/#inbox/${email.id}`,
+    });
+
+    if (!insertError) {
+      synced++;
+    }
+  }
+
+  await logAudit({
+    supabase,
+    actorId: null, // System/cron action
+    eventType: "gmail_sync_cron",
+    entityType: "matter",
+    entityId: matterId,
+    metadata: { synced, skipped },
+  });
+
+  return { ok: true, synced, skipped };
 }
