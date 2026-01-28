@@ -3,20 +3,22 @@ import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "@/lib/utils";
 
 const buttonVariants = cva(
-  "inline-flex items-center justify-center gap-2 rounded-md text-sm font-semibold transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 disabled:pointer-events-none disabled:opacity-60 active:scale-95",
+  "inline-flex items-center justify-center gap-2 rounded-md text-sm font-semibold transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50 disabled:pointer-events-none disabled:opacity-60 active:scale-95",
   {
     variants: {
       variant: {
         default:
-          "bg-primary text-primary-foreground hover:bg-primary/90 shadow-md hover:shadow-lg",
+          "bg-primary text-primary-foreground hover:bg-primary/90 hover:ring-2 hover:ring-accent/30 shadow-md hover:shadow-lg",
+        accent:
+          "bg-accent text-accent-foreground hover:bg-accent/90 shadow-md hover:shadow-lg",
         secondary:
-          "bg-white text-slate-900 border-2 border-slate-200 hover:bg-slate-50 shadow-sm hover:shadow-md",
+          "bg-white text-slate-900 border-2 border-slate-200 hover:border-accent/50 hover:bg-accent/5 shadow-sm hover:shadow-md",
         destructive:
           "bg-red-600 text-white hover:bg-red-700 shadow-md hover:shadow-lg",
-        ghost: "text-slate-800 hover:bg-slate-100",
+        ghost: "text-slate-800 hover:bg-slate-100 hover:text-accent-foreground",
         outline:
-          "border-2 border-slate-200 text-slate-900 bg-white hover:bg-slate-50 shadow-sm",
-        link: "text-slate-900 underline-offset-4 hover:underline",
+          "border-2 border-slate-200 text-slate-900 bg-white hover:border-accent/50 hover:bg-accent/5 shadow-sm",
+        link: "text-slate-900 underline-offset-4 hover:underline hover:text-accent-foreground",
       },
       size: {
         default: "h-10 px-4",

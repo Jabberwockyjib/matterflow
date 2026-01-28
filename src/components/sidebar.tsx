@@ -89,23 +89,23 @@ export function Sidebar({ role, profileName }: SidebarProps) {
   return (
     <aside
       className={cn(
-        "flex flex-col border-r border-slate-200 bg-white transition-all duration-200",
+        "flex flex-col border-r border-slate-200 bg-gradient-to-b from-white to-slate-50/50 transition-all duration-200",
         collapsed ? "w-16" : "w-60"
       )}
     >
       {/* Logo */}
-      <div className="flex h-16 items-center border-b border-slate-200 px-4">
+      <div className="flex h-16 items-center border-b border-slate-200 px-4 bg-white">
         {collapsed ? (
-          <div className="h-8 w-8 rounded-lg bg-slate-900 text-xs font-semibold uppercase text-white grid place-items-center">
+          <div className="h-8 w-8 rounded-lg bg-primary text-xs font-semibold uppercase text-white grid place-items-center shadow-sm ring-2 ring-accent/20">
             MF
           </div>
         ) : (
-          <Link href="/" className="flex items-center gap-2">
-            <div className="h-8 w-8 rounded-lg bg-slate-900 text-xs font-semibold uppercase text-white grid place-items-center">
+          <Link href="/" className="flex items-center gap-2 group">
+            <div className="h-8 w-8 rounded-lg bg-primary text-xs font-semibold uppercase text-white grid place-items-center shadow-sm ring-2 ring-accent/20 group-hover:ring-accent/40 transition-all">
               MF
             </div>
             <div>
-              <p className="text-xs uppercase tracking-[0.2em] text-slate-500">
+              <p className="text-xs uppercase tracking-[0.2em] text-accent font-semibold">
                 MatterFlow
               </p>
               <p className="text-sm font-semibold text-slate-900">{isClient ? "Client Portal" : "Control Center"}</p>
@@ -125,14 +125,14 @@ export function Sidebar({ role, profileName }: SidebarProps) {
               <Link key={link.href} href={link.href}>
                 <div
                   className={cn(
-                    "flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors",
+                    "flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-all duration-200",
                     active
-                      ? "bg-blue-50 text-blue-700 border-l-4 border-blue-700"
-                      : "text-slate-700 hover:bg-slate-100",
+                      ? "bg-accent/10 text-primary border-l-4 border-accent font-semibold"
+                      : "text-slate-600 hover:bg-accent/5 hover:text-slate-900",
                     collapsed && "justify-center px-2"
                   )}
                 >
-                  <Icon className="h-5 w-5 flex-shrink-0" />
+                  <Icon className={cn("h-5 w-5 flex-shrink-0", active && "text-accent")} />
                   {!collapsed && <span className="font-medium">{link.label}</span>}
                 </div>
               </Link>
@@ -144,7 +144,7 @@ export function Sidebar({ role, profileName }: SidebarProps) {
         {isAdmin && (
           <div className="mt-6">
             {!collapsed && (
-              <div className="px-3 py-2 text-xs font-semibold uppercase tracking-wider text-slate-500">
+              <div className="px-3 py-2 text-xs font-semibold uppercase tracking-wider text-accent">
                 Admin
               </div>
             )}
@@ -157,14 +157,14 @@ export function Sidebar({ role, profileName }: SidebarProps) {
                   <Link key={link.href} href={link.href}>
                     <div
                       className={cn(
-                        "flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors",
+                        "flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-all duration-200",
                         active
-                          ? "bg-blue-50 text-blue-700 border-l-4 border-blue-700"
-                          : "text-slate-700 hover:bg-slate-100",
+                          ? "bg-accent/10 text-primary border-l-4 border-accent font-semibold"
+                          : "text-slate-600 hover:bg-accent/5 hover:text-slate-900",
                         collapsed && "justify-center px-2"
                       )}
                     >
-                      <Icon className="h-5 w-5 flex-shrink-0" />
+                      <Icon className={cn("h-5 w-5 flex-shrink-0", active && "text-accent")} />
                       {!collapsed && <span className="font-medium">{link.label}</span>}
                     </div>
                   </Link>
@@ -176,30 +176,30 @@ export function Sidebar({ role, profileName }: SidebarProps) {
       </nav>
 
       {/* Bottom Section */}
-      <div className="border-t border-slate-200 p-2">
+      <div className="border-t border-slate-200 p-2 bg-white/50">
         {/* Settings Link */}
         <Link href="/settings">
           <div
             className={cn(
-              "flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors",
+              "flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-all duration-200",
               isActive("/settings")
-                ? "bg-blue-50 text-blue-700 border-l-4 border-blue-700"
-                : "text-slate-700 hover:bg-slate-100",
+                ? "bg-accent/10 text-primary border-l-4 border-accent font-semibold"
+                : "text-slate-600 hover:bg-accent/5 hover:text-slate-900",
               collapsed && "justify-center px-2"
             )}
           >
-            <Settings className="h-5 w-5 flex-shrink-0" />
+            <Settings className={cn("h-5 w-5 flex-shrink-0", isActive("/settings") && "text-accent")} />
             {!collapsed && <span className="font-medium">Settings</span>}
           </div>
         </Link>
 
         {/* Profile Section */}
         {!collapsed && profileName && (
-          <div className="mt-2 px-3 py-2">
+          <div className="mt-2 px-3 py-2 rounded-md bg-accent/5 border border-accent/10">
             <p className="text-sm font-semibold text-slate-900 truncate">
               {profileName}
             </p>
-            <p className="text-xs uppercase tracking-wide text-slate-500">
+            <p className="text-xs uppercase tracking-wide text-accent font-medium">
               {role || "user"}
             </p>
           </div>
