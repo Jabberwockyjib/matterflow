@@ -77,6 +77,27 @@ get-library-docs({
 
 **Important**: Always use `browser_snapshot` (accessibility tree) instead of screenshots for interacting with pages. Screenshots are for visual reference only.
 
+### Supabase MCP (supabase-therapy)
+**Purpose**: Production database management for the hosted Supabase instance
+
+**Key Capabilities**:
+- `execute_sql` - Run SQL queries against production database
+- `apply_migration` - Apply DDL migrations
+- `list_tables` - List all tables in the database
+- `get_logs` - Fetch logs by service type
+- `get_advisors` - Check for security/performance issues
+
+**IMPORTANT - Production Migrations**:
+- **ALWAYS use this MCP to apply migrations to production** instead of manual SQL or Supabase CLI
+- When new migrations are added to `supabase/migrations/`, apply them via `execute_sql`
+- Check for missing migrations by comparing files in `supabase/migrations/` with what's deployed
+- Use `get_advisors` periodically to check for security issues (missing RLS policies, etc.)
+
+**Example - Applying a migration**:
+```
+mcp__supabase-therapy__execute_sql({ query: "ALTER TABLE ... ADD COLUMN ..." })
+```
+
 ## Essential Commands
 
 ```bash
