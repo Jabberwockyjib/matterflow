@@ -357,9 +357,25 @@ digraph redaction_flow {
 
 1. **Two-pass approach:** First use regex patterns (fast, no API), then NER for names/organizations
 2. **Preserve redaction map:** Store original → placeholder mapping if you need to restore later
-3. **Context matters:** "John Smith, LPCC" should become "[PERSON_NAME], LPCC" (keep credential)
+3. **CRITICAL - Preserve credentials:** "John Smith, LPCC" → "[PERSON], LPCC" (credential visible for compliance checking)
 4. **Report output:** Use placeholders in the report; attorney fills in actual names when delivering to client
 5. **Audit trail:** Log that redaction occurred, but don't log the redacted content
+
+### Why Credentials Must Be Preserved
+
+The skill checks for:
+- License type clearly stated (LSW, LISW, LPC, LPCC, LMFT, etc.)
+- Credential present in professional disclosure
+
+If credentials are redacted with names, these compliance checks fail. The redaction pattern must capture only the name, not the trailing credential:
+
+```typescript
+// ✗ BAD: Redacts credential with name
+/Breanna DeSandro LPCC, LLC/gi → "[PRACTICE]"
+
+// ✓ GOOD: Preserves credential for compliance
+/Breanna DeSandro/gi → "[PERSON] LPCC, LLC"
+```
 
 ### Sample Regex Patterns (JavaScript/TypeScript)
 
