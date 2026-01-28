@@ -107,6 +107,13 @@ pnpm dev                  # Start Next.js on port 3001 (access via http://matter
 pnpm build                # Production build
 pnpm start                # Run production server
 
+# Production Deployment (VPS)
+ssh deploy@178.156.188.33                    # SSH into production server
+# On VPS: cd /var/www/matterflow && git pull && pnpm install && pnpm build && pm2 restart matterflow
+
+# Quick deploy from local (push + deploy)
+git push origin main && ssh deploy@178.156.188.33 "cd /var/www/matterflow && git pull && pnpm install && pnpm build && pm2 restart matterflow"
+
 # Quality checks
 pnpm lint                 # ESLint (Next.js config)
 pnpm typecheck            # TypeScript validation (no emit)
@@ -139,6 +146,17 @@ supabase gen types typescript --local > src/types/database.types.ts
 | Supabase API | http://api.matterflow.local |
 | Supabase Studio | http://studio.matterflow.local |
 | Mailpit Email | http://mail.matterflow.local |
+
+## Production Environment
+
+| Resource | Details |
+|----------|---------|
+| App URL | https://matter.develotype.com |
+| VPS IP | 178.156.188.33 |
+| SSH Access | `ssh deploy@178.156.188.33` |
+| App Directory | /var/www/matterflow |
+| Process Manager | PM2 (`pm2 restart matterflow`) |
+| Database | Supabase Cloud (hosted) |
 
 ## Architecture & Key Patterns
 

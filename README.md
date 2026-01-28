@@ -258,34 +258,54 @@ Current test files:
 
 ## 🚢 Deployment
 
-### Vercel (Recommended)
+### VPS Deployment (Production)
 
-1. Push to GitHub
-2. Import project in Vercel
-3. Add environment variables
-4. Deploy
+The app is deployed to a VPS at `178.156.188.33` (matter.develotype.com).
+
+**SSH Access:**
+```bash
+ssh deploy@178.156.188.33
+```
+
+**Deploy Process:**
+1. Push changes to GitHub (main branch)
+2. SSH into the VPS
+3. Pull latest changes and rebuild:
+   ```bash
+   cd /var/www/matterflow
+   git pull origin main
+   pnpm install
+   pnpm build
+   pm2 restart matterflow
+   ```
+
+**Quick Deploy (from local machine):**
+```bash
+git push origin main && ssh deploy@178.156.188.33 "cd /var/www/matterflow && git pull && pnpm install && pnpm build && pm2 restart matterflow"
+```
 
 ### Supabase
 
-- Use Supabase Cloud (not local)
-- Run migrations: `supabase db push`
+- Uses Supabase Cloud (hosted)
+- Run migrations via Supabase MCP or dashboard
+- See CLAUDE.md for MCP instructions
 
 ### Email Cron (Production)
 
-Add `vercel.json`:
+Set up system cron on VPS:
 
-```json
-{
-  "crons": [
-    {
-      "path": "/api/cron/email-automations",
-      "schedule": "0 9 * * *"
-    }
-  ]
-}
+```bash
+# Edit crontab
+crontab -e
+
+# Add daily email automations at 9 AM UTC
+0 9 * * * curl -X POST -H "Authorization: Bearer $CRON_SECRET" https://matter.develotype.com/api/cron/email-automations
+
+# Add hourly Gmail sync
+0 * * * * curl -X POST -H "Authorization: Bearer $CRON_SECRET" https://matter.develotype.com/api/cron/gmail-sync
 ```
 
-See [EMAIL_INTEGRATION.md](EMAIL_INTEGRATION.md) for alternative cron setups.
+See [EMAIL_INTEGRATION.md](EMAIL_INTEGRATION.md) for more details.
 
 ---
 

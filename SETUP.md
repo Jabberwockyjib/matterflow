@@ -516,22 +516,24 @@ To test emails are working:
 
 Email reminders (intake, activity, invoice) run on a schedule. For production:
 
-**Option 1: Vercel Cron (if deploying to Vercel)**
+**Option 1: VPS System Cron (Current Setup)**
 
-Create `vercel.json`:
+SSH into the VPS and edit crontab:
 
-```json
-{
-  "crons": [
-    {
-      "path": "/api/cron/email-automations",
-      "schedule": "0 9 * * *"
-    }
-  ]
-}
+```bash
+ssh deploy@178.156.188.33
+crontab -e
 ```
 
-Add `CRON_SECRET` to your Vercel environment variables.
+Add these entries:
+
+```bash
+# Daily email automations at 9 AM UTC
+0 9 * * * curl -X POST -H "Authorization: Bearer $CRON_SECRET" https://matter.develotype.com/api/cron/email-automations
+
+# Hourly Gmail sync
+0 * * * * curl -X POST -H "Authorization: Bearer $CRON_SECRET" https://matter.develotype.com/api/cron/gmail-sync
+```
 
 **Option 2: GitHub Actions**
 
@@ -557,7 +559,7 @@ jobs:
 
 Use [cron-job.org](https://cron-job.org), [EasyCron](https://www.easycron.com), or similar:
 
-- URL: `https://yourapp.com/api/cron/email-automations`
+- URL: `https://matter.develotype.com/api/cron/email-automations`
 - Method: GET
 - Header: `Authorization: Bearer YOUR_CRON_SECRET`
 - Schedule: Daily at 9 AM
@@ -678,24 +680,53 @@ supabase db push
 
 ## Production Deployment
 
-### Before deploying to production:
+### VPS Details
 
-1. **Update environment variables**:
-   - Change `NEXT_PUBLIC_APP_URL` to your domain
-   - Change `GOOGLE_REDIRECT_URI` to production callback URL
-   - Update Google Cloud Console redirect URIs
+- **Server**: `178.156.188.33` (matter.develotype.com)
+- **SSH Access**: `ssh deploy@178.156.188.33`
+- **App Directory**: `/var/www/matterflow`
+- **Process Manager**: PM2
+
+### Deploy Process
+
+1. **Push to GitHub**:
+   ```bash
+   git push origin main
+   ```
+
+2. **SSH and deploy**:
+   ```bash
+   ssh deploy@178.156.188.33
+   cd /var/www/matterflow
+   git pull origin main
+   pnpm install
+   pnpm build
+   pm2 restart matterflow
+   ```
+
+3. **One-liner deploy** (from local machine):
+   ```bash
+   git push origin main && ssh deploy@178.156.188.33 "cd /var/www/matterflow && git pull && pnpm install && pnpm build && pm2 restart matterflow"
+   ```
+
+### Environment Setup (First-time)
+
+1. **Update environment variables** on VPS:
+   - Edit `/var/www/matterflow/.env.local`
+   - Set `NEXT_PUBLIC_APP_URL=https://matter.develotype.com`
+   - Set production OAuth callback URLs
 
 2. **Set up production database**:
-   - Use Supabase Cloud (not local)
-   - Run migrations: `supabase db push`
+   - Use Supabase Cloud (hosted)
+   - Apply migrations via Supabase MCP
 
 3. **Configure email scheduling**:
-   - Set up Vercel Cron or GitHub Actions
-   - Add `CRON_SECRET` to production environment
+   - Set up system cron (see Email section above)
+   - Add `CRON_SECRET` to `.env.local`
 
 4. **Enable production OAuth**:
    - In Google Cloud Console, publish OAuth consent screen
-   - Remove "Testing" status if applicable
+   - Add `https://matter.develotype.com` to authorized origins/redirects
 
 5. **Test everything**:
    - Create test matter
