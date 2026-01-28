@@ -16,7 +16,7 @@ import {
   isInvoiceSynced,
 } from "./invoices";
 import { isSquareConfigured } from "./client";
-import type { Result, SyncSquarePaymentResult } from "./types";
+import type { SyncSquarePaymentResult } from "./types";
 
 export type ActionResult =
   | { ok: true; data?: any }
@@ -34,7 +34,7 @@ export type ActionResult =
 export async function syncInvoiceToSquare(
   invoiceId: string,
 ): Promise<ActionResult> {
-  if (!isSquareConfigured()) {
+  if (!(await isSquareConfigured())) {
     return {
       error:
         "Square not configured. Set SQUARE_ACCESS_TOKEN and SQUARE_LOCATION_ID.",
@@ -158,7 +158,7 @@ export async function syncInvoiceToSquare(
 export async function syncSquarePaymentStatus(
   squareInvoiceId: string,
 ): Promise<SyncSquarePaymentResult> {
-  if (!isSquareConfigured()) {
+  if (!(await isSquareConfigured())) {
     return {
       error: "Square not configured",
     };
@@ -313,7 +313,7 @@ export async function syncSquarePaymentStatus(
 export async function getSquarePaymentUrl(
   invoiceId: string,
 ): Promise<ActionResult> {
-  if (!isSquareConfigured()) {
+  if (!(await isSquareConfigured())) {
     return {
       error: "Square not configured",
     };
@@ -392,7 +392,7 @@ function mapSquareStatusToMatterFlow(
  * Check if Square is properly configured
  */
 export async function checkSquareConfiguration(): Promise<ActionResult> {
-  const configured = isSquareConfigured();
+  const configured = await isSquareConfigured();
 
   if (!configured) {
     return {

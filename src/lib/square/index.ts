@@ -9,9 +9,26 @@ export {
   createSquareClient,
   getSquareLocationId,
   isSquareConfigured,
+  isSquareConfiguredSync,
   getSquareWebhookSignatureKey,
   isProductionMode,
+  getSquareCredentials,
 } from "./client";
+
+export type { SquareCredentials } from "./client";
+
+// OAuth
+export {
+  getSquareOAuthConfig,
+  getSquareAuthUrl,
+  exchangeCodeForTokens,
+  refreshSquareToken,
+  fetchMerchantInfo,
+  fetchFirstLocation,
+  SQUARE_SCOPES,
+} from "./oauth";
+
+export type { SquareOAuthConfig, TokenResponse, MerchantInfo, LocationInfo } from "./oauth";
 
 // Types
 export type {

@@ -3186,6 +3186,109 @@ export async function disconnectGoogle(): Promise<ActionResult> {
 }
 
 /**
+ * Disconnect Square OAuth
+ * Staff/Admin only
+ */
+export async function disconnectSquare(): Promise<ActionResult> {
+  const roleCheck = await ensureStaffOrAdmin();
+  if ("error" in roleCheck) return roleCheck;
+
+  if (!supabaseEnvReady()) {
+    return { error: "Service unavailable" };
+  }
+
+  const supabase = supabaseAdmin();
+  const { data: settings } = await supabase
+    .from("practice_settings")
+    .select("id")
+    .limit(1)
+    .single();
+
+  if (!settings) {
+    return { error: "Practice settings not found" };
+  }
+
+  const { error } = await supabase
+    .from("practice_settings")
+    .update({
+      square_access_token: null,
+      square_refresh_token: null,
+      square_merchant_id: null,
+      square_location_id: null,
+      square_location_name: null,
+      square_connected_at: null,
+    })
+    .eq("id", settings.id);
+
+  if (error) {
+    console.error("Error disconnecting Square:", error);
+    return { error: "Failed to disconnect Square" };
+  }
+
+  await logAudit({
+    supabase,
+    actorId: roleCheck.session.user.id,
+    eventType: "square_disconnected",
+    entityType: "practice_settings",
+    entityId: settings.id,
+    metadata: {},
+  });
+
+  revalidatePath("/settings");
+  return { ok: true };
+}
+
+/**
+ * Save Square webhook signature key
+ * Staff/Admin only
+ */
+export async function saveSquareWebhookKey(
+  signatureKey: string
+): Promise<ActionResult> {
+  const roleCheck = await ensureStaffOrAdmin();
+  if ("error" in roleCheck) return roleCheck;
+
+  if (!supabaseEnvReady()) {
+    return { error: "Service unavailable" };
+  }
+
+  const supabase = supabaseAdmin();
+  const { data: settings } = await supabase
+    .from("practice_settings")
+    .select("id")
+    .limit(1)
+    .single();
+
+  if (!settings) {
+    return { error: "Practice settings not found" };
+  }
+
+  const { error } = await supabase
+    .from("practice_settings")
+    .update({
+      square_webhook_signature_key: signatureKey,
+    })
+    .eq("id", settings.id);
+
+  if (error) {
+    console.error("Error saving webhook key:", error);
+    return { error: "Failed to save webhook key" };
+  }
+
+  await logAudit({
+    supabase,
+    actorId: roleCheck.session.user.id,
+    eventType: "square_webhook_key_updated",
+    entityType: "practice_settings",
+    entityId: settings.id,
+    metadata: {},
+  });
+
+  revalidatePath("/settings");
+  return { ok: true };
+}
+
+/**
  * Resend intake reminder email to client
  * Staff/Admin only
  */
