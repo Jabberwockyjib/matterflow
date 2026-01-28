@@ -3,43 +3,50 @@
 ## In Progress
 - (none)
 
-## Next Up (Pre-Launch)
-- [x] Apply database migrations when Docker is running
-- [x] Push all commits to origin: `git push`
-- [x] Add ANTHROPIC_API_KEY to environment
-- [ ] Manual E2E test: Full matter lifecycle with Gmail sync
+## Next Up
+- [ ] Manual E2E test: Full client onboarding flow (invite → signup → intake → review → approve)
 - [ ] Test Square webhook with ngrok for payment confirmation emails
-- [ ] Production environment setup (Supabase, Google OAuth, Square, Resend, OpenAI)
 - [ ] CaseFox data migration
+- [ ] Set up production monitoring/alerting
 
 ## Backlog
 - [ ] Invoice PDF generation
 - [ ] Document template variable extraction
 - [ ] SSO beyond Google
 - [ ] Call scheduling with calendar invites
-- [ ] Email delivery status tracking (Resend webhooks for bounces/opens)
+- [ ] Email delivery status tracking (Gmail read receipts)
 - [ ] Unsubscribe preferences for non-essential emails
+- [ ] Bulk invitation import (CSV)
+
+## Completed (This Session - 2026-01-28)
+- [x] Fixed Google OAuth redirect for production (use NEXT_PUBLIC_APP_URL)
+- [x] Updated integrations panel - removed Resend, added Google Workspace status with Drive+Gmail indicators
+- [x] Implemented automatic Gmail sync cron endpoint (`/api/cron/gmail-sync`)
+- [x] Added Google disconnect/reconnect functionality in settings
+- [x] Fixed AI JSON parsing when Claude returns markdown-wrapped responses (stripMarkdownCodeBlock helper)
+- [x] Set up VPS auto-deploy script (polls git every 5 minutes)
+- [x] Fixed client invitation email flow (contact_email was missing in practice_settings)
+- [x] Fixed client signup redirect to continue intake flow after authentication
+- [x] Added resend intake reminder with copy link button on matter detail page
+- [x] Fixed "no email provided" on intake cards - now fetches from auth instead of form responses
+- [x] Enabled "Review Intake" button - links to `/admin/intake/[intakeId]`
+- [x] Added file upload support for intake forms via `/api/intake/upload`
+- [x] Auto-initialize Google Drive folders when uploading intake files
+- [x] Added General intake template for matters created with "General" type
+- [x] Created invitation detail page at `/admin/invitations/[id]`
+- [x] Added resendInvitationEmail, cancelInvitation, extendInvitation server actions
+- [x] Enabled View and Copy buttons on invitation pipeline cards
 
 ## Completed (Previous Sessions)
+### 2026-01-27
+- [x] Implemented Gmail incoming email sync with AI summaries
+- [x] Created automation configuration UI at `/admin/settings/automations`
+- [x] Added AI document summary on upload
+
 ### 2026-01-21
 - [x] Implemented email template branding/configuration system
-  - Created `firm_settings` database table with migration
-  - Added `FirmSettings` type definition (`src/types/firm-settings.ts`)
-  - Added `getFirmSettings()` query with 5-minute in-memory caching
-  - Added `updateFirmSettings()` admin-only server action
-  - Added `ensureAdmin()` authorization helper
-  - Updated `base-layout.tsx` to accept and use settings
-  - Updated all 11 email templates to accept `settings` prop
-  - Updated all 12 email action functions to fetch and pass settings
-  - Built admin settings page at `/admin/settings` with live preview
 - [x] Added email template tests for payment-received and intake-declined
-- [x] Applied migration to local database
-### 2026-01-13
-- [x] Reviewed and committed email system changes (`3a76b48`)
-- [x] Committed session handoff files, plans, and document templates
 
-### 2026-01-07
-- [x] Fixed intake form validation - number fields now parse strings
-- [x] Added info request/response email notifications
-- [x] Created `payment-received.tsx` and `intake-declined.tsx` templates
-- [x] Added email audit logging to `audit_logs` table
+### 2026-01-13
+- [x] Reviewed and committed email system changes
+- [x] Committed session handoff files, plans, and document templates

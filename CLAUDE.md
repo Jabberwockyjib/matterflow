@@ -227,10 +227,14 @@ Copy `.env.example` to `.env.local` and populate:
 
 ## Email System
 
+**Email stack**: Gmail API for sending, React Email for templates. Practice-wide Google OAuth token stored in `practice_settings.google_refresh_token`.
+
 **Transactional emails** are automatically sent for:
+- Client invitation → Client receives invite email with signup link
 - Matter created → Client receives welcome email
 - Invoice marked as "sent" → Client receives invoice email with payment link
 - Task assigned to client → Client receives task notification
+- Intake submitted → Lawyer receives notification
 
 **Email automations** run via cron:
 - Intake reminders (24h after matter created in "Intake Sent" stage)
@@ -238,9 +242,11 @@ Copy `.env.example` to `.env.local` and populate:
 - Lawyer activity reminders (7 days idle)
 - Invoice reminders (3, 7, 14 days overdue)
 
-**Email stack**: Resend for transactional emails, React Email for templates. See `EMAIL_INTEGRATION.md` for full documentation.
+**Cron endpoints**:
+- `/api/cron/email-automations` - Daily automated emails
+- `/api/cron/gmail-sync` - Hourly sync of incoming emails for all active matters
 
-**Cron endpoint**: `/api/cron/email-automations` - Call daily via Vercel Cron, GitHub Actions, or external cron service.
+**Important**: Contact email must be set in Settings > Practice for emails to send. Gmail must be connected in Settings > Integrations.
 
 ## Google Drive Integration
 
@@ -303,7 +309,7 @@ See `SQUARE_INTEGRATION.md` for complete setup guide and API reference.
 ## Intake Form System
 
 **Dynamic client intake forms** per matter type:
-- Pre-built templates for Contract Review, Employment Agreements, Policy Review
+- Pre-built templates for Contract Review, Employment Agreements, Policy Review, General
 - Flexible field types: text, email, phone, select, multiselect, file uploads, conditional fields
 - Built-in validation (required fields, email format, phone format, file size/type)
 - Draft saving for client convenience

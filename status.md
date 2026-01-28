@@ -1,83 +1,108 @@
 # Project Status
 
-**Last Updated:** 2026-01-27
+**Last Updated:** 2026-01-28
 
 ## Current State
 
-MatterFlow is feature-complete for launch. All 3 launch blockers have been implemented.
+MatterFlow is deployed to production at `matter.develotype.com` on a Hetzner VPS. The full client onboarding flow is now working: invite client → client signs up → client fills intake form (with file uploads) → admin reviews and approves. Gmail is used for all email sending (no longer using Resend). Auto-deploy is configured via git polling script on VPS.
 
-**What's Ready:**
+**What's Working:**
 - Matter pipeline, time tracking, invoicing, Square payments
 - Client portal (view, upload, intake forms, pay)
-- Email sending (all notifications + branding)
-- Google Drive document organization
-- Gmail incoming email sync with AI summaries (NEW)
-- Automation configuration UI at `/admin/settings/automations` (NEW)
-- AI document summary on upload (NEW)
+- Email sending via Gmail API (practice-wide OAuth)
+- Google Drive document organization with auto-folder creation
+- Gmail incoming email sync with AI summaries
+- Automatic Gmail sync via cron (`/api/cron/gmail-sync`)
+- Automation configuration UI at `/admin/settings/automations`
+- AI document summary on upload
+- Client invitation flow with email + link copying
+- Intake form submission with file uploads to Google Drive
+- Intake review with approve/decline/request info actions
+- Invitation management (view, resend, cancel, extend)
 
-**Design Document:** `docs/plans/2026-01-27-launch-scope-design.md`
-**Implementation Plan:** `docs/plans/2026-01-27-launch-features-implementation.md`
+**Production URL:** https://matter.develotype.com
+**Build Status:** `pnpm build` passes
 
-**Build Status:** `pnpm typecheck` passes
+## Recent Changes (2026-01-28)
 
-**Git Status:** 14 new commits ready to push
+### Production Deployment Fixes
+- `src/app/api/auth/google/callback/route.ts` - Fixed OAuth redirect to use `NEXT_PUBLIC_APP_URL`
+- `src/app/settings/integrations-panel.tsx` - Removed Resend, added Google Workspace with Drive+Gmail status
 
-## Recent Changes (2026-01-27)
+### Gmail Integration Improvements
+- `src/app/api/cron/gmail-sync/route.ts` - New cron endpoint for automatic Gmail sync
+- `src/lib/data/actions.ts` - Updated `syncGmailForMatter` to use practice-wide Google token
+- `src/lib/data/actions.ts` - Added `disconnectGoogle` action
+- `src/components/google-drive-connect.tsx` - Added disconnect/reconnect buttons
 
-### Launch Features Implemented
+### AI JSON Parsing Fix
+- `src/lib/ai/document-summary.ts` - Added `stripMarkdownCodeBlock` helper
+- `src/lib/ai/email-summary.ts` - Added `stripMarkdownCodeBlock` helper
+- `src/lib/document-templates/parsing.ts` - Added `stripMarkdownCodeBlock` helper
 
-**Feature 1: Gmail Incoming Email Sync**
-- `supabase/migrations/20260127000001_gmail_sync.sql` - matter_emails table
-- `src/lib/email/gmail-client.ts` - fetchGmailEmails(), extractEmailAddress()
-- `src/lib/ai/email-summary.ts` - AI email summary with action detection
-- `src/lib/data/actions.ts` - syncGmailForMatter() server action
-- `src/lib/data/queries.ts` - getMatterEmails() query
-- `src/components/matter/communications-tab.tsx` - UI component
-- `src/app/matters/[id]/page.tsx` - Added Communications tab
+### Client Onboarding Flow Fixes
+- `src/app/intake/invite/[code]/page.tsx` - Fixed redirect after signup to continue intake flow
+- `src/app/settings/practice-settings-form.tsx` - Made contact email required with helper text
+- `src/components/matters/resend-intake-button.tsx` - New component for resend + copy link
+- `src/app/matters/[id]/page.tsx` - Added yellow banner for "Intake Sent" stage with resend options
 
-**Feature 2: Automation Configuration UI**
-- `src/types/firm-settings.ts` - 8 new automation setting keys
-- `src/app/admin/settings/automations/` - Admin settings page
-- `src/lib/email/automations.ts` - Now reads from firm_settings
-- `src/components/ui/switch.tsx` - New shadcn/ui Switch component
+### Intake Review Workflow Fixes
+- `src/lib/data/queries.ts` - Updated `fetchIntakesByReviewStatus` to fetch client email from auth
+- `src/lib/data/queries.ts` - Added `clientEmail` and `clientName` to `IntakeReview` type
+- `src/components/clients/pipeline-card.tsx` - Enabled Review Intake button, linked to admin page
+- `src/app/api/intake/upload/route.ts` - New API route for file uploads with auto-folder creation
+- `src/lib/intake/client-actions.ts` - Client helper to call upload API
+- `src/app/intake/[matterId]/intake-form-client.tsx` - Updated to upload files before form submission
+- `src/lib/intake/templates.ts` - Added `generalIntakeTemplate` for "General" matter type
+- `src/app/admin/intake/[intakeId]/page.tsx` - Added null check for matter relation
 
-**Feature 3: AI Document Summary**
-- `supabase/migrations/20260127000002_document_ai_summary.sql` - AI fields on matter_documents
-- `supabase/migrations/20260127000003_documents_ai_summary.sql` - AI fields on documents
-- `src/lib/ai/document-summary.ts` - Document classification and summary
-- `src/lib/google-drive/actions.ts` - AI processing on upload
-- `src/components/matter-documents-tab.tsx` - Display AI summaries
+### Invitation Management
+- `src/app/admin/invitations/[id]/page.tsx` - New invitation detail page
+- `src/app/admin/invitations/[id]/invitation-actions.tsx` - Actions component
+- `src/lib/data/actions.ts` - Added `resendInvitationEmail`, `cancelInvitation`, `extendInvitation`
+- `src/components/clients/pipeline-card.tsx` - Enabled View and Copy buttons
 
-### New Dependencies
-- `@anthropic-ai/sdk` - AI summaries (Claude 3.5 Haiku)
-- `pdf-parse` - PDF text extraction
-- `@radix-ui/react-switch` - UI component
+## VPS Deployment
 
-### New Environment Variables Needed
-- `ANTHROPIC_API_KEY` - For AI summaries
+**Auto-deploy script:** `/home/deploy/auto-deploy.sh` (polls git every 5 minutes via cron)
 
-## Pre-Launch Checklist
-
-- [x] Apply database migrations (Docker must be running)
-- [x] Push all commits: `git push`
-- [x] Add `ANTHROPIC_API_KEY` to `.env.local`
-- [ ] Manual E2E test: Create matter, sync Gmail, upload document
-- [ ] Test automation settings at `/admin/settings/automations`
-- [ ] Production environment setup
-
-## Migrations to Apply
-
-```bash
-docker exec -i matterflow-db psql -U postgres -d postgres < supabase/migrations/20260127000001_gmail_sync.sql
-docker exec -i matterflow-db psql -U postgres -d postgres < supabase/migrations/20260127000002_document_ai_summary.sql
-docker exec -i matterflow-db psql -U postgres -d postgres < supabase/migrations/20260127000003_documents_ai_summary.sql
-pnpm supabase gen types typescript --local > src/types/database.types.ts
+**Cron jobs on VPS:**
 ```
+*/5 * * * * /home/deploy/auto-deploy.sh >> /home/deploy/auto-deploy.log 2>&1
+0 * * * * curl -s -H "Authorization: Bearer $CRON_SECRET" https://matter.develotype.com/api/cron/gmail-sync
+0 6 * * * curl -s -H "Authorization: Bearer $CRON_SECRET" https://matter.develotype.com/api/cron/email-automations
+```
+
+## Known Issues
+
+- Intake form file upload requires Google Drive to be connected (shows error if not)
+- Files uploaded before Google Drive folders existed won't retroactively appear (manual fix: re-upload)
+
+## Architecture Notes
+
+### Email Flow
+- All emails now sent via Gmail API using practice-wide OAuth token stored in `practice_settings.google_refresh_token`
+- No longer using Resend - removed from integrations panel
+- Contact email must be set in Settings > Practice for emails to send
+
+### Intake File Uploads
+- Files uploaded via `/api/intake/upload` API route (FormData)
+- Auto-creates Google Drive folders if they don't exist
+- Files stored in "00 Intake" folder under the matter
+- Document metadata stored in `documents` table
+
+### Invitation Flow
+- Invitations created in `client_invitations` table with unique `invite_code`
+- Client clicks link → redirected to signup → redirected back to `/intake/invite/[code]`
+- Matter auto-created with "Intake Sent" stage
+- Client fills intake form → stage changes to "Intake Received"
+- Admin reviews at `/admin/intake/[intakeId]`
 
 ## Verification Commands
 
 ```bash
-pnpm typecheck     # TypeScript validation
-pnpm test --run    # Run all tests
-pnpm dev           # Start dev server on port 3001
+pnpm build        # Production build (passes)
+pnpm typecheck    # TypeScript validation
+pnpm test --run   # Run all tests
+pnpm dev          # Start dev server on port 3001
 ```
