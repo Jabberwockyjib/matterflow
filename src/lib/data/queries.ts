@@ -1198,6 +1198,42 @@ export async function getPracticeSettings(): Promise<{
 }
 
 /**
+ * Gmail credentials for sending emails
+ */
+export type GmailCredentials = {
+  refreshToken: string;
+  fromEmail: string;
+  fromName: string;
+};
+
+/**
+ * Get Gmail credentials from practice_settings for sending emails
+ * Returns null if Gmail is not configured
+ */
+export async function getGmailCredentials(): Promise<GmailCredentials | null> {
+  if (!supabaseEnvReady()) {
+    return null;
+  }
+
+  const supabase = supabaseAdmin();
+  const { data, error } = await supabase
+    .from("practice_settings")
+    .select("google_refresh_token, contact_email, firm_name")
+    .limit(1)
+    .single();
+
+  if (error || !data?.google_refresh_token || !data?.contact_email) {
+    return null;
+  }
+
+  return {
+    refreshToken: data.google_refresh_token,
+    fromEmail: data.contact_email,
+    fromName: data.firm_name || "MatterFlow",
+  };
+}
+
+/**
  * Fetch all client users (role='client')
  */
 export async function fetchClients(): Promise<{

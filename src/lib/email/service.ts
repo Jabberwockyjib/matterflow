@@ -1,48 +1,59 @@
 "use server";
 
 import { render } from "@react-email/components";
-import { FROM_EMAIL, isResendConfigured, resend } from "./client";
+import { sendGmailEmail, isGmailConfigured } from "./gmail-client";
+import { getGmailCredentials } from "@/lib/data/queries";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import type { EmailMetadata, EmailSendRequest, EmailSendResult } from "./types";
 
 /**
- * Send an email using Resend
+ * Send an email using Gmail API
  * Logs the send to audit logs
  */
 export async function sendEmail(request: EmailSendRequest): Promise<EmailSendResult> {
-  // Check if Resend is configured
-  if (!isResendConfigured()) {
-    console.error("Cannot send email: RESEND_API_KEY not configured");
+  // Check if Gmail OAuth is configured
+  if (!isGmailConfigured()) {
+    console.error("Cannot send email: Google OAuth not configured");
     return {
       success: false,
-      error: "Email service not configured",
+      error: "Email service not configured - Google OAuth credentials missing",
+    };
+  }
+
+  // Get Gmail credentials from practice_settings
+  const credentials = await getGmailCredentials();
+  if (!credentials) {
+    console.error("Cannot send email: Gmail not connected in practice settings");
+    return {
+      success: false,
+      error: "Email service not configured - connect Gmail in Settings > Integrations",
     };
   }
 
   try {
-    const { data, error } = await resend.emails.send({
-      from: FROM_EMAIL,
-      to: Array.isArray(request.to) ? request.to : [request.to],
-      subject: request.subject,
-      html: request.html,
-      text: request.text,
-      replyTo: request.replyTo,
-      tags: request.metadata
-        ? [
-            { name: "type", value: request.metadata.type },
-            ...(request.metadata.matterId
-              ? [{ name: "matterId", value: request.metadata.matterId }]
-              : []),
-          ]
-        : undefined,
-    });
+    // Gmail API only supports single recipient per call, so send to each
+    const recipients = Array.isArray(request.to) ? request.to : [request.to];
+    let lastMessageId: string | undefined;
 
-    if (error) {
-      console.error("Resend error:", error);
-      return {
-        success: false,
-        error: error.message,
-      };
+    for (const recipient of recipients) {
+      const result = await sendGmailEmail({
+        to: recipient,
+        subject: request.subject,
+        html: request.html,
+        refreshToken: credentials.refreshToken,
+        fromEmail: credentials.fromEmail,
+        fromName: credentials.fromName,
+      });
+
+      if (!result.ok) {
+        console.error("Gmail API error:", result.error);
+        return {
+          success: false,
+          error: result.error || "Failed to send email",
+        };
+      }
+
+      lastMessageId = result.messageId;
     }
 
     // Log to audit_logs for compliance and debugging
@@ -55,12 +66,13 @@ export async function sendEmail(request: EmailSendRequest): Promise<EmailSendRes
         entity_id: request.metadata?.matterId || null,
         metadata: {
           emailType: request.metadata?.type,
-          to: Array.isArray(request.to) ? request.to : [request.to],
+          to: recipients,
           subject: request.subject,
-          messageId: data?.id,
+          messageId: lastMessageId,
           recipientRole: request.metadata?.recipientRole,
           invoiceId: request.metadata?.invoiceId,
           taskId: request.metadata?.taskId,
+          provider: "gmail",
         },
       });
     } catch (auditError) {
@@ -70,7 +82,7 @@ export async function sendEmail(request: EmailSendRequest): Promise<EmailSendRes
 
     return {
       success: true,
-      messageId: data?.id,
+      messageId: lastMessageId,
     };
   } catch (err) {
     console.error("Email send error:", err);
