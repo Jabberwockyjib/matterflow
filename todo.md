@@ -4,11 +4,15 @@
 - (none)
 
 ## Next Up
-- [ ] Continue adding tests to improve coverage (currently 32.8%, target 60%+)
-  - Server actions: createMatter, createTask, createTimeEntry, startTimeEntry, stopTimeEntry
-  - Email templates: invoice-sent, client-welcome, task-assigned
-  - Components: app-shell, auth-listener, matter-detail
-  - Hooks: useLocalStorage, useMediaQuery
+- [ ] **Test Coverage Phase 2** - Core business logic with mocked Supabase (target 50%)
+  - `lib/data/actions.ts` (47% → 70%): createMatter, createTask, createTimeEntry, startTimeEntry, stopTimeEntry
+  - `lib/data/queries.ts` (34% → 60%): fetchMatters, fetchTasks, fetchTimeEntries
+  - `lib/intake/actions.ts` (18% → 60%): saveIntakeFormDraft, submitIntakeForm, approveIntakeForm
+- [ ] **Test Coverage Phase 3** - External API integrations (target 60%+)
+  - `lib/square/*` (0%): Mock Square API responses for invoice sync, payment status
+  - `lib/google-drive/*` (0%): Mock Drive API for folder creation, file upload
+  - `lib/email/actions.ts` (0%): Mock Gmail API for email sending
+  - `lib/document-templates/*` (0%): Mock Anthropic + mammoth for template parsing
 - [ ] Manual E2E test: Full client onboarding flow (invite → signup → intake → review → approve)
 - [ ] Test Square webhook with ngrok for payment confirmation emails
 - [ ] CaseFox data migration

@@ -27,7 +27,7 @@ MatterFlow is deployed to production at `matter.develotype.com` on a Hetzner VPS
 
 ### Test Coverage Improvements
 - Lowered CI coverage thresholds in `vitest.config.ts` (60% → 25% statements, 20% branches)
-- Added 195 new tests across 11 test files, improving coverage from ~29% to ~32.8%
+- **Total tests now: 1547** (coverage: 32.54%)
 - New test files created:
   - `tests/lib/intake/validation.test.ts` - 48 tests for intake form validation
   - `tests/lib/toast.test.ts` - 26 tests for toast utility functions
@@ -40,6 +40,21 @@ MatterFlow is deployed to production at `matter.develotype.com` on a Hetzner VPS
   - `tests/lib/email/activity-reminder.test.ts` - 5 tests for activity reminder email
   - `tests/lib/data/queries-extended.test.ts` - 12 tests for query functions
   - `tests/lib/data/actions-extended.test.ts` - 6 tests for delete/update actions
+  - `tests/components/ui/switch.test.tsx` - 10 tests for Switch component
+  - `tests/components/ui/tabs.test.tsx` - 15 tests for Tabs component
+  - `tests/components/ui/table.test.tsx` - 26 tests for Table components
+  - `tests/components/ui/skeleton.test.tsx` - 10 tests for Skeleton component
+  - `tests/components/ui/responsibility-icon.test.tsx` - 18 tests for ResponsibilityIcon
+  - `tests/lib/email/invoice-sent.test.tsx` - 14 tests for invoice email
+  - `tests/lib/email/task-assigned.test.tsx` - 14 tests for task email
+  - `tests/lib/email/matter-created.test.tsx` - 11 tests for matter email
+  - `tests/lib/email/intake-reminder.test.tsx` - 14 tests for intake reminder email
+  - `tests/lib/email/intake-submitted.test.tsx` - 11 tests for intake submitted email
+  - `tests/lib/timer/analytics.test.ts` - 37 tests for timer analytics
+  - `tests/lib/supabase/server.test.ts` - 10 tests for Supabase admin client
+  - `tests/lib/auth/server.test.ts` - 11 tests for auth session utilities
+  - `tests/lib/document-templates/parsing.test.ts` - 9 tests for template parsing
+  - `tests/lib/utils/date-helpers.test.ts` - 44 tests for date utilities
 
 ### Bug Fixes
 - `src/app/admin/intake/[intakeId]/page.tsx` - Fixed 500 error on intake review page (snake_case property names)
