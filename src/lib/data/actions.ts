@@ -3062,10 +3062,6 @@ export async function resendIntakeReminder(matterId: string): Promise<ActionResu
         matterTitle: matter.title,
         intakeLink,
         daysWaiting: 0, // Manual reminder, no auto-calculated days
-        settings: {
-          firmName: settings.firm_name || "Your Law Firm",
-          contactEmail: settings.contact_email,
-        },
       })
     );
 
