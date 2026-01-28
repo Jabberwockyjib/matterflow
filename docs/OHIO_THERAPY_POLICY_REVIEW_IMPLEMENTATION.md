@@ -1175,6 +1175,24 @@ export interface RedactionOptions {
   redactDates?: boolean; // Some dates may be relevant to policy effective dates
 }
 
+/**
+ * CRITICAL: Why preserveCredentials must default to true
+ *
+ * The skill checks for:
+ * - License type clearly stated (LSW, LISW, LPC, LPCC, LMFT, etc.)
+ * - Credential present in professional disclosure
+ *
+ * If credentials are redacted with names, compliance checks fail!
+ *
+ * ❌ BAD:  "Breanna DeSandro LPCC, LLC" → "[PRACTICE]"      (credential lost)
+ * ✓ GOOD: "Breanna DeSandro LPCC, LLC" → "[PERSON] LPCC, LLC" (credential preserved)
+ *
+ * With preserveCredentials: true, the skill can still verify:
+ * - License type is stated
+ * - Credential format is correct
+ * - All policy language is intact for review
+ */
+
 // Regex patterns for PII detection
 const PATTERNS = {
   phone: /\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}/g,
@@ -1187,16 +1205,28 @@ const PATTERNS = {
   bankAccount: /\b\d{8,17}\b/g, // Very broad - use with caution
 };
 
-// Patterns to PRESERVE (don't redact these)
+// Patterns to PRESERVE (don't redact these) - validated through testing
 const PRESERVE_PATTERNS = [
+  // Ohio Board information (must remain for compliance checking)
   /Ohio\s+(?:Counselor|CSWMFT|Board)/gi,
-  /ORC\s+\d+\.\d+/gi,
-  /OAC\s+\d+-\d+-\d+/gi,
-  /614-466-0912/g, // Ohio Board phone
-  /77\s+(?:South\s+)?High\s+Street/gi, // Ohio Board address
-  /\d{3}-\d{3}-8255/g, // Crisis hotlines (988 format varies)
-  /988/g, // Suicide hotline
-  /911/g, // Emergency
+  /ORC\s+\d+\.\d+/gi,                    // Ohio Revised Code citations
+  /OAC\s+\d+-\d+-\d+/gi,                 // Ohio Administrative Code citations
+  /614-466-0912/g,                       // Ohio Board phone
+  /77\s+(?:South\s+)?High\s+Street/gi,   // Ohio Board address
+  /Columbus,?\s+Ohio\s+43215/gi,         // Ohio Board city/zip
+  /43215/g,                              // Ohio Board zip standalone
+
+  // Crisis hotlines (public resources, not PII)
+  /\(800\)\s*273-8255/g,                 // National crisis line
+  /800-273-8255/g,
+  /988/g,                                // Suicide & Crisis Lifeline
+  /911/g,                                // Emergency
+  /419-904-(?:CARE|2273)/gi,             // Zepf Crisis (Toledo area)
+
+  // Other public references
+  /SimplePractice/gi,                    // EHR platform names
+  /HIPAA/gi,
+  /45\s+CFR/gi,                          // Federal regulation citations
 ];
 
 /**
