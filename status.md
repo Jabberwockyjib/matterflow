@@ -112,6 +112,7 @@ MatterFlow is deployed to production at `matter.develotype.com` on a Hetzner VPS
 
 - Intake form file upload requires Google Drive to be connected (shows error if not)
 - Files uploaded before Google Drive folders existed won't retroactively appear (manual fix: re-upload)
+- `tests/lib/email/client.test.ts` is broken - imports `sendInvitationEmail` which isn't exported (pre-existing)
 
 ## Architecture Notes
 

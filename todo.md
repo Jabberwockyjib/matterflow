@@ -43,7 +43,10 @@
   - `tests/lib/email/activity-reminder.test.ts` (5 tests) - email template
   - `tests/lib/data/queries-extended.test.ts` (12 tests) - query functions
   - `tests/lib/data/actions-extended.test.ts` (6 tests) - delete/update actions
-- [x] Improved test coverage from ~29% to ~32.8%
+- [x] Improved test coverage from ~29% to 32.54% (1547 tests passing)
+- [x] Added Phase 1 tests: UI components (switch, tabs, table, skeleton, responsibility-icon)
+- [x] Added Phase 1 tests: Email templates (invoice-sent, task-assigned, matter-created, intake-reminder, intake-submitted)
+- [x] Added Phase 1 tests: Utilities (timer analytics, supabase server, auth server, date-helpers, parsing)
 - [x] Fixed Google OAuth redirect for production (use NEXT_PUBLIC_APP_URL)
 - [x] Updated integrations panel - removed Resend, added Google Workspace status with Drive+Gmail indicators
 - [x] Implemented automatic Gmail sync cron endpoint (`/api/cron/gmail-sync`)
