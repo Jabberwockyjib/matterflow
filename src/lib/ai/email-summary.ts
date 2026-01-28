@@ -1,8 +1,16 @@
 import Anthropic from '@anthropic-ai/sdk'
 
-const anthropic = new Anthropic({
-  apiKey: process.env.ANTHROPIC_API_KEY,
-})
+// Lazily instantiate the client to avoid issues in test environments
+let anthropicClient: Anthropic | null = null
+
+function getAnthropicClient(): Anthropic {
+  if (!anthropicClient) {
+    anthropicClient = new Anthropic({
+      apiKey: process.env.ANTHROPIC_API_KEY,
+    })
+  }
+  return anthropicClient
+}
 
 /**
  * Strip markdown code blocks from AI response
@@ -50,7 +58,7 @@ Respond in JSON format:
   "actionNeeded": true/false (does the recipient need to respond or take action?)
 }`
 
-    const response = await anthropic.messages.create({
+    const response = await getAnthropicClient().messages.create({
       model: 'claude-3-5-haiku-latest',
       max_tokens: 150,
       messages: [{ role: 'user', content: prompt }],

@@ -2,9 +2,17 @@ import Anthropic from "@anthropic-ai/sdk";
 import mammoth from "mammoth";
 import type { ParsedTemplate } from "./types";
 
-const anthropic = new Anthropic({
-  apiKey: process.env.ANTHROPIC_API_KEY,
-});
+// Lazily instantiate the client to avoid issues in test environments
+let anthropicClient: Anthropic | null = null;
+
+function getAnthropicClient(): Anthropic {
+  if (!anthropicClient) {
+    anthropicClient = new Anthropic({
+      apiKey: process.env.ANTHROPIC_API_KEY,
+    });
+  }
+  return anthropicClient;
+}
 
 /**
  * Strip markdown code blocks from AI response
@@ -32,7 +40,7 @@ export async function parseDocumentTemplate(
   const { value: htmlContent } = await mammoth.convertToHtml({ buffer: fileBuffer });
 
   // Use Claude to analyze the document
-  const response = await anthropic.messages.create({
+  const response = await getAnthropicClient().messages.create({
     model: "claude-sonnet-4-20250514",
     max_tokens: 4096,
     messages: [

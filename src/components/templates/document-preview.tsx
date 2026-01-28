@@ -16,7 +16,6 @@ import type {
 import {
   getSampleValue,
   getIntakeFieldsForCategory,
-  getSourceFields,
 } from "./field-sources";
 
 interface DocumentPreviewProps {
@@ -119,12 +118,8 @@ export function DocumentPreview({
   );
 
   // Get fields that can be edited in the sample data panel
-  const editableFields = useMemo(() => {
-    return fields.filter((f) => {
-      // Show all fields for editing sample data
-      return true;
-    });
-  }, [fields]);
+  // (all fields are editable for sample data testing)
+  const editableFields = fields;
 
   // Calculate which sections are visible based on conditions
   const sectionVisibility = useMemo(() => {

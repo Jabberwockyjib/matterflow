@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -28,16 +28,26 @@ export function SectionEditDialog({
   onOpenChange,
   onSave,
 }: SectionEditDialogProps) {
-  const [name, setName] = useState("");
-  const [content, setContent] = useState("");
+  // Initialize state from section when dialog opens
+  const initialValues = useMemo(
+    () => ({
+      name: section?.name ?? "",
+      content: section?.content ?? "",
+    }),
+    [section]
+  );
 
-  // Reset form when section changes
-  useEffect(() => {
-    if (section) {
+  const [name, setName] = useState(initialValues.name);
+  const [content, setContent] = useState(initialValues.content);
+
+  // Reset form when dialog opens with new section
+  const handleOpenChange = (isOpen: boolean) => {
+    if (isOpen && section) {
       setName(section.name);
       setContent(section.content);
     }
-  }, [section]);
+    onOpenChange(isOpen);
+  };
 
   const handleSave = () => {
     if (!name.trim()) return;
@@ -51,7 +61,7 @@ export function SectionEditDialog({
   if (!section) return null;
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="max-w-3xl max-h-[90vh] flex flex-col">
         <DialogHeader>
           <DialogTitle>Edit Section</DialogTitle>
