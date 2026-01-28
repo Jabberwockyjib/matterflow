@@ -1,0 +1,44 @@
+# Dependencies
+node_modules
+.pnpm-store
+
+# Build outputs
+.next
+out
+build
+dist
+
+# Development
+.git
+.gitignore
+*.md
+docs/
+tests/
+.worktrees/
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+
+# Environment (will use .env separately)
+.env.local
+.env.development
+.env.test
+
+# Misc
+.DS_Store
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Docker
+Dockerfile*
+docker-compose*
+docker/
+
+# Supabase local
+supabase/.branches
+supabase/.temp
