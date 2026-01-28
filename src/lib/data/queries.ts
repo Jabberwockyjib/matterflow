@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { supabaseAdmin, supabaseEnvReady } from "@/lib/supabase/server";
 import { getSessionWithProfile } from "@/lib/auth/server";
 import type { Database } from "@/types/database.types";
@@ -286,11 +287,15 @@ const timeFallback: TimeEntrySummary[] = [
   },
 ];
 
-export async function fetchMatters(): Promise<{
+/**
+ * Fetch all matters with React cache for request deduplication.
+ * Multiple calls within the same request will be deduplicated automatically.
+ */
+export const fetchMatters = cache(async (): Promise<{
   data: MatterSummary[];
   source: DataSource;
   error?: string;
-}> {
+}> => {
   if (!supabaseEnvReady()) {
     return { data: matterFallback, source: "mock" };
   }
@@ -320,13 +325,16 @@ export async function fetchMatters(): Promise<{
     const message = err instanceof Error ? err.message : "Unknown error";
     return { data: matterFallback, source: "mock", error: message };
   }
-}
+});
 
-export async function fetchTasks(): Promise<{
+/**
+ * Fetch all tasks with React cache for request deduplication.
+ */
+export const fetchTasks = cache(async (): Promise<{
   data: TaskSummary[];
   source: DataSource;
   error?: string;
-}> {
+}> => {
   if (!supabaseEnvReady()) {
     return { data: taskFallback, source: "mock" };
   }
@@ -363,7 +371,7 @@ export async function fetchTasks(): Promise<{
     const message = err instanceof Error ? err.message : "Unknown error";
     return { data: taskFallback, source: "mock", error: message };
   }
-}
+});
 
 export async function fetchTasksForMatter(matterId: string): Promise<{
   data: TaskSummary[];
@@ -409,11 +417,14 @@ export async function fetchTasksForMatter(matterId: string): Promise<{
   }
 }
 
-export async function fetchInvoices(): Promise<{
+/**
+ * Fetch all invoices with React cache for request deduplication.
+ */
+export const fetchInvoices = cache(async (): Promise<{
   data: InvoiceSummary[];
   source: DataSource;
   error?: string;
-}> {
+}> => {
   if (!supabaseEnvReady()) {
     return { data: invoiceFallback, source: "mock" };
   }
@@ -448,7 +459,7 @@ export async function fetchInvoices(): Promise<{
     const message = err instanceof Error ? err.message : "Unknown error";
     return { data: invoiceFallback, source: "mock", error: message };
   }
-}
+});
 
 export async function getInvoice(invoiceId: string): Promise<{
   data: {
@@ -547,11 +558,14 @@ export async function getInvoice(invoiceId: string): Promise<{
   }
 }
 
-export async function fetchTimeEntries(): Promise<{
+/**
+ * Fetch all time entries with React cache for request deduplication.
+ */
+export const fetchTimeEntries = cache(async (): Promise<{
   data: TimeEntrySummary[];
   source: DataSource;
   error?: string;
-}> {
+}> => {
   if (!supabaseEnvReady()) {
     return { data: timeFallback, source: "mock" };
   }
@@ -590,7 +604,7 @@ export async function fetchTimeEntries(): Promise<{
     const message = err instanceof Error ? err.message : "Unknown error";
     return { data: timeFallback, source: "mock", error: message };
   }
-}
+});
 
 export async function fetchTimeEntriesForMatter(matterId: string): Promise<{
   data: TimeEntrySummary[];

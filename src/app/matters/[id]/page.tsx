@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
+import dynamic from "next/dynamic";
 
 import { getMatter } from "@/lib/data/actions";
 import { getSessionWithProfile } from "@/lib/auth/server";
@@ -12,8 +13,14 @@ import { Badge } from "@/components/ui/badge";
 import { CalendarClock } from "lucide-react";
 import { MatterDocumentsTab } from "@/components/matter-documents-tab";
 import { CommunicationsTab } from "@/components/matter/communications-tab";
-import { AddTaskModal } from "@/components/matters/add-task-modal";
-import { AddTimeEntryModal } from "@/components/matters/add-time-entry-modal";
+
+// Lazy load modals for code splitting
+const AddTaskModal = dynamic(
+  () => import("@/components/matters/add-task-modal").then(mod => ({ default: mod.AddTaskModal }))
+);
+const AddTimeEntryModal = dynamic(
+  () => import("@/components/matters/add-time-entry-modal").then(mod => ({ default: mod.AddTimeEntryModal }))
+);
 
 interface MatterDetailPageProps {
   params: Promise<{ id: string }>;

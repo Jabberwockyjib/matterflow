@@ -122,12 +122,20 @@ function FiltersSkeleton() {
 
 /**
  * Dashboard content component that fetches and displays matters
+ * Uses Promise.all for parallel fetching to eliminate waterfall
  */
 async function DashboardContent({ filters }: { filters: MatterFilters }) {
-  const { data: matters, source, error } = await fetchMattersWithFilters(filters);
-  const { data: awaitingReview } = await fetchMattersAwaitingReview();
-  const { data: awaitingIntake } = await fetchMattersAwaitingIntake();
-  const { data: overdue } = await fetchOverdueMatters();
+  const [
+    { data: matters, source, error },
+    { data: awaitingReview },
+    { data: awaitingIntake },
+    { data: overdue },
+  ] = await Promise.all([
+    fetchMattersWithFilters(filters),
+    fetchMattersAwaitingReview(),
+    fetchMattersAwaitingIntake(),
+    fetchOverdueMatters(),
+  ]);
   const groupedMatters = groupAndSortMatters(matters);
 
   // Check if any filters are active

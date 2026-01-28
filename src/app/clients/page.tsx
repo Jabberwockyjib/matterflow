@@ -1,12 +1,17 @@
 import { Suspense } from "react";
+import dynamic from "next/dynamic";
 import { Users } from "lucide-react";
 import { PipelineBoard } from "@/components/clients/pipeline-board";
 import { ActiveClientsSection } from "@/components/clients/active-clients-section";
-import { InviteClientModal } from "@/components/clients/invite-client-modal";
 import {
   fetchClientInvitations,
   fetchIntakesByReviewStatus,
 } from "@/lib/data/queries";
+
+// Lazy load modal for code splitting
+const InviteClientModal = dynamic(
+  () => import("@/components/clients/invite-client-modal").then(mod => ({ default: mod.InviteClientModal }))
+);
 
 export default async function ClientsPage() {
   const [invitations, intakes] = await Promise.all([

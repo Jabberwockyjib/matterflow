@@ -5,7 +5,7 @@ import { createMatter, updateMatterStage } from "@/lib/data/actions";
 import { getSessionWithProfile } from "@/lib/auth/server";
 import { supabaseEnvReady } from "@/lib/supabase/server";
 import { cn, isOverdue, formatDueDate } from "@/lib/utils";
-import { MatterCard } from "@/components/cards";
+import { MatterCard } from "@/components/cards/matter-card";
 import { ContentCard, ContentCardHeader, ContentCardTitle, ContentCardContent } from "@/components/cards/content-card";
 import { Button } from "@/components/ui/button";
 

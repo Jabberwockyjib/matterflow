@@ -3,7 +3,8 @@ import { redirect } from "next/navigation";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { StatCard, MatterCard } from "@/components/cards";
+import { StatCard } from "@/components/cards/stat-card";
+import { MatterCard } from "@/components/cards/matter-card";
 import {
   ContentCard,
   ContentCardContent,
@@ -124,15 +125,24 @@ export default async function Home() {
       fetchTimeEntries(),
     ]);
 
-  const stageCounts = stages.map((stage) => ({
-    stage,
-    count: matters.filter((m) => m.stage === stage).length,
-    next:
-      matters.find((m) => m.stage === stage)?.nextAction ||
-      (stage === "Billing Pending" ? "Approve invoice" : "Set next action"),
-    badge:
-      matters.find((m) => m.stage === stage)?.responsibleParty || "lawyer",
-  }));
+  // Build lookup map once O(n) instead of O(n * stages) iterations
+  const mattersByStage = new Map<string, typeof matters>();
+  for (const matter of matters) {
+    const existing = mattersByStage.get(matter.stage) ?? [];
+    existing.push(matter);
+    mattersByStage.set(matter.stage, existing);
+  }
+
+  const stageCounts = stages.map((stage) => {
+    const stageMatters = mattersByStage.get(stage) ?? [];
+    const first = stageMatters[0];
+    return {
+      stage,
+      count: stageMatters.length,
+      next: first?.nextAction ?? (stage === "Billing Pending" ? "Approve invoice" : "Set next action"),
+      badge: first?.responsibleParty ?? "lawyer",
+    };
+  });
 
   const unpaidInvoices = invoices.filter(
     (inv) => inv.status !== "paid" && inv.status !== "partial",

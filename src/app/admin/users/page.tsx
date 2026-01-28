@@ -1,6 +1,23 @@
+import dynamic from 'next/dynamic'
 import { getAllUsers } from '@/lib/data/actions'
-import { UserTable } from '@/components/admin/user-table'
 import { InviteUserModal } from '@/components/admin/invite-user-modal'
+
+// Lazy load heavy table component for better initial load
+const UserTable = dynamic(
+  () => import('@/components/admin/user-table').then(mod => ({ default: mod.UserTable })),
+  {
+    loading: () => (
+      <div className="rounded-md border">
+        <div className="h-12 animate-pulse bg-muted" />
+        <div className="space-y-2 p-4">
+          {[1, 2, 3].map(i => (
+            <div key={i} className="h-16 animate-pulse rounded bg-muted" />
+          ))}
+        </div>
+      </div>
+    ),
+  }
+)
 
 export const metadata = {
   title: 'User Management | MatterFlow™',
