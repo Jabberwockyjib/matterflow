@@ -3,6 +3,7 @@
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { useState, useEffect } from "react";
+import { disconnectGoogle } from "@/lib/data/actions";
 
 interface GoogleDriveConnectProps {
   isConnected?: boolean;
@@ -16,6 +17,7 @@ export function GoogleDriveConnect({
   returnUrl = "/",
 }: GoogleDriveConnectProps) {
   const [loading, setLoading] = useState(false);
+  const [disconnecting, setDisconnecting] = useState(false);
 
   useEffect(() => {
     // Check for connection success in URL
@@ -34,6 +36,25 @@ export function GoogleDriveConnect({
     setLoading(true);
     const encodedReturnUrl = encodeURIComponent(returnUrl);
     window.location.href = `/api/auth/google?returnUrl=${encodedReturnUrl}`;
+  };
+
+  const handleDisconnect = async () => {
+    if (!confirm("Are you sure you want to disconnect Google? This will disable Gmail sync and Drive integration.")) {
+      return;
+    }
+    setDisconnecting(true);
+    try {
+      const result = await disconnectGoogle();
+      if ("error" in result) {
+        alert(result.error);
+      } else {
+        window.location.reload();
+      }
+    } catch {
+      alert("Failed to disconnect");
+    } finally {
+      setDisconnecting(false);
+    }
   };
 
   if (isConnected) {
@@ -57,7 +78,7 @@ export function GoogleDriveConnect({
           </div>
           <div className="flex-1">
             <p className="text-sm font-medium text-green-900">
-              Google Drive Connected
+              Google Workspace Connected
             </p>
             {connectedAt && (
               <p className="text-xs text-green-700">
@@ -65,6 +86,26 @@ export function GoogleDriveConnect({
                 {new Date(connectedAt).toLocaleDateString()}
               </p>
             )}
+          </div>
+          <div className="flex gap-2">
+            <Button
+              onClick={handleConnect}
+              disabled={loading}
+              size="sm"
+              variant="outline"
+              className="text-green-700 border-green-300 hover:bg-green-100"
+            >
+              {loading ? "Reconnecting..." : "Reconnect"}
+            </Button>
+            <Button
+              onClick={handleDisconnect}
+              disabled={disconnecting}
+              size="sm"
+              variant="outline"
+              className="text-red-700 border-red-300 hover:bg-red-100"
+            >
+              {disconnecting ? "Disconnecting..." : "Disconnect"}
+            </Button>
           </div>
         </div>
       </Card>
@@ -91,10 +132,10 @@ export function GoogleDriveConnect({
         </div>
         <div className="flex-1">
           <p className="text-sm font-medium text-amber-900 mb-2">
-            Google Drive Not Connected
+            Google Workspace Not Connected
           </p>
           <p className="text-xs text-amber-700 mb-3">
-            Connect Google Drive to automatically organize documents in folders
+            Connect Google to enable Drive document organization and Gmail sync
             for each matter.
           </p>
           <Button
@@ -103,7 +144,7 @@ export function GoogleDriveConnect({
             size="sm"
             className="bg-amber-600 hover:bg-amber-700"
           >
-            {loading ? "Connecting..." : "Connect Google Drive"}
+            {loading ? "Connecting..." : "Connect Google Workspace"}
           </Button>
         </div>
       </div>

@@ -2952,3 +2952,40 @@ export async function syncGmailForMatterInternal(
 
   return { ok: true, synced, skipped };
 }
+
+/**
+ * Disconnect Google account (remove refresh token)
+ * Staff/Admin only
+ */
+export async function disconnectGoogle(): Promise<ActionResult> {
+  const roleCheck = await ensureStaffOrAdmin();
+  if ("error" in roleCheck) return roleCheck;
+
+  const supabase = supabaseAdmin();
+
+  // Clear the Google refresh token from practice settings
+  const { error } = await supabase
+    .from("practice_settings")
+    .update({
+      google_refresh_token: null,
+      google_connected_at: null,
+    })
+    .not("id", "is", null); // Update all rows (should be just one)
+
+  if (error) {
+    console.error("Failed to disconnect Google:", error);
+    return { error: "Failed to disconnect Google account" };
+  }
+
+  await logAudit({
+    supabase,
+    actorId: roleCheck.session.user.id,
+    eventType: "google_disconnected",
+    entityType: "practice_settings",
+    entityId: null,
+    metadata: {},
+  });
+
+  revalidatePath("/settings");
+  return { ok: true };
+}
