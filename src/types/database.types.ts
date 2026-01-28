@@ -811,6 +811,16 @@ export type Database = {
           late_fee_percentage: number | null
           matter_types: Json | null
           payment_terms_days: number | null
+          square_access_token: string | null
+          square_application_id: string | null
+          square_application_secret: string | null
+          square_connected_at: string | null
+          square_environment: string | null
+          square_location_id: string | null
+          square_location_name: string | null
+          square_merchant_id: string | null
+          square_refresh_token: string | null
+          square_webhook_signature_key: string | null
           updated_at: string | null
         }
         Insert: {
@@ -827,6 +837,16 @@ export type Database = {
           late_fee_percentage?: number | null
           matter_types?: Json | null
           payment_terms_days?: number | null
+          square_access_token?: string | null
+          square_application_id?: string | null
+          square_application_secret?: string | null
+          square_connected_at?: string | null
+          square_environment?: string | null
+          square_location_id?: string | null
+          square_location_name?: string | null
+          square_merchant_id?: string | null
+          square_refresh_token?: string | null
+          square_webhook_signature_key?: string | null
           updated_at?: string | null
         }
         Update: {
@@ -843,6 +863,16 @@ export type Database = {
           late_fee_percentage?: number | null
           matter_types?: Json | null
           payment_terms_days?: number | null
+          square_access_token?: string | null
+          square_application_id?: string | null
+          square_application_secret?: string | null
+          square_connected_at?: string | null
+          square_environment?: string | null
+          square_location_id?: string | null
+          square_location_name?: string | null
+          square_merchant_id?: string | null
+          square_refresh_token?: string | null
+          square_webhook_signature_key?: string | null
           updated_at?: string | null
         }
         Relationships: []
