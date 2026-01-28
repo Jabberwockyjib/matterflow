@@ -46,7 +46,7 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.text();
     const signature = request.headers.get("x-square-hmacsha256-signature");
-    const signatureKey = getSquareWebhookSignatureKey();
+    const signatureKey = await getSquareWebhookSignatureKey();
 
     // Verify webhook signature if signature key is configured
     if (signatureKey) {

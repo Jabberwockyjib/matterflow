@@ -25,7 +25,7 @@ import type {
 export async function createSquareInvoice(
   params: CreateSquareInvoiceParams,
 ): Promise<SquareInvoiceResult> {
-  if (!isSquareConfigured()) {
+  if (!(await isSquareConfigured())) {
     return {
       success: false,
       error:
@@ -34,8 +34,8 @@ export async function createSquareInvoice(
   }
 
   try {
-    const client = createSquareClient();
-    const locationId = getSquareLocationId();
+    const client = await createSquareClient();
+    const locationId = await getSquareLocationId();
 
     // Build line items for Square
     const invoiceLineItems = params.lineItems.map((item) => ({
@@ -145,7 +145,7 @@ export async function createSquareInvoice(
 export async function getSquareInvoice(
   invoiceId: string,
 ): Promise<SquareInvoiceResult> {
-  if (!isSquareConfigured()) {
+  if (!(await isSquareConfigured())) {
     return {
       success: false,
       error: "Square not configured",
@@ -153,7 +153,7 @@ export async function getSquareInvoice(
   }
 
   try {
-    const client = createSquareClient();
+    const client = await createSquareClient();
     const response = await client.invoices.get({ invoiceId });
     const invoice = response.invoice;
 
@@ -191,7 +191,7 @@ export async function cancelSquareInvoice(
   invoiceId: string,
   version: number,
 ): Promise<Result> {
-  if (!isSquareConfigured()) {
+  if (!(await isSquareConfigured())) {
     return {
       ok: false,
       error: "Square not configured",
@@ -199,7 +199,7 @@ export async function cancelSquareInvoice(
   }
 
   try {
-    const client = createSquareClient();
+    const client = await createSquareClient();
     await client.invoices.cancel({
       invoiceId,
       version,
