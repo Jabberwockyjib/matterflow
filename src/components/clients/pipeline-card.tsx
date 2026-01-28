@@ -1,9 +1,11 @@
 'use client'
 
+import { useState } from 'react'
 import Link from 'next/link'
-import { Mail, Copy, Eye } from 'lucide-react'
+import { Mail, Copy, Eye, Check } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import { toast } from 'sonner'
 import type { ClientInvitation, IntakeReview } from '@/lib/data/queries'
 
 type PipelineCardProps =
@@ -17,8 +19,23 @@ type PipelineCardProps =
     }
 
 export function PipelineCard({ type, data }: PipelineCardProps) {
+  const [copied, setCopied] = useState(false)
+
   if (type === 'invitation') {
     const invitation = data
+    const inviteLink = `${typeof window !== 'undefined' ? window.location.origin : ''}/intake/invite/${invitation.inviteCode}`
+
+    const handleCopyLink = async () => {
+      try {
+        await navigator.clipboard.writeText(inviteLink)
+        setCopied(true)
+        toast.success('Invitation link copied to clipboard')
+        setTimeout(() => setCopied(false), 2000)
+      } catch (error) {
+        toast.error('Failed to copy link')
+      }
+    }
+
     return (
       <div className="bg-white rounded-lg border border-slate-200 p-4 hover:shadow-md transition-shadow">
         <div className="flex items-start justify-between mb-2">
@@ -42,12 +59,19 @@ export function PipelineCard({ type, data }: PipelineCardProps) {
         </div>
 
         <div className="flex gap-2 mt-3">
-          <Button size="sm" variant="ghost" className="flex-1" disabled>
-            <Eye className="h-3 w-3 mr-1" />
-            View
-          </Button>
-          <Button size="sm" variant="ghost" disabled aria-label="Copy invitation code">
-            <Copy className="h-3 w-3" />
+          <Link href={`/admin/invitations/${invitation.id}`} className="flex-1">
+            <Button size="sm" variant="ghost" className="w-full">
+              <Eye className="h-3 w-3 mr-1" />
+              View
+            </Button>
+          </Link>
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={handleCopyLink}
+            aria-label="Copy invitation link"
+          >
+            {copied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
           </Button>
         </div>
       </div>

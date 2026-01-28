@@ -1857,6 +1857,201 @@ export async function inviteClient(formData: FormData): Promise<{
     return { ok: false, error: message }
   }
 }
+
+/**
+ * Resend invitation email
+ */
+export async function resendInvitationEmail(invitationId: string): Promise<{
+  ok: boolean
+  error?: string
+}> {
+  try {
+    const { session, profile } = await getSessionWithProfile()
+    if (!session) {
+      return { ok: false, error: 'Not authenticated' }
+    }
+
+    const role = profile?.role as 'admin' | 'staff' | 'client' | undefined
+    if (!role || !['admin', 'staff'].includes(role)) {
+      return { ok: false, error: 'Only staff and admins can resend invitations' }
+    }
+
+    const supabase = supabaseAdmin()
+
+    // Get invitation
+    const { data: invitation, error } = await supabase
+      .from('client_invitations')
+      .select('*')
+      .eq('id', invitationId)
+      .single()
+
+    if (error || !invitation) {
+      return { ok: false, error: 'Invitation not found' }
+    }
+
+    // Get practice settings
+    const { data: settings } = await supabase
+      .from('practice_settings')
+      .select('google_refresh_token, contact_email, firm_name')
+      .single()
+
+    if (!settings?.google_refresh_token) {
+      return { ok: false, error: 'Gmail not connected. Please connect Google account in Settings.' }
+    }
+
+    if (!settings?.contact_email) {
+      return { ok: false, error: 'Contact email not configured. Please add contact email in Settings.' }
+    }
+
+    // Generate invite link
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
+    const inviteLink = `${appUrl}/intake/invite/${invitation.invite_code}`
+
+    // Send email
+    const { sendInvitationEmail } = await import('@/lib/email/gmail-client')
+    const result = await sendInvitationEmail(
+      {
+        to: invitation.client_email,
+        clientName: invitation.client_name,
+        inviteCode: invitation.invite_code,
+        inviteLink: inviteLink,
+        lawyerName: profile?.full_name || settings.firm_name || 'Your Lawyer',
+        message: invitation.notes || undefined,
+      },
+      settings.google_refresh_token,
+      settings.contact_email
+    )
+
+    if (!result.ok) {
+      return { ok: false, error: result.error || 'Failed to send email' }
+    }
+
+    // Audit log
+    await supabase.from('audit_logs').insert({
+      actor_id: session.user.id,
+      event_type: 'invitation_email_resent',
+      entity_type: 'client_invitation',
+      entity_id: invitation.id,
+      metadata: {
+        client_email: invitation.client_email,
+      } as Json,
+    })
+
+    return { ok: true }
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Unknown error'
+    console.error('resendInvitationEmail error:', message)
+    return { ok: false, error: message }
+  }
+}
+
+/**
+ * Cancel an invitation
+ */
+export async function cancelInvitation(invitationId: string): Promise<{
+  ok: boolean
+  error?: string
+}> {
+  try {
+    const { session, profile } = await getSessionWithProfile()
+    if (!session) {
+      return { ok: false, error: 'Not authenticated' }
+    }
+
+    const role = profile?.role as 'admin' | 'staff' | 'client' | undefined
+    if (!role || !['admin', 'staff'].includes(role)) {
+      return { ok: false, error: 'Only staff and admins can cancel invitations' }
+    }
+
+    const supabase = supabaseAdmin()
+
+    const { error } = await supabase
+      .from('client_invitations')
+      .update({ status: 'cancelled' })
+      .eq('id', invitationId)
+
+    if (error) {
+      return { ok: false, error: error.message }
+    }
+
+    // Audit log
+    await supabase.from('audit_logs').insert({
+      actor_id: session.user.id,
+      event_type: 'invitation_cancelled',
+      entity_type: 'client_invitation',
+      entity_id: invitationId,
+      metadata: {} as Json,
+    })
+
+    revalidatePath('/clients')
+    revalidatePath(`/admin/invitations/${invitationId}`)
+
+    return { ok: true }
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Unknown error'
+    console.error('cancelInvitation error:', message)
+    return { ok: false, error: message }
+  }
+}
+
+/**
+ * Extend an invitation by 7 days
+ */
+export async function extendInvitation(invitationId: string): Promise<{
+  ok: boolean
+  error?: string
+}> {
+  try {
+    const { session, profile } = await getSessionWithProfile()
+    if (!session) {
+      return { ok: false, error: 'Not authenticated' }
+    }
+
+    const role = profile?.role as 'admin' | 'staff' | 'client' | undefined
+    if (!role || !['admin', 'staff'].includes(role)) {
+      return { ok: false, error: 'Only staff and admins can extend invitations' }
+    }
+
+    const supabase = supabaseAdmin()
+
+    // Calculate new expiration date (7 days from now)
+    const newExpiration = new Date()
+    newExpiration.setDate(newExpiration.getDate() + 7)
+
+    const { error } = await supabase
+      .from('client_invitations')
+      .update({
+        expires_at: newExpiration.toISOString(),
+        status: 'pending', // Reset to pending if it was expired
+      })
+      .eq('id', invitationId)
+
+    if (error) {
+      return { ok: false, error: error.message }
+    }
+
+    // Audit log
+    await supabase.from('audit_logs').insert({
+      actor_id: session.user.id,
+      event_type: 'invitation_extended',
+      entity_type: 'client_invitation',
+      entity_id: invitationId,
+      metadata: {
+        new_expiration: newExpiration.toISOString(),
+      } as Json,
+    })
+
+    revalidatePath('/clients')
+    revalidatePath(`/admin/invitations/${invitationId}`)
+
+    return { ok: true }
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Unknown error'
+    console.error('extendInvitation error:', message)
+    return { ok: false, error: message }
+  }
+}
+
 /**
  * Practice Settings Actions
  */
