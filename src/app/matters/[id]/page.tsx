@@ -21,6 +21,9 @@ const AddTaskModal = dynamic(
 const AddTimeEntryModal = dynamic(
   () => import("@/components/matters/add-time-entry-modal").then(mod => ({ default: mod.AddTimeEntryModal }))
 );
+const ResendIntakeButton = dynamic(
+  () => import("@/components/matters/resend-intake-button").then(mod => ({ default: mod.ResendIntakeButton }))
+);
 
 interface MatterDetailPageProps {
   params: Promise<{ id: string }>;
@@ -112,6 +115,19 @@ export default async function MatterDetailPage({ params }: MatterDetailPageProps
 
         {/* Overview Tab */}
         <TabsContent value="overview" className="space-y-4">
+          {/* Intake Reminder for Intake Sent stage */}
+          {typedMatter.stage === "Intake Sent" && (
+            <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 flex items-center justify-between">
+              <div>
+                <p className="font-medium text-amber-900">Waiting for client intake</p>
+                <p className="text-sm text-amber-700">
+                  The client has not yet completed their intake form.
+                </p>
+              </div>
+              <ResendIntakeButton matterId={id} />
+            </div>
+          )}
+
           <div className="rounded-lg border border-slate-200 bg-white p-6">
             <h2 className="text-xl font-semibold text-slate-900 mb-4">Matter Details</h2>
 

@@ -2989,3 +2989,111 @@ export async function disconnectGoogle(): Promise<ActionResult> {
   revalidatePath("/settings");
   return { ok: true };
 }
+
+/**
+ * Resend intake reminder email to client
+ * Staff/Admin only
+ */
+export async function resendIntakeReminder(matterId: string): Promise<ActionResult> {
+  const roleCheck = await ensureStaffOrAdmin();
+  if ("error" in roleCheck) return roleCheck;
+
+  const supabase = supabaseAdmin();
+
+  // Get matter with client info
+  const { data: matter, error: matterError } = await supabase
+    .from("matters")
+    .select("id, title, stage, client_id, matter_type")
+    .eq("id", matterId)
+    .single();
+
+  if (matterError || !matter) {
+    return { error: "Matter not found" };
+  }
+
+  if (matter.stage !== "Intake Sent") {
+    return { error: "Matter is not in 'Intake Sent' stage" };
+  }
+
+  if (!matter.client_id) {
+    return { error: "Matter has no client assigned" };
+  }
+
+  // Get client email
+  const { data: { user: clientUser } } = await supabase.auth.admin.getUserById(matter.client_id);
+  if (!clientUser?.email) {
+    return { error: "Client email not found" };
+  }
+
+  // Get client profile for name
+  const { data: clientProfile } = await supabase
+    .from("profiles")
+    .select("full_name")
+    .eq("user_id", matter.client_id)
+    .single();
+
+  // Get practice settings for Gmail
+  const { data: settings } = await supabase
+    .from("practice_settings")
+    .select("google_refresh_token, contact_email, firm_name")
+    .single();
+
+  if (!settings?.google_refresh_token) {
+    return { error: "Gmail not connected. Please connect Google in Settings > Integrations." };
+  }
+
+  if (!settings?.contact_email) {
+    return { error: "Contact email not configured. Please add it in Settings > Practice." };
+  }
+
+  // Generate intake link
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+  const intakeLink = `${appUrl}/intake/${matterId}`;
+
+  // Send reminder email
+  try {
+    const { sendGmailEmail } = await import("@/lib/email/gmail-client");
+    const { render } = await import("@react-email/render");
+    const { default: IntakeReminderEmail } = await import("@/lib/email/templates/intake-reminder");
+
+    const html = await render(
+      IntakeReminderEmail({
+        clientName: clientProfile?.full_name || "Client",
+        matterTitle: matter.title,
+        intakeLink,
+        daysWaiting: 0, // Manual reminder, no auto-calculated days
+        settings: {
+          firmName: settings.firm_name || "Your Law Firm",
+          contactEmail: settings.contact_email,
+        },
+      })
+    );
+
+    const result = await sendGmailEmail({
+      to: clientUser.email,
+      subject: `Reminder: Please complete your intake form - ${matter.title}`,
+      html,
+      refreshToken: settings.google_refresh_token,
+      fromEmail: settings.contact_email,
+      fromName: settings.firm_name || undefined,
+    });
+
+    if (!result.ok) {
+      return { error: result.error || "Failed to send email" };
+    }
+  } catch (emailError) {
+    console.error("Failed to send intake reminder:", emailError);
+    return { error: "Failed to send reminder email" };
+  }
+
+  await logAudit({
+    supabase,
+    actorId: roleCheck.session.user.id,
+    eventType: "intake_reminder_sent",
+    entityType: "matter",
+    entityId: matterId,
+    metadata: { clientEmail: clientUser.email },
+  });
+
+  return { ok: true };
+}
