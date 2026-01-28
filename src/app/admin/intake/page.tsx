@@ -115,7 +115,7 @@ export default async function AdminIntakeListPage() {
   );
 }
 
-function IntakeResponseCard({ response }: { response: any }) {
+function IntakeResponseCard({ response }: { response: { id: string; formType: string; status: string; matterId: string; submittedAt?: string; updatedAt?: string; createdAt: string } }) {
   const statusColors = {
     draft: "bg-gray-100 text-gray-800",
     submitted: "bg-blue-100 text-blue-800",
@@ -130,22 +130,22 @@ function IntakeResponseCard({ response }: { response: any }) {
         <div className="flex-1">
           <div className="flex items-center gap-3 mb-2">
             <h3 className="text-lg font-semibold text-gray-900">
-              {response.form_type}
+              {response.formType}
             </h3>
             <Badge className={statusColor}>{response.status}</Badge>
           </div>
 
           <div className="space-y-1 text-sm text-gray-600 mb-4">
-            {response.matter_id && (
+            {response.matterId && (
               <p>
                 <span className="font-medium">Matter ID:</span>{" "}
-                {response.matter_id.substring(0, 8).toUpperCase()}
+                {response.matterId.substring(0, 8).toUpperCase()}
               </p>
             )}
-            {response.submitted_at && (
+            {response.submittedAt && (
               <p>
                 <span className="font-medium">Submitted:</span>{" "}
-                {new Date(response.submitted_at).toLocaleDateString("en-US", {
+                {new Date(response.submittedAt).toLocaleDateString("en-US", {
                   year: "numeric",
                   month: "short",
                   day: "numeric",
@@ -156,7 +156,7 @@ function IntakeResponseCard({ response }: { response: any }) {
             )}
             <p>
               <span className="font-medium">Last Updated:</span>{" "}
-              {new Date(response.updated_at).toLocaleDateString("en-US", {
+              {new Date(response.updatedAt || response.createdAt).toLocaleDateString("en-US", {
                 year: "numeric",
                 month: "short",
                 day: "numeric",

@@ -414,6 +414,7 @@ export async function getAllIntakeResponses(): Promise<{
     }
 
     // Map database response to IntakeFormResponse type
+    // Note: row.updated_at exists in database but may not be in generated types yet
     const mappedData: IntakeFormResponse[] = (data || []).map((row) => ({
       id: row.id,
       matterId: row.matter_id,
@@ -422,7 +423,7 @@ export async function getAllIntakeResponses(): Promise<{
       status: row.status as "draft" | "submitted" | "approved",
       submittedAt: row.submitted_at || undefined,
       createdAt: row.created_at,
-      updatedAt: undefined, // Not fetched in query
+      updatedAt: (row as unknown as { updated_at?: string }).updated_at || row.created_at,
     }));
 
     return { data: mappedData };
