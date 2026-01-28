@@ -4,6 +4,24 @@ const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
 })
 
+/**
+ * Strip markdown code blocks from AI response
+ * Claude sometimes wraps JSON in ```json ... ```
+ */
+function stripMarkdownCodeBlock(text: string): string {
+  // Remove ```json or ``` at start and ``` at end
+  let cleaned = text.trim()
+  if (cleaned.startsWith('```json')) {
+    cleaned = cleaned.slice(7)
+  } else if (cleaned.startsWith('```')) {
+    cleaned = cleaned.slice(3)
+  }
+  if (cleaned.endsWith('```')) {
+    cleaned = cleaned.slice(0, -3)
+  }
+  return cleaned.trim()
+}
+
 export interface DocumentSummaryResult {
   documentType: string
   summary: string
@@ -72,7 +90,7 @@ Respond in JSON format:
       return getDefaultResult(filename)
     }
 
-    const parsed = JSON.parse(content)
+    const parsed = JSON.parse(stripMarkdownCodeBlock(content))
     const documentType = DOCUMENT_TYPES.includes(parsed.documentType)
       ? parsed.documentType
       : 'Other'

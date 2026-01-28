@@ -6,6 +6,23 @@ const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
 });
 
+/**
+ * Strip markdown code blocks from AI response
+ * Claude sometimes wraps JSON in ```json ... ``` despite instructions
+ */
+function stripMarkdownCodeBlock(text: string): string {
+  let cleaned = text.trim();
+  if (cleaned.startsWith("```json")) {
+    cleaned = cleaned.slice(7);
+  } else if (cleaned.startsWith("```")) {
+    cleaned = cleaned.slice(3);
+  }
+  if (cleaned.endsWith("```")) {
+    cleaned = cleaned.slice(0, -3);
+  }
+  return cleaned.trim();
+}
+
 export async function parseDocumentTemplate(
   fileBuffer: Buffer,
   fileName: string
@@ -59,9 +76,11 @@ Return ONLY valid JSON, no markdown.`,
   }
 
   try {
-    const parsed = JSON.parse(content.text) as ParsedTemplate;
+    const cleanedText = stripMarkdownCodeBlock(content.text);
+    const parsed = JSON.parse(cleanedText) as ParsedTemplate;
     return parsed;
   } catch (err) {
+    console.error("Raw Claude response:", content.text);
     throw new Error(`Failed to parse Claude response: ${err}`);
   }
 }
