@@ -27,8 +27,9 @@ export default async function InviteRedemptionPage({ params }: PageProps) {
   const { session } = await getSessionWithProfile()
 
   // If not authenticated, redirect to sign-up with the invite code
+  // Include redirect back to this page so after signup they continue the intake flow
   if (!session) {
-    redirect(`/auth/sign-up?code=${code}`)
+    redirect(`/auth/sign-up?code=${code}&redirect=/intake/invite/${code}`)
   }
 
   // Check if invitation is expired
