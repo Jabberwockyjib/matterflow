@@ -37,21 +37,33 @@ export default async function IntakeReviewPage({
   // Get client details separately
   let clientData = null;
   if (intakeResponse?.matters?.client_id) {
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("user_id, full_name")
-      .eq("user_id", intakeResponse.matters.client_id)
-      .single();
+    try {
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("user_id, full_name")
+        .eq("user_id", intakeResponse.matters.client_id)
+        .single();
 
-    if (profile) {
-      const { data: user } = await supabase.auth.admin.getUserById(profile.user_id);
-      if (user) {
-        clientData = {
-          userId: profile.user_id,
-          fullName: profile.full_name || "Unknown",
-          email: user.user?.email || "",
-        };
+      if (profile) {
+        const { data: user, error: userError } = await supabase.auth.admin.getUserById(profile.user_id);
+        if (!userError && user?.user) {
+          clientData = {
+            userId: profile.user_id,
+            fullName: profile.full_name || "Unknown",
+            email: user.user.email || "",
+          };
+        } else {
+          // Fallback if auth user not found
+          clientData = {
+            userId: profile.user_id,
+            fullName: profile.full_name || "Unknown",
+            email: "",
+          };
+        }
       }
+    } catch (err) {
+      console.error("Error fetching client data:", err);
+      // Continue without client data rather than crashing
     }
   }
 
@@ -69,7 +81,14 @@ export default async function IntakeReviewPage({
   }
 
   // Get info requests for this intake
-  const { data: infoRequests } = await getInfoRequests(intakeId);
+  let infoRequests: Awaited<ReturnType<typeof getInfoRequests>>["data"] = [];
+  try {
+    const result = await getInfoRequests(intakeId);
+    infoRequests = result.data ?? [];
+  } catch (err) {
+    console.error("Error fetching info requests:", err);
+    // Continue with empty info requests rather than crashing
+  }
 
   const matter = intakeResponse.matters as {
     id: string;
@@ -226,7 +245,7 @@ export default async function IntakeReviewPage({
               fullName: "Unknown",
               email: "",
             }}
-            infoRequests={infoRequests}
+            infoRequests={infoRequests || []}
           />
         )}
 
