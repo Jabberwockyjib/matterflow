@@ -16,7 +16,7 @@ import {
   isInvoiceSynced,
 } from "./invoices";
 import { isSquareConfigured } from "./client";
-import type { Result, SyncSquarePaymentResult } from "./types";
+import type { SyncSquarePaymentResult } from "./types";
 
 export type ActionResult =
   | { ok: true; data?: any }

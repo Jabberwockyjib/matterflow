@@ -10,7 +10,7 @@ type IntegrationsPanelProps = {
   profile: Profile;
 };
 
-export async function IntegrationsPanel({ profile }: IntegrationsPanelProps) {
+export async function IntegrationsPanel({ profile: _profile }: IntegrationsPanelProps) {
   // Fetch practice settings for all integrations
   const supabase = supabaseAdmin();
   const { data: practiceSettings } = await supabase

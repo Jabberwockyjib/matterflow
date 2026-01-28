@@ -5,7 +5,6 @@ import { supabaseAdmin } from "@/lib/supabase/server";
 import {
   getSquareOAuthConfig,
   exchangeCodeForTokens,
-  fetchMerchantInfo,
   fetchFirstLocation,
 } from "@/lib/square/oauth";
 
@@ -90,12 +89,6 @@ export async function GET(request: Request) {
 
     // Exchange authorization code for tokens
     const tokens = await exchangeCodeForTokens(config, code, REDIRECT_URI);
-
-    // Fetch merchant info for display
-    const merchantInfo = await fetchMerchantInfo(
-      tokens.access_token,
-      config.environment
-    );
 
     // Fetch first location for invoice operations
     const locationInfo = await fetchFirstLocation(
