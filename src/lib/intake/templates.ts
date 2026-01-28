@@ -458,6 +458,169 @@ export const policyReviewTemplate: IntakeFormTemplate = {
 };
 
 /**
+ * Template for General matters
+ * A basic intake form that works for any matter type
+ */
+export const generalIntakeTemplate: IntakeFormTemplate = {
+  id: "general-intake-v1",
+  name: "General Intake",
+  matterType: "General",
+  description: "General intake form for new matters",
+  version: 1,
+  sections: [
+    {
+      id: "client-info",
+      title: "Client Information",
+      description: "Basic information about you",
+      fields: [
+        {
+          id: "full_name",
+          type: "text",
+          label: "Full Name",
+          required: true,
+          placeholder: "Jane Doe",
+        },
+        {
+          id: "email",
+          type: "email",
+          label: "Email Address",
+          required: true,
+          placeholder: "jane@example.com",
+        },
+        {
+          id: "phone",
+          type: "phone",
+          label: "Phone Number",
+          required: true,
+          placeholder: "(555) 123-4567",
+        },
+        {
+          id: "preferred_contact",
+          type: "select",
+          label: "Preferred Contact Method",
+          required: true,
+          options: [
+            { value: "email", label: "Email" },
+            { value: "phone", label: "Phone" },
+            { value: "either", label: "Either" },
+          ],
+        },
+      ],
+    },
+    {
+      id: "matter-details",
+      title: "Matter Details",
+      description: "Tell us about your legal matter",
+      fields: [
+        {
+          id: "matter_description",
+          type: "textarea",
+          label: "Please describe your legal matter",
+          description: "Provide as much detail as you can about your situation",
+          required: true,
+          placeholder: "Describe your legal matter here...",
+          validation: {
+            minLength: 50,
+          },
+        },
+        {
+          id: "urgency",
+          type: "select",
+          label: "How urgent is this matter?",
+          required: true,
+          options: [
+            { value: "not_urgent", label: "Not Urgent - No deadline" },
+            { value: "somewhat_urgent", label: "Somewhat Urgent - Within a month" },
+            { value: "urgent", label: "Urgent - Within a week" },
+            { value: "very_urgent", label: "Very Urgent - Immediate attention needed" },
+          ],
+        },
+        {
+          id: "deadline",
+          type: "date",
+          label: "Is there a specific deadline?",
+          required: false,
+          description: "If applicable, when does this need to be resolved by?",
+        },
+        {
+          id: "prior_legal_help",
+          type: "radio",
+          label: "Have you worked with an attorney on this matter before?",
+          required: true,
+          options: [
+            { value: "yes", label: "Yes" },
+            { value: "no", label: "No" },
+          ],
+        },
+        {
+          id: "prior_attorney_details",
+          type: "textarea",
+          label: "Please provide details about your prior legal assistance",
+          required: false,
+          conditionalDisplay: {
+            field: "prior_legal_help",
+            value: "yes",
+          },
+        },
+      ],
+    },
+    {
+      id: "documents",
+      title: "Supporting Documents",
+      description: "Upload any relevant documents",
+      fields: [
+        {
+          id: "supporting_documents",
+          type: "file",
+          label: "Upload Supporting Documents",
+          description: "Upload any documents that may be relevant to your matter",
+          required: false,
+          fileConfig: {
+            maxSize: 25 * 1024 * 1024, // 25MB
+            acceptedTypes: [
+              "application/pdf",
+              "application/msword",
+              "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+              "image/jpeg",
+              "image/png",
+            ],
+            maxFiles: 10,
+          },
+        },
+      ],
+    },
+    {
+      id: "additional-info",
+      title: "Additional Information",
+      description: "Anything else we should know",
+      fields: [
+        {
+          id: "additional_notes",
+          type: "textarea",
+          label: "Additional Notes",
+          description: "Is there anything else you'd like us to know?",
+          required: false,
+          placeholder: "Any additional information...",
+        },
+        {
+          id: "how_found_us",
+          type: "select",
+          label: "How did you hear about us?",
+          required: false,
+          options: [
+            { value: "referral", label: "Referral from a friend or colleague" },
+            { value: "search", label: "Online search" },
+            { value: "social_media", label: "Social media" },
+            { value: "advertisement", label: "Advertisement" },
+            { value: "other", label: "Other" },
+          ],
+        },
+      ],
+    },
+  ],
+};
+
+/**
  * Default template registry
  * Maps matter_type to appropriate template
  */
@@ -465,6 +628,7 @@ export const INTAKE_FORM_TEMPLATES: Record<string, IntakeFormTemplate> = {
   "Contract Review": contractReviewTemplate,
   "Employment Agreement": employmentAgreementTemplate,
   "Policy Review": policyReviewTemplate,
+  "General": generalIntakeTemplate,
 };
 
 /**

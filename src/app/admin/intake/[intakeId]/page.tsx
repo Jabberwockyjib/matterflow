@@ -71,7 +71,27 @@ export default async function IntakeReviewPage({
   // Get info requests for this intake
   const { data: infoRequests } = await getInfoRequests(intakeId);
 
-  const matter = intakeResponse.matters;
+  const matter = intakeResponse.matters as {
+    id: string;
+    title: string;
+    matter_type: string;
+    stage: string;
+    client_id: string | null;
+  } | null;
+
+  if (!matter) {
+    return (
+      <div className="p-8">
+        <div className="max-w-2xl mx-auto bg-red-50 border border-red-200 rounded-lg p-6">
+          <h2 className="text-lg font-semibold text-red-800 mb-2">
+            Matter Not Found
+          </h2>
+          <p className="text-red-700">The matter associated with this intake response could not be found.</p>
+        </div>
+      </div>
+    );
+  }
+
   const template = getTemplateForMatterType(matter.matter_type);
 
   if (!template) {
