@@ -95,30 +95,6 @@ export default function SignInPage() {
     }
   };
 
-  // Handle Google OAuth sign-in
-  const handleGoogleSignIn = async () => {
-    const supabase = supabaseBrowser();
-    if (!supabase) {
-      showError("Authentication service is not available");
-      return;
-    }
-
-    setIsGoogleLoading(true);
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: {
-        redirectTo: `${window.location.origin}${redirect}`,
-      },
-    });
-
-    if (error) {
-      console.error('[Google Sign-in] Error:', error);
-      showError(error.message);
-      setIsGoogleLoading(false);
-    }
-    // If successful, the page will redirect to Google
-  };
-
   // Show loading while checking auth
   if (isCheckingAuth) {
     return (
@@ -165,7 +141,7 @@ export default function SignInPage() {
             <Button
               type="submit"
               className="w-full"
-              disabled={isSubmitting || isGoogleLoading}
+              disabled={isSubmitting}
             >
               <Mail className="mr-2 h-4 w-4" />
               {isSubmitting ? "Signing in..." : "Sign in with Email"}
