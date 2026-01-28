@@ -34,23 +34,23 @@ export default async function ClientsPage() {
       <div className="grid grid-cols-4 gap-4 mb-8">
         <div className="bg-white rounded-lg border border-slate-200 p-4">
           <div className="text-sm text-slate-600">Invited</div>
-          <div className="text-2xl font-bold text-slate-900">
+          <div className="text-2xl font-bold text-slate-900 tabular-nums">
             {invitations.pending.length}
           </div>
         </div>
         <div className="bg-white rounded-lg border border-slate-200 p-4">
           <div className="text-sm text-slate-600">Under Review</div>
-          <div className="text-2xl font-bold text-slate-900">
+          <div className="text-2xl font-bold text-slate-900 tabular-nums">
             {intakes.pending.length + intakes.underReview.length}
           </div>
         </div>
         <div className="bg-white rounded-lg border border-slate-200 p-4">
           <div className="text-sm text-slate-600">Active</div>
-          <div className="text-2xl font-bold text-slate-900">0</div>
+          <div className="text-2xl font-bold text-slate-900 tabular-nums">0</div>
         </div>
         <div className="bg-white rounded-lg border border-slate-200 p-4">
           <div className="text-sm text-slate-600">Past</div>
-          <div className="text-2xl font-bold text-slate-900">0</div>
+          <div className="text-2xl font-bold text-slate-900 tabular-nums">0</div>
         </div>
       </div>
 

@@ -246,19 +246,19 @@ export default async function MatterDetailPage({ params }: MatterDetailPageProps
                 <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
                   Total Hours
                 </p>
-                <p className="mt-1 text-2xl font-semibold text-slate-900">{totalHours}</p>
+                <p className="mt-1 text-2xl font-semibold text-slate-900 tabular-nums">{totalHours}</p>
               </div>
               <div className="rounded-lg bg-slate-50 p-4">
                 <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
                   Billable
                 </p>
-                <p className="mt-1 text-2xl font-semibold text-slate-900">${billableAmount}</p>
+                <p className="mt-1 text-2xl font-semibold text-slate-900 tabular-nums">${billableAmount}</p>
               </div>
               <div className="rounded-lg bg-slate-50 p-4">
                 <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
                   Billed
                 </p>
-                <p className="mt-1 text-2xl font-semibold text-slate-900">$0.00</p>
+                <p className="mt-1 text-2xl font-semibold text-slate-900 tabular-nums">$0.00</p>
               </div>
             </div>
 

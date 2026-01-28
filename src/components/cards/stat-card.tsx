@@ -34,7 +34,7 @@ export function StatCard({ label, value, helper, icon: Icon, className, ...props
         <p className="text-xs uppercase tracking-wide text-muted-foreground font-semibold">
           {label}
         </p>
-        <p className="mt-2 text-3xl font-lora font-bold text-foreground">
+        <p className="mt-2 text-3xl font-lora font-bold text-foreground tabular-nums">
           {value}
         </p>
       </div>

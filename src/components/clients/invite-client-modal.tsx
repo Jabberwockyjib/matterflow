@@ -123,6 +123,7 @@ export function InviteClientModal() {
                 variant="outline"
                 size="icon"
                 title="Copy link"
+                aria-label={copied ? "Link copied" : "Copy link to clipboard"}
               >
                 {copied ? (
                   <Check className="h-4 w-4" />
@@ -147,6 +148,7 @@ export function InviteClientModal() {
                 name="clientName"
                 required
                 placeholder="John Doe"
+                autoComplete="name"
               />
             </div>
 
@@ -160,6 +162,7 @@ export function InviteClientModal() {
                 type="email"
                 required
                 placeholder="john@example.com"
+                autoComplete="email"
               />
             </div>
 

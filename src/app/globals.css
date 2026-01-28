@@ -27,6 +27,17 @@ a {
     @apply border-border;
   }
 
+  /* Eliminate 300ms tap delay on mobile */
+  button,
+  a,
+  [role="button"],
+  input,
+  select,
+  textarea,
+  label {
+    touch-action: manipulation;
+  }
+
   body {
     @apply min-h-screen bg-background text-foreground antialiased;
   }
@@ -69,4 +80,16 @@ body::before {
   background-size: 24px 24px;
   pointer-events: none;
   z-index: -1;
+}
+
+/* Respect user preference for reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

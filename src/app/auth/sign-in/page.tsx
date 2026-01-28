@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Mail, ShieldCheck, Chrome } from "lucide-react";
+import { Mail, ShieldCheck } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -21,7 +21,6 @@ export default function SignInPage() {
   const router = useRouter();
   const redirect = searchParams.get("redirect") || "/";
   const [isCheckingAuth, setIsCheckingAuth] = useState(true);
-  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
 
   // Check if user is already logged in
   useEffect(() => {
@@ -152,6 +151,7 @@ export default function SignInPage() {
               registration={register("email")}
               error={errors.email}
               required
+              autoComplete="email"
             />
             <FormInput
               label="Password"
@@ -160,6 +160,7 @@ export default function SignInPage() {
               registration={register("password")}
               error={errors.password}
               required
+              autoComplete="current-password"
             />
             <Button
               type="submit"
@@ -170,26 +171,6 @@ export default function SignInPage() {
               {isSubmitting ? "Signing in..." : "Sign in with Email"}
             </Button>
           </form>
-
-          <div className="relative my-4">
-            <div className="absolute inset-0 flex items-center">
-              <span className="w-full border-t border-slate-200" />
-            </div>
-            <div className="relative flex justify-center text-xs uppercase">
-              <span className="bg-white px-2 text-slate-500">Or continue with</span>
-            </div>
-          </div>
-
-          <Button
-            type="button"
-            variant="outline"
-            className="w-full"
-            onClick={handleGoogleSignIn}
-            disabled={isSubmitting || isGoogleLoading}
-          >
-            <Chrome className="mr-2 h-4 w-4" />
-            {isGoogleLoading ? "Redirecting..." : "Sign in with Google"}
-          </Button>
 
           <p className="mt-4 text-center text-sm text-slate-600">
             Have an invite code?{" "}

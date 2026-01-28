@@ -210,6 +210,7 @@ export function Sidebar({ role, profileName }: SidebarProps) {
           variant="ghost"
           size="sm"
           onClick={toggleCollapsed}
+          aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
           className={cn(
             "w-full mt-2",
             collapsed && "justify-center px-2"
