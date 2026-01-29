@@ -1,5 +1,5 @@
 import { Suspense } from "react";
-import { fetchMattersWithFilters, fetchMattersAwaitingReview, fetchMattersAwaitingIntake, fetchOverdueMatters } from "@/lib/data/queries";
+import { fetchMattersWithFilters, fetchMattersAwaitingReview, fetchMattersAwaitingIntake, fetchOverdueMatters, fetchTasksForReview } from "@/lib/data/queries";
 import type { MatterFilters } from "@/lib/data/queries";
 import {
   groupAndSortMatters,
@@ -10,6 +10,7 @@ import { DashboardColumn } from "@/components/dashboard-column";
 import { DashboardFilters } from "@/components/dashboard-filters";
 import { NeedsAttention } from "@/components/dashboard/needs-attention";
 import { WaitingOnClient } from "@/components/dashboard/waiting-on-client";
+import { TasksToReview } from "@/components/dashboard/tasks-to-review";
 
 export const metadata = {
   title: "Matter Status Dashboard",
@@ -130,11 +131,13 @@ async function DashboardContent({ filters }: { filters: MatterFilters }) {
     { data: awaitingReview },
     { data: awaitingIntake },
     { data: overdue },
+    { data: tasksToReview },
   ] = await Promise.all([
     fetchMattersWithFilters(filters),
     fetchMattersAwaitingReview(),
     fetchMattersAwaitingIntake(),
     fetchOverdueMatters(),
+    fetchTasksForReview(),
   ]);
   const groupedMatters = groupAndSortMatters(matters);
 
@@ -154,6 +157,9 @@ async function DashboardContent({ filters }: { filters: MatterFilters }) {
     <>
       {/* Needs Attention Section */}
       <NeedsAttention awaitingReview={awaitingReview} overdue={overdue} />
+
+      {/* Tasks to Review Section */}
+      <TasksToReview tasks={tasksToReview} />
 
       {/* Waiting on Client Section */}
       <WaitingOnClient awaitingIntake={awaitingIntake} />
