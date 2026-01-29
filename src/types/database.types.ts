@@ -7,30 +7,10 @@ export type Json =
   | Json[]
 
 export type Database = {
-  graphql_public: {
-    Tables: {
-      [_ in never]: never
-    }
-    Views: {
-      [_ in never]: never
-    }
-    Functions: {
-      graphql: {
-        Args: {
-          extensions?: Json
-          operationName?: string
-          query?: string
-          variables?: Json
-        }
-        Returns: Json
-      }
-    }
-    Enums: {
-      [_ in never]: never
-    }
-    CompositeTypes: {
-      [_ in never]: never
-    }
+  // Allows to automatically instantiate createClient with right options
+  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
+  __InternalSupabase: {
+    PostgrestVersion: "14.1"
   }
   public: {
     Tables: {
@@ -194,6 +174,7 @@ export type Database = {
           mime_type: string | null
           status: string
           summary: string | null
+          task_id: string | null
           title: string
           version: number
           web_view_link: string | null
@@ -213,6 +194,7 @@ export type Database = {
           mime_type?: string | null
           status?: string
           summary?: string | null
+          task_id?: string | null
           title: string
           version?: number
           web_view_link?: string | null
@@ -232,6 +214,7 @@ export type Database = {
           mime_type?: string | null
           status?: string
           summary?: string | null
+          task_id?: string | null
           title?: string
           version?: number
           web_view_link?: string | null
@@ -244,29 +227,36 @@ export type Database = {
             referencedRelation: "matters"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "documents_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
         ]
       }
       firm_settings: {
         Row: {
           id: string
           key: string
-          value: string | null
           updated_at: string | null
           updated_by: string | null
+          value: string | null
         }
         Insert: {
           id?: string
           key: string
-          value?: string | null
           updated_at?: string | null
           updated_by?: string | null
+          value?: string | null
         }
         Update: {
           id?: string
           key?: string
-          value?: string | null
           updated_at?: string | null
           updated_by?: string | null
+          value?: string | null
         }
         Relationships: [
           {
@@ -534,68 +524,6 @@ export type Database = {
           },
         ]
       }
-      matter_emails: {
-        Row: {
-          id: string
-          matter_id: string
-          gmail_message_id: string
-          thread_id: string | null
-          direction: string
-          from_email: string
-          to_email: string
-          subject: string | null
-          snippet: string | null
-          ai_summary: string | null
-          action_needed: boolean | null
-          gmail_date: string
-          gmail_link: string | null
-          synced_at: string | null
-          created_at: string | null
-        }
-        Insert: {
-          id?: string
-          matter_id: string
-          gmail_message_id: string
-          thread_id?: string | null
-          direction: string
-          from_email: string
-          to_email: string
-          subject?: string | null
-          snippet?: string | null
-          ai_summary?: string | null
-          action_needed?: boolean | null
-          gmail_date: string
-          gmail_link?: string | null
-          synced_at?: string | null
-          created_at?: string | null
-        }
-        Update: {
-          id?: string
-          matter_id?: string
-          gmail_message_id?: string
-          thread_id?: string | null
-          direction?: string
-          from_email?: string
-          to_email?: string
-          subject?: string | null
-          snippet?: string | null
-          ai_summary?: string | null
-          action_needed?: boolean | null
-          gmail_date?: string
-          gmail_link?: string | null
-          synced_at?: string | null
-          created_at?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "matter_emails_matter_id_fkey"
-            columns: ["matter_id"]
-            isOneToOne: false
-            referencedRelation: "matters"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       matter_documents: {
         Row: {
           ai_document_type: string | null
@@ -676,6 +604,68 @@ export type Database = {
             columns: ["template_id"]
             isOneToOne: false
             referencedRelation: "document_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      matter_emails: {
+        Row: {
+          action_needed: boolean | null
+          ai_summary: string | null
+          created_at: string | null
+          direction: string
+          from_email: string
+          gmail_date: string
+          gmail_link: string | null
+          gmail_message_id: string
+          id: string
+          matter_id: string
+          snippet: string | null
+          subject: string | null
+          synced_at: string | null
+          thread_id: string | null
+          to_email: string
+        }
+        Insert: {
+          action_needed?: boolean | null
+          ai_summary?: string | null
+          created_at?: string | null
+          direction: string
+          from_email: string
+          gmail_date: string
+          gmail_link?: string | null
+          gmail_message_id: string
+          id?: string
+          matter_id: string
+          snippet?: string | null
+          subject?: string | null
+          synced_at?: string | null
+          thread_id?: string | null
+          to_email: string
+        }
+        Update: {
+          action_needed?: boolean | null
+          ai_summary?: string | null
+          created_at?: string | null
+          direction?: string
+          from_email?: string
+          gmail_date?: string
+          gmail_link?: string | null
+          gmail_message_id?: string
+          id?: string
+          matter_id?: string
+          snippet?: string | null
+          subject?: string | null
+          synced_at?: string | null
+          thread_id?: string | null
+          to_email?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "matter_emails_matter_id_fkey"
+            columns: ["matter_id"]
+            isOneToOne: false
+            referencedRelation: "matters"
             referencedColumns: ["id"]
           },
         ]
@@ -994,6 +984,73 @@ export type Database = {
         }
         Relationships: []
       }
+      task_responses: {
+        Row: {
+          confirmed_at: string | null
+          created_at: string
+          id: string
+          response_text: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          reviewer_notes: string | null
+          status: string
+          submitted_at: string
+          submitted_by: string
+          task_id: string
+          updated_at: string
+        }
+        Insert: {
+          confirmed_at?: string | null
+          created_at?: string
+          id?: string
+          response_text?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          reviewer_notes?: string | null
+          status?: string
+          submitted_at?: string
+          submitted_by: string
+          task_id: string
+          updated_at?: string
+        }
+        Update: {
+          confirmed_at?: string | null
+          created_at?: string
+          id?: string
+          response_text?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          reviewer_notes?: string | null
+          status?: string
+          submitted_at?: string
+          submitted_by?: string
+          task_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "task_responses_reviewed_by_fkey"
+            columns: ["reviewed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "task_responses_submitted_by_fkey"
+            columns: ["submitted_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "task_responses_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       tasks: {
         Row: {
           created_at: string
@@ -1001,9 +1058,11 @@ export type Database = {
           description: string | null
           due_date: string | null
           id: string
+          instructions: string | null
           matter_id: string
           responsible_party: string
           status: string
+          task_type: string
           title: string
           updated_at: string
         }
@@ -1013,9 +1072,11 @@ export type Database = {
           description?: string | null
           due_date?: string | null
           id?: string
+          instructions?: string | null
           matter_id: string
           responsible_party: string
           status?: string
+          task_type?: string
           title: string
           updated_at?: string
         }
@@ -1025,9 +1086,11 @@ export type Database = {
           description?: string | null
           due_date?: string | null
           id?: string
+          instructions?: string | null
           matter_id?: string
           responsible_party?: string
           status?: string
+          task_type?: string
           title?: string
           updated_at?: string
         }
@@ -1251,232 +1314,6 @@ export type Database = {
       [_ in never]: never
     }
   }
-  storage: {
-    Tables: {
-      buckets: {
-        Row: {
-          allowed_mime_types: string[] | null
-          avif_autodetection: boolean | null
-          created_at: string | null
-          file_size_limit: number | null
-          id: string
-          name: string
-          owner: string | null
-          owner_id: string | null
-          public: boolean | null
-          updated_at: string | null
-        }
-        Insert: {
-          allowed_mime_types?: string[] | null
-          avif_autodetection?: boolean | null
-          created_at?: string | null
-          file_size_limit?: number | null
-          id: string
-          name: string
-          owner?: string | null
-          owner_id?: string | null
-          public?: boolean | null
-          updated_at?: string | null
-        }
-        Update: {
-          allowed_mime_types?: string[] | null
-          avif_autodetection?: boolean | null
-          created_at?: string | null
-          file_size_limit?: number | null
-          id?: string
-          name?: string
-          owner?: string | null
-          owner_id?: string | null
-          public?: boolean | null
-          updated_at?: string | null
-        }
-        Relationships: []
-      }
-      migrations: {
-        Row: {
-          executed_at: string | null
-          hash: string
-          id: number
-          name: string
-        }
-        Insert: {
-          executed_at?: string | null
-          hash: string
-          id: number
-          name: string
-        }
-        Update: {
-          executed_at?: string | null
-          hash?: string
-          id?: number
-          name?: string
-        }
-        Relationships: []
-      }
-      objects: {
-        Row: {
-          bucket_id: string | null
-          created_at: string | null
-          id: string
-          last_accessed_at: string | null
-          metadata: Json | null
-          name: string | null
-          owner: string | null
-          owner_id: string | null
-          path_tokens: string[] | null
-          updated_at: string | null
-          version: string | null
-        }
-        Insert: {
-          bucket_id?: string | null
-          created_at?: string | null
-          id?: string
-          last_accessed_at?: string | null
-          metadata?: Json | null
-          name?: string | null
-          owner?: string | null
-          owner_id?: string | null
-          path_tokens?: string[] | null
-          updated_at?: string | null
-          version?: string | null
-        }
-        Update: {
-          bucket_id?: string | null
-          created_at?: string | null
-          id?: string
-          last_accessed_at?: string | null
-          metadata?: Json | null
-          name?: string | null
-          owner?: string | null
-          owner_id?: string | null
-          path_tokens?: string[] | null
-          updated_at?: string | null
-          version?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "objects_bucketId_fkey"
-            columns: ["bucket_id"]
-            isOneToOne: false
-            referencedRelation: "buckets"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      s3_multipart_uploads: {
-        Row: {
-          bucket_id: string
-          created_at: string
-          id: string
-          in_progress_size: number
-          key: string
-          owner_id: string | null
-          upload_signature: string
-          user_metadata: Json | null
-          version: string
-        }
-        Insert: {
-          bucket_id: string
-          created_at?: string
-          id: string
-          in_progress_size?: number
-          key: string
-          owner_id?: string | null
-          upload_signature: string
-          user_metadata?: Json | null
-          version: string
-        }
-        Update: {
-          bucket_id?: string
-          created_at?: string
-          id?: string
-          in_progress_size?: number
-          key?: string
-          owner_id?: string | null
-          upload_signature?: string
-          user_metadata?: Json | null
-          version?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "s3_multipart_uploads_bucket_id_fkey"
-            columns: ["bucket_id"]
-            isOneToOne: false
-            referencedRelation: "buckets"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      s3_multipart_uploads_parts: {
-        Row: {
-          bucket_id: string
-          created_at: string
-          etag: string
-          id: string
-          key: string
-          owner_id: string | null
-          part_number: number
-          size: number
-          upload_id: string
-          version: string
-        }
-        Insert: {
-          bucket_id: string
-          created_at?: string
-          etag: string
-          id?: string
-          key: string
-          owner_id?: string | null
-          part_number: number
-          size?: number
-          upload_id: string
-          version: string
-        }
-        Update: {
-          bucket_id?: string
-          created_at?: string
-          etag?: string
-          id?: string
-          key?: string
-          owner_id?: string | null
-          part_number?: number
-          size?: number
-          upload_id?: string
-          version?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "s3_multipart_uploads_parts_bucket_id_fkey"
-            columns: ["bucket_id"]
-            isOneToOne: false
-            referencedRelation: "buckets"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "s3_multipart_uploads_parts_upload_id_fkey"
-            columns: ["upload_id"]
-            isOneToOne: false
-            referencedRelation: "s3_multipart_uploads"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-    }
-    Views: {
-      [_ in never]: never
-    }
-    Functions: {
-      extension: { Args: { name: string }; Returns: string }
-      filename: { Args: { name: string }; Returns: string }
-      foldername: { Args: { name: string }; Returns: string[] }
-    }
-    Enums: {
-      [_ in never]: never
-    }
-    CompositeTypes: {
-      [_ in never]: never
-    }
-  }
 }
 
 type DatabaseWithoutInternals = Omit<Database, "__InternalSupabase">
@@ -1597,15 +1434,9 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
-  graphql_public: {
-    Enums: {},
-  },
   public: {
     Enums: {
       user_role: ["admin", "staff", "client"],
     },
-  },
-  storage: {
-    Enums: {},
   },
 } as const
