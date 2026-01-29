@@ -223,7 +223,6 @@ export default async function IntakeReviewPage({
           <DynamicFormRenderer
             template={template}
             initialValues={(intakeResponse.responses || {}) as Record<string, any>}
-            onSubmit={async () => {}}
             readOnly={true}
           />
         </div>

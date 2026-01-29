@@ -14,7 +14,7 @@ import { Textarea } from "@/components/ui/textarea";
 interface DynamicFormRendererProps {
   template: IntakeFormTemplate;
   initialValues?: Record<string, any>;
-  onSubmit: (values: Record<string, any>) => Promise<void>;
+  onSubmit?: (values: Record<string, any>) => Promise<void>;
   onSaveDraft?: (values: Record<string, any>) => Promise<void>;
   readOnly?: boolean;
   submitButtonText?: string;
@@ -161,7 +161,7 @@ export function DynamicFormRenderer({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!validateForm()) {
+    if (!onSubmit || !validateForm()) {
       return;
     }
 
