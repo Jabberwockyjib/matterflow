@@ -548,6 +548,8 @@ export async function createTask(formData: FormData): Promise<ActionResult> {
     const matterId = formData.get("matterId") as string;
     const dueDate = (formData.get("dueDate") as string) || null;
     const responsible = (formData.get("responsibleParty") as string) || "lawyer";
+    const taskType = (formData.get("taskType") as string) || "general";
+    const instructions = (formData.get("instructions") as string) || null;
 
     if (!matterId) {
       return { error: "Matter ID is required" };
@@ -558,6 +560,8 @@ export async function createTask(formData: FormData): Promise<ActionResult> {
       matter_id: matterId,
       due_date: dueDate,
       responsible_party: responsible,
+      task_type: taskType,
+      instructions,
       status: "open",
     }).select("id").single();
 
