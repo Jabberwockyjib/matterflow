@@ -32,6 +32,10 @@ const taskFormSchema = z.object({
   responsibleParty: z.enum(responsiblePartyValues, {
     error: "Please select a responsible party",
   }),
+  taskType: z.enum(["document_upload", "information_request", "confirmation", "general"], {
+    error: "Please select a task type",
+  }),
+  instructions: z.string().optional(),
 });
 
 type TaskFormData = z.infer<typeof taskFormSchema>;
@@ -55,6 +59,13 @@ const responsiblePartyOptions = responsiblePartyValues.map((value) => ({
   value,
   label: value.charAt(0).toUpperCase() + value.slice(1),
 }));
+
+const taskTypeOptions = [
+  { value: "general", label: "General" },
+  { value: "document_upload", label: "Document Upload" },
+  { value: "information_request", label: "Information Request" },
+  { value: "confirmation", label: "Confirmation" },
+];
 
 // ============================================================================
 // Component
@@ -93,6 +104,8 @@ export function TaskForm({ matters, onSuccess }: TaskFormProps) {
       matterId: "",
       dueDate: "",
       responsibleParty: "lawyer",
+      taskType: "general",
+      instructions: "",
     },
   });
 
@@ -122,6 +135,10 @@ export function TaskForm({ matters, onSuccess }: TaskFormProps) {
       formData.append("dueDate", data.dueDate);
     }
     formData.append("responsibleParty", data.responsibleParty);
+    formData.append("taskType", data.taskType);
+    if (data.instructions) {
+      formData.append("instructions", data.instructions);
+    }
 
     const result = await createTask(formData);
 
@@ -168,6 +185,23 @@ export function TaskForm({ matters, onSuccess }: TaskFormProps) {
         error={errors.responsibleParty}
         required
       />
+      <FormSelect
+        label="Task Type"
+        options={taskTypeOptions}
+        registration={register("taskType")}
+        error={errors.taskType}
+        required
+      />
+      <div className="md:col-span-2">
+        <label className="block text-sm font-medium text-foreground mb-1.5">
+          Instructions for Client
+        </label>
+        <textarea
+          {...register("instructions")}
+          placeholder="What do you need from the client?"
+          className="w-full min-h-[80px] px-3 py-2 border border-input rounded-md bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+        />
+      </div>
       <div className="md:col-span-2">
         <Button type="submit" disabled={isSubmitting}>
           {isSubmitting ? "Creating..." : "Create task"}
