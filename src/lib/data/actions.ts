@@ -9,7 +9,7 @@ import { supabaseAdmin, supabaseEnvReady } from "@/lib/supabase/server";
 import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/types/database.types";
 import type { Json } from "@/types/database.types";
-import { sendMatterCreatedEmail, sendTaskAssignedEmail, sendInvoiceEmail } from "@/lib/email/actions";
+import { sendMatterCreatedEmail, sendTaskAssignedEmail, sendInvoiceEmail, sendTaskResponseSubmittedEmail, sendTaskApprovedEmail, sendTaskRevisionRequestedEmail } from "@/lib/email/actions";
 import { sendEmail } from "@/lib/email/service";
 import { fetchGmailEmails, extractEmailAddress } from "@/lib/email/gmail-client";
 import { summarizeEmail } from "@/lib/ai/email-summary";
@@ -39,17 +39,144 @@ export type UserWithProfile = {
   invitedBy: string | null;
 };
 
-// Placeholder email functions - implement in Task 11
-async function sendTaskResponseNotification(taskId: string, taskTitle: string, matterTitle: string, clientName: string) {
-  console.log("TODO: Send task response notification", { taskId, taskTitle, matterTitle, clientName });
+/**
+ * Send notification to lawyer when client submits a task response
+ */
+async function sendTaskResponseNotification(
+  taskId: string,
+  taskTitle: string,
+  matterTitle: string,
+  matterId: string,
+  clientName: string,
+  responseText: string | null
+) {
+  const supabase = ensureSupabase();
+
+  // Get the matter owner (lawyer)
+  const { data: matter } = await supabase
+    .from("matters")
+    .select("owner_id")
+    .eq("id", matterId)
+    .single();
+
+  if (!matter?.owner_id) {
+    console.error("No matter owner found for task response notification");
+    return;
+  }
+
+  // Get owner profile
+  const { data: ownerProfile } = await supabase
+    .from("profiles")
+    .select("full_name")
+    .eq("user_id", matter.owner_id)
+    .single();
+
+  // Get owner email from auth
+  const { data: { user: ownerUser } } = await supabase.auth.admin.getUserById(matter.owner_id);
+
+  if (!ownerUser?.email) {
+    console.error("No email found for matter owner");
+    return;
+  }
+
+  await sendTaskResponseSubmittedEmail({
+    to: ownerUser.email,
+    recipientName: ownerProfile?.full_name || "Counselor",
+    clientName,
+    taskTitle,
+    taskId,
+    matterTitle,
+    matterId,
+    responsePreview: responseText ? (responseText.length > 100 ? responseText.substring(0, 100) + "..." : responseText) : undefined,
+  });
 }
 
-async function sendTaskApprovalEmail(clientUserId: string, taskTitle: string) {
-  console.log("TODO: Send task approval email", { clientUserId, taskTitle });
+/**
+ * Send notification to client when their task response is approved
+ */
+async function sendTaskApprovalEmail(
+  clientUserId: string,
+  taskTitle: string,
+  taskId: string,
+  matterId: string
+) {
+  const supabase = ensureSupabase();
+
+  // Get client profile
+  const { data: clientProfile } = await supabase
+    .from("profiles")
+    .select("full_name")
+    .eq("user_id", clientUserId)
+    .single();
+
+  // Get client email from auth
+  const { data: { user: clientUser } } = await supabase.auth.admin.getUserById(clientUserId);
+
+  if (!clientUser?.email) {
+    console.error("No email found for client");
+    return;
+  }
+
+  // Get matter title
+  const { data: matter } = await supabase
+    .from("matters")
+    .select("title")
+    .eq("id", matterId)
+    .single();
+
+  await sendTaskApprovedEmail({
+    to: clientUser.email,
+    recipientName: clientProfile?.full_name || "Client",
+    taskTitle,
+    taskId,
+    matterTitle: matter?.title || "Your Matter",
+    matterId,
+  });
 }
 
-async function sendTaskRevisionEmail(clientUserId: string, taskTitle: string, notes: string) {
-  console.log("TODO: Send task revision email", { clientUserId, taskTitle, notes });
+/**
+ * Send notification to client when revision is requested on their task response
+ */
+async function sendTaskRevisionEmail(
+  clientUserId: string,
+  taskTitle: string,
+  taskId: string,
+  matterId: string,
+  notes: string
+) {
+  const supabase = ensureSupabase();
+
+  // Get client profile
+  const { data: clientProfile } = await supabase
+    .from("profiles")
+    .select("full_name")
+    .eq("user_id", clientUserId)
+    .single();
+
+  // Get client email from auth
+  const { data: { user: clientUser } } = await supabase.auth.admin.getUserById(clientUserId);
+
+  if (!clientUser?.email) {
+    console.error("No email found for client");
+    return;
+  }
+
+  // Get matter title
+  const { data: matter } = await supabase
+    .from("matters")
+    .select("title")
+    .eq("id", matterId)
+    .single();
+
+  await sendTaskRevisionRequestedEmail({
+    to: clientUser.email,
+    recipientName: clientProfile?.full_name || "Client",
+    taskTitle,
+    taskId,
+    matterTitle: matter?.title || "Your Matter",
+    matterId,
+    revisionNotes: notes,
+  });
 }
 
 const ensureSupabase = () => {
@@ -837,7 +964,14 @@ export async function submitTaskResponse(formData: FormData): Promise<ActionResu
     // Send email notification to lawyer (if not a confirmation that auto-completed)
     if (!isConfirmation) {
       try {
-        await sendTaskResponseNotification(taskId, task.title, matter.title, profile?.full_name || "Client");
+        await sendTaskResponseNotification(
+          taskId,
+          task.title,
+          matter.title,
+          matter.id,
+          profile?.full_name || "Client",
+          responseText
+        );
       } catch (emailError) {
         console.error("Failed to send task response notification:", emailError);
       }
@@ -909,7 +1043,7 @@ export async function approveTaskResponse(responseId: string): Promise<ActionRes
 
     // Send approval email to client
     try {
-      await sendTaskApprovalEmail(response.submitted_by, task.title);
+      await sendTaskApprovalEmail(response.submitted_by, task.title, task.id, task.matter_id);
     } catch (emailError) {
       console.error("Failed to send approval email:", emailError);
     }
@@ -984,7 +1118,7 @@ export async function requestTaskRevision(responseId: string, notes: string): Pr
 
     // Send revision email to client
     try {
-      await sendTaskRevisionEmail(response.submitted_by, task.title, notes);
+      await sendTaskRevisionEmail(response.submitted_by, task.title, task.id, task.matter_id, notes);
     } catch (emailError) {
       console.error("Failed to send revision email:", emailError);
     }

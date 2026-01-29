@@ -10,10 +10,12 @@ import { InvoiceSentEmail } from "./templates/invoice-sent";
 import { MatterCreatedEmail } from "./templates/matter-created";
 import { PaymentReceivedEmail } from "./templates/payment-received";
 import { TaskAssignedEmail } from "./templates/task-assigned";
+import { TaskResponseSubmittedEmail } from "./templates/task-response-submitted";
+import { TaskApprovedEmail } from "./templates/task-approved";
+import { TaskRevisionRequestedEmail } from "./templates/task-revision-requested";
 import type { EmailSendResult } from "./types";
 import { sendTemplateEmail } from "./service";
 import { getFirmSettings } from "@/lib/data/queries";
-import type { FirmSettings } from "@/types/firm-settings";
 
 /**
  * Email actions for MatterFlow
@@ -429,6 +431,120 @@ export async function sendIntakeDeclinedEmail(
     {
       type: "intake_declined",
       matterId: params.matterId,
+      recipientRole: "client",
+    },
+  );
+}
+
+interface SendTaskResponseSubmittedEmailParams {
+  to: string;
+  recipientName: string;
+  clientName: string;
+  taskTitle: string;
+  taskId: string;
+  matterTitle: string;
+  matterId: string;
+  responsePreview?: string;
+}
+
+export async function sendTaskResponseSubmittedEmail(
+  params: SendTaskResponseSubmittedEmailParams,
+): Promise<EmailSendResult> {
+  const settings = await getFirmSettings();
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+  const dashboardLink = `${appUrl}/dashboard`;
+
+  const template = TaskResponseSubmittedEmail({
+    recipientName: params.recipientName,
+    clientName: params.clientName,
+    taskTitle: params.taskTitle,
+    matterTitle: params.matterTitle,
+    responsePreview: params.responsePreview,
+    dashboardLink,
+    settings,
+  });
+
+  return sendTemplateEmail(
+    params.to,
+    `Client response: ${params.taskTitle}`,
+    template,
+    {
+      type: "task_response_submitted",
+      matterId: params.matterId,
+      taskId: params.taskId,
+      recipientRole: "lawyer",
+    },
+  );
+}
+
+interface SendTaskApprovedEmailParams {
+  to: string;
+  recipientName: string;
+  taskTitle: string;
+  taskId: string;
+  matterTitle: string;
+  matterId: string;
+}
+
+export async function sendTaskApprovedEmail(
+  params: SendTaskApprovedEmailParams,
+): Promise<EmailSendResult> {
+  const settings = await getFirmSettings();
+
+  const template = TaskApprovedEmail({
+    recipientName: params.recipientName,
+    taskTitle: params.taskTitle,
+    matterTitle: params.matterTitle,
+    settings,
+  });
+
+  return sendTemplateEmail(
+    params.to,
+    `Task completed: ${params.taskTitle}`,
+    template,
+    {
+      type: "task_approved",
+      matterId: params.matterId,
+      taskId: params.taskId,
+      recipientRole: "client",
+    },
+  );
+}
+
+interface SendTaskRevisionRequestedEmailParams {
+  to: string;
+  recipientName: string;
+  taskTitle: string;
+  taskId: string;
+  matterTitle: string;
+  matterId: string;
+  revisionNotes: string;
+}
+
+export async function sendTaskRevisionRequestedEmail(
+  params: SendTaskRevisionRequestedEmailParams,
+): Promise<EmailSendResult> {
+  const settings = await getFirmSettings();
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+  const taskLink = `${appUrl}/my-matters`;
+
+  const template = TaskRevisionRequestedEmail({
+    recipientName: params.recipientName,
+    taskTitle: params.taskTitle,
+    matterTitle: params.matterTitle,
+    revisionNotes: params.revisionNotes,
+    taskLink,
+    settings,
+  });
+
+  return sendTemplateEmail(
+    params.to,
+    `Action needed: ${params.taskTitle}`,
+    template,
+    {
+      type: "task_revision_requested",
+      matterId: params.matterId,
+      taskId: params.taskId,
       recipientRole: "client",
     },
   );
