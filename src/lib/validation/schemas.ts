@@ -107,7 +107,9 @@ export const dateString = z
 
 export const billingModelValues = ["hourly", "flat", "hybrid"] as const;
 export const responsiblePartyValues = ["lawyer", "client"] as const;
-export const taskStatusValues = ["open", "in-progress", "done"] as const;
+export const taskTypeValues = ["document_upload", "information_request", "confirmation", "general"] as const;
+export const taskStatusValues = ["open", "pending_review", "done", "cancelled"] as const;
+export const taskResponseStatusValues = ["submitted", "approved", "rejected"] as const;
 export const invoiceStatusValues = ["draft", "sent", "paid", "overdue"] as const;
 export const timeEntryStatusValues = ["draft", "submitted", "approved", "billed"] as const;
 
@@ -282,6 +284,32 @@ export const taskCreateSchema = z.object({
 });
 
 export type TaskCreateFormData = z.infer<typeof taskCreateSchema>;
+
+/**
+ * Schema for submitting a task response (client-facing)
+ */
+export const taskResponseSchema = z.object({
+  taskId: requiredUuid("Task ID"),
+  responseText: optionalString,
+  isConfirmation: z.boolean().optional(),
+});
+
+export type TaskResponseFormData = z.infer<typeof taskResponseSchema>;
+
+/**
+ * Schema for approving a task response (staff/admin)
+ */
+export const approveTaskResponseSchema = z.object({
+  responseId: requiredUuid("Response ID"),
+});
+
+/**
+ * Schema for rejecting a task response with notes (staff/admin)
+ */
+export const rejectTaskResponseSchema = z.object({
+  responseId: requiredUuid("Response ID"),
+  notes: requiredString("Revision notes"),
+});
 
 /**
  * Schema for updating task status
