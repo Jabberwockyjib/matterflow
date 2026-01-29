@@ -10,6 +10,28 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { uploadIntakeFile } from "@/lib/intake/client-actions";
+
+interface UploadedFile {
+  id: string;
+  driveFileId: string;
+  fileName: string;
+  fileSize: number;
+  fileType: string;
+  webViewLink: string;
+  status: "uploaded";
+}
+
+interface UploadingFile {
+  id: string;
+  fileName: string;
+  fileSize: number;
+  fileType: string;
+  status: "uploading" | "error";
+  error?: string;
+}
+
+type FileEntry = UploadedFile | UploadingFile;
 
 interface DynamicFormRendererProps {
   template: IntakeFormTemplate;
@@ -35,6 +57,7 @@ export function DynamicFormRenderer({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSavingDraft, setIsSavingDraft] = useState(false);
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
+  const [uploadingFields, setUploadingFields] = useState<Set<string>>(new Set());
 
   // Auto-save draft every 30 seconds
   useEffect(() => {
@@ -459,37 +482,133 @@ export function DynamicFormRenderer({
                   type="file"
                   multiple={field.fileConfig?.maxFiles !== 1}
                   accept={field.fileConfig?.acceptedTypes?.join(",")}
-                  onChange={(e) => {
+                  disabled={uploadingFields.has(field.id)}
+                  onChange={async (e) => {
                     const files = e.target.files;
                     if (!files || files.length === 0) {
-                      handleChange(field.id, null);
                       return;
                     }
-                    // Store file metadata for validation and display
-                    // Actual file upload to Google Drive happens on form submission
-                    const fileData = Array.from(files).map((file) => ({
+
+                    if (!matterId) {
+                      setErrors((prev) => ({
+                        ...prev,
+                        [field.id]: "Cannot upload files: matter ID not available",
+                      }));
+                      return;
+                    }
+
+                    // Get existing uploaded files to preserve them
+                    const existingFiles = Array.isArray(value)
+                      ? value.filter((f: FileEntry) => f.status === "uploaded")
+                      : [];
+
+                    // Create uploading placeholders for new files
+                    const newFiles: UploadingFile[] = Array.from(files).map((file) => ({
                       id: `${Date.now()}-${file.name}`,
                       fileName: file.name,
                       fileSize: file.size,
                       fileType: file.type,
-                      file: file, // Keep reference for upload
+                      status: "uploading" as const,
                     }));
-                    handleChange(field.id, fileData);
+
+                    // Show uploading state immediately
+                    handleChange(field.id, [...existingFiles, ...newFiles]);
+                    setUploadingFields((prev) => new Set(prev).add(field.id));
+
+                    // Upload files one by one
+                    const uploadedFiles: UploadedFile[] = [...existingFiles];
+                    for (let i = 0; i < files.length; i++) {
+                      const file = files[i];
+                      const placeholder = newFiles[i];
+
+                      try {
+                        const result = await uploadIntakeFile(matterId, file, "intake");
+
+                        if (result.ok) {
+                          uploadedFiles.push({
+                            id: result.data.documentId,
+                            driveFileId: result.data.driveFileId,
+                            fileName: file.name,
+                            fileSize: file.size,
+                            fileType: file.type,
+                            webViewLink: result.data.webViewLink,
+                            status: "uploaded",
+                          });
+                        } else {
+                          // Mark as error but keep in list
+                          uploadedFiles.push({
+                            ...placeholder,
+                            status: "error",
+                            error: result.error,
+                          } as UploadingFile as any);
+                        }
+                      } catch (err) {
+                        uploadedFiles.push({
+                          ...placeholder,
+                          status: "error",
+                          error: err instanceof Error ? err.message : "Upload failed",
+                        } as UploadingFile as any);
+                      }
+
+                      // Update progress after each file
+                      handleChange(field.id, [
+                        ...uploadedFiles,
+                        ...newFiles.slice(i + 1),
+                      ]);
+                    }
+
+                    setUploadingFields((prev) => {
+                      const next = new Set(prev);
+                      next.delete(field.id);
+                      return next;
+                    });
+
+                    // Clear the input so user can select the same file again if needed
+                    e.target.value = "";
                   }}
                 />
-                {/* Show selected files */}
+                {/* Show uploaded/uploading files */}
                 {Array.isArray(value) && value.length > 0 && (
                   <div className="mt-2 space-y-1">
-                    {value.map((file: any) => (
+                    {value.map((file: FileEntry) => (
                       <div
                         key={file.id}
-                        className="flex items-center justify-between p-2 bg-green-50 border border-green-200 rounded-md text-sm"
+                        className={`flex items-center justify-between p-2 rounded-md text-sm ${
+                          file.status === "uploading"
+                            ? "bg-blue-50 border border-blue-200"
+                            : file.status === "error"
+                            ? "bg-red-50 border border-red-200"
+                            : "bg-green-50 border border-green-200"
+                        }`}
                       >
-                        <span className="text-green-800 font-medium truncate flex-1">
+                        <span
+                          className={`font-medium truncate flex-1 ${
+                            file.status === "uploading"
+                              ? "text-blue-800"
+                              : file.status === "error"
+                              ? "text-red-800"
+                              : "text-green-800"
+                          }`}
+                        >
+                          {file.status === "uploading" && "⏳ "}
+                          {file.status === "error" && "❌ "}
+                          {file.status === "uploaded" && "✓ "}
                           {file.fileName}
                         </span>
-                        <span className="text-green-600 ml-2">
-                          {(file.fileSize / 1024).toFixed(1)} KB
+                        <span
+                          className={`ml-2 ${
+                            file.status === "uploading"
+                              ? "text-blue-600"
+                              : file.status === "error"
+                              ? "text-red-600"
+                              : "text-green-600"
+                          }`}
+                        >
+                          {file.status === "uploading"
+                            ? "Uploading..."
+                            : file.status === "error"
+                            ? (file as UploadingFile).error || "Failed"
+                            : `${(file.fileSize / 1024).toFixed(1)} KB`}
                         </span>
                       </div>
                     ))}

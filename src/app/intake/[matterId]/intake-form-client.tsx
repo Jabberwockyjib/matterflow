@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import { DynamicFormRenderer } from "@/components/intake/dynamic-form-renderer";
 import type { IntakeFormTemplate } from "@/lib/intake/types";
 import { saveIntakeFormDraft, submitIntakeForm } from "@/lib/intake";
-import { uploadIntakeFile } from "@/lib/intake/client-actions";
 
 interface IntakeFormClientProps {
   matterId: string;
@@ -23,59 +22,39 @@ export function IntakeFormClient({
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
-  const [uploadProgress, setUploadProgress] = useState<string | null>(null);
 
   /**
-   * Process form values and upload any files to Google Drive
+   * Check if any files are still uploading or have errors
    */
-  const processFilesInValues = async (
-    values: Record<string, any>
-  ): Promise<Record<string, any>> => {
-    const processedValues = { ...values };
-
-    for (const [key, value] of Object.entries(values)) {
-      // Check if this is an array of file objects
-      if (Array.isArray(value) && value.length > 0 && value[0]?.file instanceof File) {
-        setUploadProgress(`Uploading ${value.length} file(s)...`);
-
-        const uploadedFiles = [];
-        for (const fileData of value) {
-          if (fileData.file instanceof File) {
-            const result = await uploadIntakeFile(matterId, fileData.file, "intake");
-            if (result.ok) {
-              uploadedFiles.push({
-                id: result.data.documentId,
-                driveFileId: result.data.driveFileId,
-                fileName: fileData.fileName,
-                fileSize: fileData.fileSize,
-                fileType: fileData.fileType,
-                webViewLink: result.data.webViewLink,
-              });
-            } else {
-              throw new Error(result.error || `Failed to upload ${fileData.fileName}`);
-            }
-          } else {
-            // Already processed file (from previous save)
-            uploadedFiles.push(fileData);
+  const validateFileUploads = (values: Record<string, any>): string | null => {
+    for (const value of Object.values(values)) {
+      if (Array.isArray(value)) {
+        for (const item of value) {
+          if (item?.status === "uploading") {
+            return "Please wait for all files to finish uploading before submitting.";
+          }
+          if (item?.status === "error") {
+            return `File upload failed: ${item.error || item.fileName}. Please remove and re-upload the file.`;
           }
         }
-        processedValues[key] = uploadedFiles;
-        setUploadProgress(null);
       }
     }
-
-    return processedValues;
+    return null;
   };
 
   const handleSubmit = async (values: Record<string, any>) => {
     setError(null);
     setSuccessMessage(null);
 
-    try {
-      // Process and upload any files first
-      const processedValues = await processFilesInValues(values);
+    // Check for incomplete uploads
+    const uploadError = validateFileUploads(values);
+    if (uploadError) {
+      setError(uploadError);
+      return;
+    }
 
-      const result = await submitIntakeForm(matterId, template.name, processedValues);
+    try {
+      const result = await submitIntakeForm(matterId, template.name, values);
 
       if ("error" in result) {
         setError(result.error || "Failed to submit form. Please try again.");
@@ -83,8 +62,8 @@ export function IntakeFormClient({
         // Redirect to thank you page
         router.push(`/intake/${matterId}/thank-you`);
       }
-    } catch (uploadError) {
-      setError(uploadError instanceof Error ? uploadError.message : "Failed to upload files");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to submit form");
     }
   };
 
@@ -92,11 +71,20 @@ export function IntakeFormClient({
     setError(null);
     setSuccessMessage(null);
 
-    try {
-      // Process and upload any files first
-      const processedValues = await processFilesInValues(values);
+    // Check for incomplete uploads (but allow saving with errors so user doesn't lose other data)
+    for (const value of Object.values(values)) {
+      if (Array.isArray(value)) {
+        for (const item of value) {
+          if (item?.status === "uploading") {
+            setError("Please wait for all files to finish uploading before saving.");
+            return;
+          }
+        }
+      }
+    }
 
-      const result = await saveIntakeFormDraft(matterId, template.name, processedValues);
+    try {
+      const result = await saveIntakeFormDraft(matterId, template.name, values);
 
       if ("error" in result) {
         setError(result.error || "Failed to save draft. Please try again.");
@@ -104,8 +92,8 @@ export function IntakeFormClient({
         setSuccessMessage("Draft saved successfully!");
         setTimeout(() => setSuccessMessage(null), 3000);
       }
-    } catch (uploadError) {
-      setError(uploadError instanceof Error ? uploadError.message : "Failed to upload files");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to save draft");
     }
   };
 
@@ -122,12 +110,6 @@ export function IntakeFormClient({
       {successMessage && (
         <div className="p-4 bg-green-50 border border-green-200 rounded-md">
           <p className="text-green-800">{successMessage}</p>
-        </div>
-      )}
-
-      {uploadProgress && (
-        <div className="p-4 bg-blue-50 border border-blue-200 rounded-md">
-          <p className="text-blue-800">{uploadProgress}</p>
         </div>
       )}
 
