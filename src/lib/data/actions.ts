@@ -39,6 +39,19 @@ export type UserWithProfile = {
   invitedBy: string | null;
 };
 
+// Placeholder email functions - implement in Task 11
+async function sendTaskResponseNotification(taskId: string, taskTitle: string, matterTitle: string, clientName: string) {
+  console.log("TODO: Send task response notification", { taskId, taskTitle, matterTitle, clientName });
+}
+
+async function sendTaskApprovalEmail(clientUserId: string, taskTitle: string) {
+  console.log("TODO: Send task approval email", { clientUserId, taskTitle });
+}
+
+async function sendTaskRevisionEmail(clientUserId: string, taskTitle: string, notes: string) {
+  console.log("TODO: Send task revision email", { clientUserId, taskTitle, notes });
+}
+
 const ensureSupabase = () => {
   if (!supabaseEnvReady()) {
     throw new Error("Supabase environment variables are not set");
@@ -728,6 +741,262 @@ export async function getTasks(matterId?: string): Promise<{ data?: unknown[]; e
     return { data: data || [] };
   } catch (err) {
     return { error: err instanceof Error ? err.message : "Unknown error" };
+  }
+}
+
+/**
+ * Submit a client response to a task
+ * For confirmations: auto-completes the task
+ * For other types: sets task to pending_review
+ */
+export async function submitTaskResponse(formData: FormData): Promise<ActionResult> {
+  const { session, profile } = await getSessionWithProfile();
+  if (!session) {
+    return { error: "Unauthorized: please sign in" };
+  }
+  if (profile?.role !== "client") {
+    return { error: "Only clients can submit task responses" };
+  }
+
+  try {
+    const supabase = ensureSupabase();
+    const taskId = formData.get("taskId") as string;
+    const responseText = (formData.get("responseText") as string) || null;
+    const isConfirmation = formData.get("isConfirmation") === "true";
+
+    if (!taskId) {
+      return { error: "Task ID is required" };
+    }
+
+    // Verify task belongs to client's matter and is assigned to client
+    const { data: task, error: taskError } = await supabase
+      .from("tasks")
+      .select(`
+        id,
+        title,
+        task_type,
+        status,
+        responsible_party,
+        matter_id,
+        matters!inner(id, client_id, title)
+      `)
+      .eq("id", taskId)
+      .single();
+
+    if (taskError || !task) {
+      return { error: "Task not found" };
+    }
+
+    const matter = task.matters as { id: string; client_id: string | null; title: string };
+    if (matter.client_id !== session.user.id) {
+      return { error: "You do not have access to this task" };
+    }
+
+    if (task.responsible_party !== "client") {
+      return { error: "This task is not assigned to you" };
+    }
+
+    if (task.status !== "open") {
+      return { error: "This task has already been responded to" };
+    }
+
+    // Create the response
+    const { data: response, error: responseError } = await supabase
+      .from("task_responses")
+      .insert({
+        task_id: taskId,
+        submitted_by: session.user.id,
+        response_text: responseText,
+        confirmed_at: isConfirmation ? new Date().toISOString() : null,
+        status: "submitted",
+      })
+      .select("id")
+      .single();
+
+    if (responseError) {
+      return { error: responseError.message };
+    }
+
+    // Update task status
+    const newTaskStatus = isConfirmation ? "done" : "pending_review";
+    await supabase
+      .from("tasks")
+      .update({ status: newTaskStatus })
+      .eq("id", taskId);
+
+    // Log audit
+    await logAudit({
+      supabase,
+      actorId: session.user.id,
+      eventType: "task_response_submitted",
+      entityType: "task_response",
+      entityId: response.id,
+      metadata: { taskId, isConfirmation },
+    });
+
+    // Send email notification to lawyer (if not a confirmation that auto-completed)
+    if (!isConfirmation) {
+      try {
+        await sendTaskResponseNotification(taskId, task.title, matter.title, profile?.full_name || "Client");
+      } catch (emailError) {
+        console.error("Failed to send task response notification:", emailError);
+      }
+    }
+
+    revalidatePath("/my-matters");
+    revalidatePath("/dashboard");
+    revalidatePath(`/matters/${matter.id}`);
+
+    return { ok: true, data: { responseId: response.id } };
+  } catch (error) {
+    console.error("Submit task response error:", error);
+    return { error: error instanceof Error ? error.message : "Failed to submit response" };
+  }
+}
+
+/**
+ * Approve a task response (staff/admin only)
+ */
+export async function approveTaskResponse(responseId: string): Promise<ActionResult> {
+  const roleCheck = await ensureStaffOrAdmin();
+  if ("error" in roleCheck) return roleCheck;
+
+  try {
+    const supabase = ensureSupabase();
+
+    // Get response and task
+    const { data: response, error: responseError } = await supabase
+      .from("task_responses")
+      .select(`
+        id,
+        task_id,
+        submitted_by,
+        tasks!inner(id, title, matter_id)
+      `)
+      .eq("id", responseId)
+      .single();
+
+    if (responseError || !response) {
+      return { error: "Response not found" };
+    }
+
+    // Update response status
+    await supabase
+      .from("task_responses")
+      .update({
+        status: "approved",
+        reviewed_at: new Date().toISOString(),
+        reviewed_by: roleCheck.session.user.id,
+      })
+      .eq("id", responseId);
+
+    // Update task to done
+    const task = response.tasks as { id: string; title: string; matter_id: string };
+    await supabase
+      .from("tasks")
+      .update({ status: "done" })
+      .eq("id", task.id);
+
+    // Log audit
+    await logAudit({
+      supabase,
+      actorId: roleCheck.session.user.id,
+      eventType: "task_response_approved",
+      entityType: "task_response",
+      entityId: responseId,
+      metadata: { taskId: task.id },
+    });
+
+    // Send approval email to client
+    try {
+      await sendTaskApprovalEmail(response.submitted_by, task.title);
+    } catch (emailError) {
+      console.error("Failed to send approval email:", emailError);
+    }
+
+    revalidatePath("/dashboard");
+    revalidatePath(`/matters/${task.matter_id}`);
+
+    return { ok: true };
+  } catch (error) {
+    console.error("Approve task response error:", error);
+    return { error: error instanceof Error ? error.message : "Failed to approve response" };
+  }
+}
+
+/**
+ * Request revision on a task response (staff/admin only)
+ */
+export async function requestTaskRevision(responseId: string, notes: string): Promise<ActionResult> {
+  const roleCheck = await ensureStaffOrAdmin();
+  if ("error" in roleCheck) return roleCheck;
+
+  if (!notes || notes.trim().length === 0) {
+    return { error: "Revision notes are required" };
+  }
+
+  try {
+    const supabase = ensureSupabase();
+
+    // Get response and task
+    const { data: response, error: responseError } = await supabase
+      .from("task_responses")
+      .select(`
+        id,
+        task_id,
+        submitted_by,
+        tasks!inner(id, title, matter_id)
+      `)
+      .eq("id", responseId)
+      .single();
+
+    if (responseError || !response) {
+      return { error: "Response not found" };
+    }
+
+    // Update response status
+    await supabase
+      .from("task_responses")
+      .update({
+        status: "rejected",
+        reviewer_notes: notes,
+        reviewed_at: new Date().toISOString(),
+        reviewed_by: roleCheck.session.user.id,
+      })
+      .eq("id", responseId);
+
+    // Set task back to open
+    const task = response.tasks as { id: string; title: string; matter_id: string };
+    await supabase
+      .from("tasks")
+      .update({ status: "open" })
+      .eq("id", task.id);
+
+    // Log audit
+    await logAudit({
+      supabase,
+      actorId: roleCheck.session.user.id,
+      eventType: "task_revision_requested",
+      entityType: "task_response",
+      entityId: responseId,
+      metadata: { taskId: task.id, notes },
+    });
+
+    // Send revision email to client
+    try {
+      await sendTaskRevisionEmail(response.submitted_by, task.title, notes);
+    } catch (emailError) {
+      console.error("Failed to send revision email:", emailError);
+    }
+
+    revalidatePath("/my-matters");
+    revalidatePath("/dashboard");
+    revalidatePath(`/matters/${task.matter_id}`);
+
+    return { ok: true };
+  } catch (error) {
+    console.error("Request task revision error:", error);
+    return { error: error instanceof Error ? error.message : "Failed to request revision" };
   }
 }
 
