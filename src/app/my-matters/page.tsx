@@ -1,8 +1,9 @@
 import Link from "next/link";
-import { Folder, Clock, CheckCircle, AlertCircle, CheckSquare, CalendarClock } from "lucide-react";
+import { Folder, Clock, CheckCircle, AlertCircle, CheckSquare } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { fetchMattersForClient, fetchTasksForClient, getClientPendingIntake } from "@/lib/data/queries";
 import { redirect } from "next/navigation";
+import { TaskCard } from "./task-card";
 
 const stageConfig: Record<string, { label: string; variant: "default" | "success" | "warning" | "danger" | "outline" }> = {
   "Lead Created": { label: "New", variant: "default" },
@@ -52,40 +53,9 @@ export default async function MyMattersPage() {
             My Tasks
           </h2>
           <div className="space-y-3">
-            {tasks.map((task) => {
-              const isOverdue = task.dueDate && new Date(task.dueDate) < new Date();
-
-              return (
-                <div
-                  key={task.id}
-                  className={`bg-white rounded-lg border p-4 ${
-                    isOverdue ? "border-red-200 bg-red-50/50" : "border-slate-200"
-                  }`}
-                >
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="flex-1 min-w-0">
-                      <h3 className="font-medium text-slate-900">{task.title}</h3>
-                      <p className="text-sm text-slate-500 mt-0.5">
-                        {task.matterTitle}
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-2 flex-shrink-0">
-                      {task.dueDate && (
-                        <div className={`flex items-center gap-1 text-sm ${
-                          isOverdue ? "text-red-600" : "text-slate-500"
-                        }`}>
-                          <CalendarClock className="h-4 w-4" />
-                          {new Date(task.dueDate).toLocaleDateString()}
-                        </div>
-                      )}
-                      {isOverdue && (
-                        <Badge variant="danger">Overdue</Badge>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
+            {tasks.map((task) => (
+              <TaskCard key={task.id} task={task} />
+            ))}
           </div>
         </div>
       )}

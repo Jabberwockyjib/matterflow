@@ -203,6 +203,8 @@ export function mockTask(overrides: Partial<Task> = {}): Task {
     created_by: DEFAULT_USER_ID,
     due_date: null,
     description: null,
+    task_type: 'general',
+    instructions: null,
     created_at: now,
     updated_at: now,
     ...overrides,
@@ -261,6 +263,7 @@ export function mockDocument(overrides: Partial<Document> = {}): Document {
   return {
     id: generateId('doc'),
     matter_id: DEFAULT_MATTER_ID,
+    task_id: null,
     title: 'Test Document',
     summary: null,
     status: 'uploaded',
