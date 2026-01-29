@@ -1,7 +1,7 @@
 import Link from "next/link";
-import { Folder, Clock, CheckCircle, AlertCircle } from "lucide-react";
+import { Folder, Clock, CheckCircle, AlertCircle, CheckSquare, CalendarClock } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { fetchMattersForClient, getClientPendingIntake } from "@/lib/data/queries";
+import { fetchMattersForClient, fetchTasksForClient, getClientPendingIntake } from "@/lib/data/queries";
 import { redirect } from "next/navigation";
 
 const stageConfig: Record<string, { label: string; variant: "default" | "success" | "warning" | "danger" | "outline" }> = {
@@ -17,6 +17,7 @@ const stageConfig: Record<string, { label: string; variant: "default" | "success
 
 export default async function MyMattersPage() {
   const { data: matters, error } = await fetchMattersForClient();
+  const { data: tasks, error: tasksError } = await fetchTasksForClient();
   const pendingIntake = await getClientPendingIntake();
 
   // If client has pending intake, redirect them to complete it
@@ -33,13 +34,59 @@ export default async function MyMattersPage() {
           My Matters
         </h1>
         <p className="text-slate-600 mt-1">
-          View the status of your legal matters
+          View the status of your legal matters and tasks
         </p>
       </div>
 
-      {error && (
+      {(error || tasksError) && (
         <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
-          <p className="text-red-800">{error}</p>
+          <p className="text-red-800">{error || tasksError}</p>
+        </div>
+      )}
+
+      {/* My Tasks Section */}
+      {tasks.length > 0 && (
+        <div className="mb-8">
+          <h2 className="text-xl font-semibold text-slate-900 flex items-center gap-2 mb-4">
+            <CheckSquare className="h-5 w-5" />
+            My Tasks
+          </h2>
+          <div className="space-y-3">
+            {tasks.map((task) => {
+              const isOverdue = task.dueDate && new Date(task.dueDate) < new Date();
+
+              return (
+                <div
+                  key={task.id}
+                  className={`bg-white rounded-lg border p-4 ${
+                    isOverdue ? "border-red-200 bg-red-50/50" : "border-slate-200"
+                  }`}
+                >
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex-1 min-w-0">
+                      <h3 className="font-medium text-slate-900">{task.title}</h3>
+                      <p className="text-sm text-slate-500 mt-0.5">
+                        {task.matterTitle}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      {task.dueDate && (
+                        <div className={`flex items-center gap-1 text-sm ${
+                          isOverdue ? "text-red-600" : "text-slate-500"
+                        }`}>
+                          <CalendarClock className="h-4 w-4" />
+                          {new Date(task.dueDate).toLocaleDateString()}
+                        </div>
+                      )}
+                      {isOverdue && (
+                        <Badge variant="danger">Overdue</Badge>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         </div>
       )}
 

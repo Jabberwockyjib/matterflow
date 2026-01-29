@@ -1713,6 +1713,86 @@ export async function fetchMattersForClient(): Promise<{
   }
 }
 
+export type ClientTaskSummary = {
+  id: string;
+  title: string;
+  dueDate: string | null;
+  status: string;
+  matterTitle: string;
+  matterId: string;
+};
+
+/**
+ * Fetch tasks assigned to the current client (responsible_party = 'client')
+ * Only returns tasks for matters where the client is the owner
+ */
+export async function fetchTasksForClient(): Promise<{
+  data: ClientTaskSummary[];
+  source: DataSource;
+  error?: string;
+}> {
+  const { session, profile } = await getSessionWithProfile();
+
+  if (!session || profile?.role !== "client") {
+    return { data: [], source: "mock" };
+  }
+
+  if (!supabaseEnvReady()) {
+    return { data: [], source: "mock" };
+  }
+
+  try {
+    const supabase = supabaseAdmin();
+
+    // Get tasks where:
+    // 1. The task belongs to a matter owned by this client
+    // 2. The task is assigned to the client (responsible_party = 'client')
+    // 3. The task is still open
+    const { data, error } = await supabase
+      .from("tasks")
+      .select(`
+        id,
+        title,
+        due_date,
+        status,
+        matter_id,
+        responsible_party,
+        matters!inner (
+          id,
+          title,
+          client_id
+        )
+      `)
+      .eq("matters.client_id", session.user.id)
+      .eq("responsible_party", "client")
+      .eq("status", "open")
+      .order("due_date", { ascending: true, nullsFirst: false });
+
+    if (error || !data) {
+      return {
+        data: [],
+        source: "supabase",
+        error: error?.message || "No task data returned",
+      };
+    }
+
+    return {
+      data: data.map((row) => ({
+        id: row.id,
+        title: row.title,
+        dueDate: row.due_date,
+        status: row.status,
+        matterId: row.matter_id,
+        matterTitle: (row.matters as { title: string })?.title || "Unknown Matter",
+      })),
+      source: "supabase",
+    };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Unknown error";
+    return { data: [], source: "mock", error: message };
+  }
+}
+
 /**
  * Check if client has pending intake forms
  */
