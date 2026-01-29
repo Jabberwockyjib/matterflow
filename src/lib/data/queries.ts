@@ -1718,8 +1718,23 @@ export type ClientTaskSummary = {
   title: string;
   dueDate: string | null;
   status: string;
-  matterTitle: string;
   matterId: string;
+  matterTitle: string;
+  taskType: string;
+  instructions: string | null;
+  response: {
+    id: string;
+    responseText: string | null;
+    confirmedAt: string | null;
+    status: string;
+    reviewerNotes: string | null;
+    submittedAt: string;
+  } | null;
+  documents: Array<{
+    id: string;
+    title: string;
+    webViewLink: string | null;
+  }>;
 };
 
 /**
@@ -1757,10 +1772,20 @@ export async function fetchTasksForClient(): Promise<{
         status,
         matter_id,
         responsible_party,
+        task_type,
+        instructions,
         matters!inner (
           id,
           title,
           client_id
+        ),
+        task_responses (
+          id,
+          response_text,
+          confirmed_at,
+          status,
+          reviewer_notes,
+          submitted_at
         )
       `)
       .eq("matters.client_id", session.user.id)
@@ -1776,15 +1801,54 @@ export async function fetchTasksForClient(): Promise<{
       };
     }
 
+    // Fetch documents for these tasks
+    const taskIds = data.map((row) => row.id);
+    let taskDocuments: Record<string, Array<{ id: string; title: string; webViewLink: string | null }>> = {};
+    if (taskIds.length > 0) {
+      const { data: docs } = await supabase
+        .from("documents")
+        .select("id, title, web_view_link, task_id")
+        .in("task_id", taskIds);
+      taskDocuments = (docs || []).reduce((acc, d) => {
+        if (!acc[d.task_id!]) acc[d.task_id!] = [];
+        acc[d.task_id!].push({ id: d.id, title: d.title, webViewLink: d.web_view_link });
+        return acc;
+      }, {} as Record<string, Array<{ id: string; title: string; webViewLink: string | null }>>);
+    }
+
     return {
-      data: data.map((row) => ({
-        id: row.id,
-        title: row.title,
-        dueDate: row.due_date,
-        status: row.status,
-        matterId: row.matter_id,
-        matterTitle: (row.matters as { title: string })?.title || "Unknown Matter",
-      })),
+      data: data.map((row) => {
+        // Get the first (most recent) task response if any
+        const responses = row.task_responses as Array<{
+          id: string;
+          response_text: string | null;
+          confirmed_at: string | null;
+          status: string;
+          reviewer_notes: string | null;
+          submitted_at: string;
+        }> || [];
+        const latestResponse = responses.length > 0 ? responses[0] : null;
+
+        return {
+          id: row.id,
+          title: row.title,
+          dueDate: row.due_date,
+          status: row.status,
+          matterId: row.matter_id,
+          matterTitle: (row.matters as { title: string })?.title || "Unknown Matter",
+          taskType: row.task_type || "action",
+          instructions: row.instructions,
+          response: latestResponse ? {
+            id: latestResponse.id,
+            responseText: latestResponse.response_text,
+            confirmedAt: latestResponse.confirmed_at,
+            status: latestResponse.status,
+            reviewerNotes: latestResponse.reviewer_notes,
+            submittedAt: latestResponse.submitted_at,
+          } : null,
+          documents: taskDocuments[row.id] || [],
+        };
+      }),
       source: "supabase",
     };
   } catch (err) {
@@ -1923,4 +1987,126 @@ export async function getMatterEmails(matterId: string): Promise<MatterEmail[]> 
     gmailDate: row.gmail_date,
     gmailLink: row.gmail_link,
   }));
+}
+
+// ============================================================================
+// Task Response Review Queries
+// ============================================================================
+
+export type TaskForReview = {
+  id: string;
+  taskId: string;
+  taskTitle: string;
+  matterId: string;
+  matterTitle: string;
+  clientName: string | null;
+  responseText: string | null;
+  submittedAt: string;
+  documents: Array<{
+    id: string;
+    title: string;
+    webViewLink: string | null;
+  }>;
+};
+
+/**
+ * Fetch task responses that are awaiting review (status = 'submitted')
+ * Only accessible to staff/admin
+ */
+export async function fetchTasksForReview(): Promise<{
+  data: TaskForReview[];
+  source: DataSource;
+  error?: string;
+}> {
+  const { profile } = await getSessionWithProfile();
+
+  if (profile?.role === "client") {
+    return { data: [], source: "mock" };
+  }
+
+  if (!supabaseEnvReady()) {
+    return { data: [], source: "mock" };
+  }
+
+  try {
+    const supabase = supabaseAdmin();
+
+    const { data, error } = await supabase
+      .from("task_responses")
+      .select(`
+        id,
+        response_text,
+        submitted_at,
+        task_id,
+        tasks!inner(
+          id,
+          title,
+          matter_id,
+          matters!inner(
+            id,
+            title,
+            client_id
+          )
+        )
+      `)
+      .eq("status", "submitted")
+      .order("submitted_at", { ascending: true });
+
+    if (error) {
+      return { data: [], source: "supabase", error: error.message };
+    }
+
+    // Fetch client names separately
+    const clientIds = [...new Set((data || []).map((r: any) => r.tasks?.matters?.client_id).filter(Boolean))];
+    let clientNames: Record<string, string> = {};
+    if (clientIds.length > 0) {
+      const { data: profiles } = await supabase
+        .from("profiles")
+        .select("user_id, full_name")
+        .in("user_id", clientIds);
+      clientNames = (profiles || []).reduce((acc, p) => {
+        acc[p.user_id] = p.full_name || "";
+        return acc;
+      }, {} as Record<string, string>);
+    }
+
+    // Fetch documents for these tasks
+    const taskIds = [...new Set((data || []).map((r: any) => r.task_id).filter(Boolean))];
+    let taskDocuments: Record<string, Array<{ id: string; title: string; webViewLink: string | null }>> = {};
+    if (taskIds.length > 0) {
+      const { data: docs } = await supabase
+        .from("documents")
+        .select("id, title, web_view_link, task_id")
+        .in("task_id", taskIds);
+      taskDocuments = (docs || []).reduce((acc, d) => {
+        if (!acc[d.task_id!]) acc[d.task_id!] = [];
+        acc[d.task_id!].push({ id: d.id, title: d.title, webViewLink: d.web_view_link });
+        return acc;
+      }, {} as Record<string, Array<{ id: string; title: string; webViewLink: string | null }>>);
+    }
+
+    const reviews: TaskForReview[] = (data || []).map((response: any) => {
+      const task = response.tasks;
+      const matter = task?.matters;
+      return {
+        id: response.id,
+        taskId: task?.id || "",
+        taskTitle: task?.title || "",
+        matterId: matter?.id || "",
+        matterTitle: matter?.title || "",
+        clientName: matter?.client_id ? clientNames[matter.client_id] || null : null,
+        responseText: response.response_text,
+        submittedAt: response.submitted_at,
+        documents: taskDocuments[response.task_id] || [],
+      };
+    });
+
+    return { data: reviews, source: "supabase" };
+  } catch (error) {
+    return {
+      data: [],
+      source: "supabase",
+      error: error instanceof Error ? error.message : "Unknown error",
+    };
+  }
 }
