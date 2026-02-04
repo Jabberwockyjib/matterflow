@@ -24,6 +24,9 @@ const AddTimeEntryModal = dynamic(
 const ResendIntakeButton = dynamic(
   () => import("@/components/matters/resend-intake-button").then(mod => ({ default: mod.ResendIntakeButton }))
 );
+const EditMatterWorkflowModal = dynamic(
+  () => import("@/components/matters/edit-matter-workflow-modal").then(mod => ({ default: mod.EditMatterWorkflowModal }))
+);
 
 interface MatterDetailPageProps {
   params: Promise<{ id: string }>;
@@ -129,7 +132,16 @@ export default async function MatterDetailPage({ params }: MatterDetailPageProps
           )}
 
           <div className="rounded-lg border border-slate-200 bg-white p-6">
-            <h2 className="text-xl font-semibold text-slate-900 mb-4">Matter Details</h2>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-semibold text-slate-900">Matter Details</h2>
+              <EditMatterWorkflowModal
+                matterId={id}
+                currentStage={typedMatter.stage}
+                currentResponsibleParty={typedMatter.responsible_party}
+                currentNextAction={typedMatter.next_action}
+                currentNextActionDueDate={typedMatter.next_action_due_date}
+              />
+            </div>
 
             <div className="grid gap-4 md:grid-cols-2">
               <div>

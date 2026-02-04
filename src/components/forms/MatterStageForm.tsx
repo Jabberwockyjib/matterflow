@@ -28,7 +28,8 @@ const matterStageFormSchema = z.object({
   responsibleParty: z.enum(responsiblePartyValues, {
     error: "Please select a responsible party",
   }),
-  nextAction: z.string(),
+  nextAction: z.string().min(1, { message: "Next action is required" }),
+  nextActionDueDate: z.string().min(1, { message: "Due date is required" }),
 });
 
 type MatterStageFormData = z.infer<typeof matterStageFormSchema>;
@@ -46,6 +47,8 @@ export interface MatterStageFormProps {
   currentResponsibleParty: string;
   /** Current next action (may be null) */
   currentNextAction: string | null;
+  /** Current next action due date (may be null) */
+  currentNextActionDueDate: string | null;
   /** Callback fired after successful form submission */
   onSuccess?: () => void;
 }
@@ -95,11 +98,19 @@ const responsiblePartyOptions = responsiblePartyValues.map((value) => ({
  * />
  * ```
  */
+// Helper to format date for input (YYYY-MM-DD)
+function formatDateForInput(dateStr: string | null): string {
+  if (!dateStr) return "";
+  const date = new Date(dateStr);
+  return date.toISOString().split("T")[0];
+}
+
 export function MatterStageForm({
   matterId,
   currentStage,
   currentResponsibleParty,
   currentNextAction,
+  currentNextActionDueDate,
   onSuccess,
 }: MatterStageFormProps) {
   // Default values from current matter state
@@ -111,6 +122,7 @@ export function MatterStageForm({
       ? currentResponsibleParty
       : "lawyer") as typeof responsiblePartyValues[number],
     nextAction: currentNextAction || "",
+    nextActionDueDate: formatDateForInput(currentNextActionDueDate),
   };
 
   // Initialize React Hook Form with Zod validation
@@ -132,6 +144,7 @@ export function MatterStageForm({
     formData.append("stage", data.stage);
     formData.append("responsibleParty", data.responsibleParty);
     formData.append("nextAction", data.nextAction);
+    formData.append("nextActionDueDate", data.nextActionDueDate);
 
     const result = await updateMatterStage(formData);
 
@@ -150,7 +163,7 @@ export function MatterStageForm({
   return (
     <form
       onSubmit={handleSubmit(onSubmit)}
-      className="grid gap-2 md:grid-cols-4"
+      className="grid gap-2 md:grid-cols-5"
     >
       <div className="text-xs text-slate-700">
         <span className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-slate-500">
@@ -184,7 +197,18 @@ export function MatterStageForm({
           className="px-2 py-1 text-xs"
         />
       </div>
-      <div className="md:col-span-4">
+      <div className="text-xs text-slate-700">
+        <span className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+          Due date
+        </span>
+        <FormInput
+          type="date"
+          registration={register("nextActionDueDate")}
+          error={errors.nextActionDueDate}
+          className="px-2 py-1 text-xs"
+        />
+      </div>
+      <div className="md:col-span-5">
         <Button type="submit" size="sm" variant="secondary" disabled={isSubmitting}>
           {isSubmitting ? "Updating..." : "Update"}
         </Button>
