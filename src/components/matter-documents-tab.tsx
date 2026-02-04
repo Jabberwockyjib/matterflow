@@ -1,10 +1,17 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { initializeMatterFolders, getMatterDocuments } from "@/lib/google-drive/actions";
-import { FolderIcon, CheckCircle2, AlertCircle, Loader2, FileText, ExternalLink, Sparkles } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
+import { initializeMatterFolders, getMatterDocuments, uploadDocument } from "@/lib/google-drive/actions";
+import { FolderIcon, CheckCircle2, AlertCircle, Loader2, FileText, ExternalLink, Sparkles, Upload } from "lucide-react";
 
 interface Document {
   id: string;
@@ -27,6 +34,15 @@ interface MatterDocumentsTabProps {
   folders?: Record<string, { id: string; name: string }>;
 }
 
+const FOLDER_OPTIONS = [
+  { value: "00 Intake", label: "00 Intake" },
+  { value: "01 Source Docs", label: "01 Source Docs" },
+  { value: "02 Work Product", label: "02 Work Product" },
+  { value: "03 Client Deliverables", label: "03 Client Deliverables" },
+  { value: "04 Billing & Engagement", label: "04 Billing & Engagement" },
+  { value: "99 Archive", label: "99 Archive" },
+];
+
 export function MatterDocumentsTab({
   matterId,
   isInitialized,
@@ -37,6 +53,14 @@ export function MatterDocumentsTab({
   const [success, setSuccess] = useState(false);
   const [documents, setDocuments] = useState<Document[]>([]);
   const [isLoadingDocuments, setIsLoadingDocuments] = useState(false);
+
+  // Upload dialog state
+  const [isUploadOpen, setIsUploadOpen] = useState(false);
+  const [selectedFolder, setSelectedFolder] = useState(FOLDER_OPTIONS[0].value);
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const [uploadSuccess, setUploadSuccess] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Fetch documents when folders are initialized
   useEffect(() => {
@@ -51,6 +75,52 @@ export function MatterDocumentsTab({
         .finally(() => setIsLoadingDocuments(false));
     }
   }, [matterId, isInitialized]);
+
+  const refreshDocuments = async () => {
+    setIsLoadingDocuments(true);
+    const result = await getMatterDocuments(matterId);
+    if (result.data) {
+      setDocuments(result.data);
+    }
+    setIsLoadingDocuments(false);
+  };
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsUploading(true);
+    setUploadError(null);
+    setUploadSuccess(false);
+
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("matterId", matterId);
+    formData.append("folderType", selectedFolder);
+
+    const result = await uploadDocument(formData);
+
+    setIsUploading(false);
+
+    if (result.error) {
+      setUploadError(result.error);
+    } else {
+      setUploadSuccess(true);
+      // Refresh document list
+      await refreshDocuments();
+      // Close dialog after short delay
+      setTimeout(() => {
+        setIsUploadOpen(false);
+        setUploadSuccess(false);
+        setSelectedFolder(FOLDER_OPTIONS[0].value);
+      }, 1500);
+    }
+
+    // Reset file input
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  };
 
   const handleInitialize = async () => {
     setIsInitializing(true);
@@ -82,10 +152,84 @@ export function MatterDocumentsTab({
     <div className="rounded-lg border border-slate-200 bg-white p-6">
       <div className="flex items-center justify-between mb-6">
         <h2 className="text-xl font-semibold text-slate-900">Documents</h2>
-        <Button size="sm" disabled={isInitialized || isInitializing}>
+        <Button
+          size="sm"
+          disabled={!isInitialized || isInitializing}
+          onClick={() => setIsUploadOpen(true)}
+        >
+          <Upload className="h-4 w-4 mr-2" />
           Upload Document
         </Button>
       </div>
+
+      {/* Upload Document Dialog */}
+      <Dialog open={isUploadOpen} onOpenChange={setIsUploadOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Upload Document</DialogTitle>
+            <DialogDescription>
+              Upload a document to your Google Drive folder for this matter.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 pt-4">
+            {/* Folder Selection */}
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-2">
+                Destination Folder
+              </label>
+              <select
+                value={selectedFolder}
+                onChange={(e) => setSelectedFolder(e.target.value)}
+                disabled={isUploading}
+                className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+              >
+                {FOLDER_OPTIONS.map((folder) => (
+                  <option key={folder.value} value={folder.value}>
+                    {folder.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* File Input */}
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-2">
+                Select File
+              </label>
+              <input
+                ref={fileInputRef}
+                type="file"
+                onChange={handleFileUpload}
+                disabled={isUploading}
+                className="w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 disabled:opacity-50"
+              />
+            </div>
+
+            {/* Status Messages */}
+            {isUploading && (
+              <div className="flex items-center gap-2 text-sm text-blue-600 bg-blue-50 p-3 rounded-md">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Uploading to Google Drive...
+              </div>
+            )}
+
+            {uploadError && (
+              <div className="flex items-center gap-2 text-sm text-red-600 bg-red-50 p-3 rounded-md">
+                <AlertCircle className="h-4 w-4" />
+                {uploadError}
+              </div>
+            )}
+
+            {uploadSuccess && (
+              <div className="flex items-center gap-2 text-sm text-green-600 bg-green-50 p-3 rounded-md">
+                <CheckCircle2 className="h-4 w-4" />
+                Document uploaded successfully!
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {!isInitialized ? (
         <div className="border-2 border-dashed border-slate-200 rounded-lg p-8 text-center">
