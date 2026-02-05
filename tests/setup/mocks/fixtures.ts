@@ -230,6 +230,7 @@ export function mockTimeEntry(overrides: Partial<TimeEntry> = {}): TimeEntry {
     started_at: now,
     ended_at: now,
     duration_minutes: 30,
+    billable_duration_minutes: null,
     rate_cents: 25000, // $250.00/hr
     status: 'recorded',
     created_by: DEFAULT_USER_ID,

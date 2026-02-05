@@ -827,10 +827,12 @@ export type Database = {
           square_refresh_token: string | null
           square_webhook_signature_key: string | null
           updated_at: string | null
+          billing_increment_minutes: number | null
         }
         Insert: {
           address?: string | null
           auto_reminders_enabled?: boolean | null
+          billing_increment_minutes?: number | null
           contact_email?: string | null
           contact_phone?: string | null
           created_at?: string | null
@@ -857,6 +859,7 @@ export type Database = {
         Update: {
           address?: string | null
           auto_reminders_enabled?: boolean | null
+          billing_increment_minutes?: number | null
           contact_email?: string | null
           contact_phone?: string | null
           created_at?: string | null
@@ -1246,12 +1249,14 @@ export type Database = {
           started_at: string
           status: string
           task_id: string | null
+          billable_duration_minutes: number | null
         }
         Insert: {
           created_at?: string
           created_by?: string | null
           description?: string | null
           duration_minutes?: number | null
+          billable_duration_minutes?: number | null
           ended_at?: string | null
           id?: string
           matter_id: string
@@ -1272,6 +1277,7 @@ export type Database = {
           started_at?: string
           status?: string
           task_id?: string | null
+          billable_duration_minutes?: number | null
         }
         Relationships: [
           {
