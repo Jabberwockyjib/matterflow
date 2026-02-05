@@ -2508,6 +2508,7 @@ export async function updatePracticeSettings(
     lateFeePercentage: number;
     autoRemindersEnabled: boolean;
     matterTypes: string[];
+    billingIncrementMinutes: number;
   }>
 ): Promise<ActionResult> {
   const supabase = supabaseAdmin();
@@ -2558,6 +2559,8 @@ export async function updatePracticeSettings(
     dbSettings.auto_reminders_enabled = settings.autoRemindersEnabled;
   if (settings.matterTypes !== undefined)
     dbSettings.matter_types = settings.matterTypes;
+  if (settings.billingIncrementMinutes !== undefined)
+    dbSettings.billing_increment_minutes = settings.billingIncrementMinutes;
 
   dbSettings.updated_at = new Date().toISOString();
 
