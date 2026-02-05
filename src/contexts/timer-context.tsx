@@ -46,6 +46,7 @@ import {
   type TimerActionSource,
 } from "@/lib/timer/analytics";
 import { startTimer, stopTimer } from "@/lib/data/actions";
+import { toast } from "sonner";
 
 // Storage key for localStorage persistence
 const STORAGE_KEY = DEFAULT_TIMER_CONFIG.storageKey;
@@ -818,6 +819,15 @@ export function TimerProvider({ children, recentEntries = EMPTY_RECENT_ENTRIES }
       // Success - update local state
       dispatch({ type: "STOP" });
       setIsModalOpen(false);
+
+      // Show toast with billing info
+      if (result.actualMinutes !== undefined && result.billableMinutes !== undefined) {
+        if (result.actualMinutes === result.billableMinutes) {
+          toast.success(`Time logged: ${result.billableMinutes} min`);
+        } else {
+          toast.success(`Time logged: ${result.actualMinutes} min actual → ${result.billableMinutes} min billed`);
+        }
+      }
 
       // Reset action source to default after use
       nextActionSourceRef.current = "modal_button";
