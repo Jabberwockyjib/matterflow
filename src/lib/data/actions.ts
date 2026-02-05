@@ -20,6 +20,7 @@ import { infoRequestSchema, infoResponseSchema } from "@/lib/validation/info-req
 import { FIRM_SETTING_KEYS, type FirmSettingKey } from "@/types/firm-settings";
 import { invalidateFirmSettingsCache } from "@/lib/data/queries";
 import { z } from "zod";
+import { calculateBillableDuration } from "@/lib/billing/utils";
 
 type ActionResult = {
   ok?: boolean;
@@ -2090,15 +2091,42 @@ export async function startTimer(
 export async function stopTimer(
   entryId: string,
   notes?: string
-): Promise<{ error?: string }> {
+): Promise<{ error?: string; actualMinutes?: number; billableMinutes?: number }> {
   try {
     const supabase = supabaseAdmin();
 
-    // Update the time entry with ended_at timestamp
+    // Get the time entry to calculate duration
+    const { data: entry, error: fetchError } = await supabase
+      .from("time_entries")
+      .select("started_at")
+      .eq("id", entryId)
+      .single();
+
+    if (fetchError || !entry) {
+      return { error: fetchError?.message || "Time entry not found" };
+    }
+
+    // Calculate actual duration
+    const startedAt = new Date(entry.started_at);
+    const endedAt = new Date();
+    const actualMinutes = Math.max(1, Math.round((endedAt.getTime() - startedAt.getTime()) / 60000));
+
+    // Get billing increment from practice settings
+    const { data: settings } = await supabase
+      .from("practice_settings")
+      .select("billing_increment_minutes")
+      .maybeSingle();
+
+    const billingIncrement = settings?.billing_increment_minutes ?? 6;
+    const billableMinutes = calculateBillableDuration(actualMinutes, billingIncrement);
+
+    // Update the time entry with ended_at, actual duration, and billable duration
     const { error } = await supabase
       .from("time_entries")
       .update({
-        ended_at: new Date().toISOString(),
+        ended_at: endedAt.toISOString(),
+        duration_minutes: actualMinutes,
+        billable_duration_minutes: billableMinutes,
         description: notes || undefined,
       })
       .eq("id", entryId);
@@ -2108,7 +2136,7 @@ export async function stopTimer(
     }
 
     revalidatePath("/time");
-    return {};
+    return { actualMinutes, billableMinutes };
   } catch (error) {
     console.error("stopTimer error:", error);
     return { error: "Failed to stop timer" };
