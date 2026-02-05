@@ -96,7 +96,16 @@ export default async function TimePage() {
                 </Badge>
                 <div className="flex items-center gap-1 text-slate-800">
                   <Clock4 className="h-4 w-4 text-slate-500" />
-                  {formatDuration(entry.durationMinutes)}
+                  {entry.billableDurationMinutes && entry.durationMinutes !== entry.billableDurationMinutes ? (
+                    <span>
+                      {formatDuration(entry.billableDurationMinutes)}
+                      <span className="text-slate-400 text-sm ml-1">
+                        (actual: {formatDuration(entry.durationMinutes)})
+                      </span>
+                    </span>
+                  ) : (
+                    <span>{formatDuration(entry.durationMinutes)}</span>
+                  )}
                 </div>
                 <span className="text-slate-600">
                   Started {new Date(entry.startedAt).toLocaleString()}

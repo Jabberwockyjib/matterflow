@@ -60,9 +60,11 @@ export default async function MatterDetailPage({ params }: MatterDetailPageProps
 
   const foldersInitialized = Boolean(matterFolders);
 
-  // Calculate time entry stats
-  const totalMinutes = timeEntries.reduce((sum, entry) => sum + (entry.durationMinutes || 0), 0);
-  const totalHours = (totalMinutes / 60).toFixed(1);
+  // Calculate time entry stats - use billable duration when available
+  const totalBillableMinutes = timeEntries.reduce((sum, entry) => sum + (entry.billableDurationMinutes ?? entry.durationMinutes ?? 0), 0);
+  const totalActualMinutes = timeEntries.reduce((sum, entry) => sum + (entry.durationMinutes || 0), 0);
+  const totalHours = (totalBillableMinutes / 60).toFixed(1);
+  const totalActualHours = (totalActualMinutes / 60).toFixed(1);
   // For now, assume $200/hr rate (this should come from matter settings)
   const billableAmount = (parseFloat(totalHours) * 200).toFixed(2);
 
@@ -227,7 +229,14 @@ export default async function MatterDetailPage({ params }: MatterDetailPageProps
                 <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
                   Total Hours
                 </p>
-                <p className="mt-1 text-2xl font-semibold text-slate-900 tabular-nums">{totalHours}</p>
+                <p className="mt-1 text-2xl font-semibold text-slate-900 tabular-nums">
+                  {totalHours}
+                  {totalActualHours !== totalHours && (
+                    <span className="text-sm font-normal text-slate-400 ml-1">
+                      (actual: {totalActualHours})
+                    </span>
+                  )}
+                </p>
               </div>
               <div className="rounded-lg bg-slate-50 p-4">
                 <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
@@ -278,9 +287,18 @@ export default async function MatterDetailPage({ params }: MatterDetailPageProps
                       </p>
                       <div className="mt-2 flex items-center gap-2 text-xs">
                         <Badge variant="outline">{entry.status}</Badge>
-                        <span className="text-slate-500">
-                          {entry.durationMinutes ? `${(entry.durationMinutes / 60).toFixed(1)} hrs` : "N/A"}
-                        </span>
+                        {entry.billableDurationMinutes && entry.durationMinutes !== entry.billableDurationMinutes ? (
+                          <span className="text-slate-500">
+                            {(entry.billableDurationMinutes / 60).toFixed(1)} hrs
+                            <span className="text-slate-400 ml-1">
+                              (actual: {entry.durationMinutes ? `${(entry.durationMinutes / 60).toFixed(1)} hrs` : "N/A"})
+                            </span>
+                          </span>
+                        ) : (
+                          <span className="text-slate-500">
+                            {entry.durationMinutes ? `${(entry.durationMinutes / 60).toFixed(1)} hrs` : "N/A"}
+                          </span>
+                        )}
                         {entry.startedAt && (
                           <span className="text-slate-500">
                             {new Date(entry.startedAt).toLocaleDateString()}
