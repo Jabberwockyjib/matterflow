@@ -32,6 +32,9 @@ export function PracticeSettingsForm({ settings }: PracticeSettingsFormProps) {
   const [autoRemindersEnabled, setAutoRemindersEnabled] = useState(
     settings?.autoRemindersEnabled ?? true
   );
+  const [billingIncrementMinutes, setBillingIncrementMinutes] = useState(
+    settings?.billingIncrementMinutes?.toString() || "6"
+  );
 
   const handleFirmInfoSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -67,6 +70,7 @@ export function PracticeSettingsForm({ settings }: PracticeSettingsFormProps) {
         paymentTermsDays: parseInt(paymentTermsDays),
         lateFeePercentage: parseFloat(lateFeePercentage),
         autoRemindersEnabled,
+        billingIncrementMinutes: parseInt(billingIncrementMinutes),
       });
 
       if (result.ok) {
@@ -174,6 +178,25 @@ export function PracticeSettingsForm({ settings }: PracticeSettingsFormProps) {
               />
               <p className="text-xs text-slate-500 mt-1">
                 Default rate for time entries (can be overridden per matter)
+              </p>
+            </div>
+
+            <div>
+              <Label htmlFor="billingIncrementMinutes">Minimum Billing Increment</Label>
+              <select
+                id="billingIncrementMinutes"
+                value={billingIncrementMinutes}
+                onChange={(e) => setBillingIncrementMinutes(e.target.value)}
+                className="flex h-10 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm ring-offset-white file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-slate-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <option value="1">1 minute (no rounding)</option>
+                <option value="5">5 minutes</option>
+                <option value="6">6 minutes (0.1 hour)</option>
+                <option value="10">10 minutes</option>
+                <option value="15">15 minutes (0.25 hour)</option>
+              </select>
+              <p className="text-xs text-slate-500 mt-1">
+                Time entries are rounded up to the nearest increment for billing
               </p>
             </div>
 
