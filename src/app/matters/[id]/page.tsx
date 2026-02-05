@@ -209,7 +209,7 @@ export default async function MatterDetailPage({ params }: MatterDetailPageProps
               <AddTaskModal matterId={id} />
             </div>
 
-            <MatterTasksList tasks={tasks} />
+            <MatterTasksList tasks={tasks} matterId={id} />
           </div>
         </TabsContent>
 
