@@ -47,6 +47,7 @@ export type TimeEntrySummary = {
   status: string;
   description: string | null;
   durationMinutes: number | null;
+  billableDurationMinutes: number | null;
   startedAt: string;
   endedAt: string | null;
 };
@@ -284,6 +285,7 @@ const timeFallback: TimeEntrySummary[] = [
     status: "draft",
     description: "Review intake and prep notes",
     durationMinutes: 45,
+    billableDurationMinutes: 48,
     startedAt: new Date().toISOString(),
     endedAt: null,
   },
@@ -577,7 +579,7 @@ export const fetchTimeEntries = cache(async (): Promise<{
     const { data, error } = await supabase
       .from("time_entries")
       .select(
-        "id,matter_id,task_id,status,description,duration_minutes,started_at,ended_at",
+        "id,matter_id,task_id,status,description,duration_minutes,billable_duration_minutes,started_at,ended_at",
       )
       .order("started_at", { ascending: false });
 
@@ -597,6 +599,7 @@ export const fetchTimeEntries = cache(async (): Promise<{
         status: row.status,
         description: row.description,
         durationMinutes: row.duration_minutes,
+        billableDurationMinutes: row.billable_duration_minutes,
         startedAt: row.started_at,
         endedAt: row.ended_at,
       })),
@@ -622,7 +625,7 @@ export async function fetchTimeEntriesForMatter(matterId: string): Promise<{
     const { data, error } = await supabase
       .from("time_entries")
       .select(
-        "id,matter_id,task_id,status,description,duration_minutes,started_at,ended_at",
+        "id,matter_id,task_id,status,description,duration_minutes,billable_duration_minutes,started_at,ended_at",
       )
       .eq("matter_id", matterId)
       .order("started_at", { ascending: false });
@@ -643,6 +646,7 @@ export async function fetchTimeEntriesForMatter(matterId: string): Promise<{
         status: row.status,
         description: row.description,
         durationMinutes: row.duration_minutes,
+        billableDurationMinutes: row.billable_duration_minutes,
         startedAt: row.started_at,
         endedAt: row.ended_at,
       })),
