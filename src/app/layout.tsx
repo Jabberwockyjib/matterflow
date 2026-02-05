@@ -4,7 +4,7 @@ import Script from "next/script";
 import "./globals.css";
 import { AppShell } from "@/components/app-shell";
 import { AuthListener } from "@/components/auth-listener";
-// import { TimerProvider } from "@/contexts/timer-context";
+import { TimerProvider } from "@/contexts/timer-context";
 import { getSessionWithProfile } from "@/lib/auth/server";
 import { fetchMatters } from "@/lib/data/queries";
 
@@ -62,15 +62,16 @@ export default async function RootLayout({
         className={`${lora.variable} ${inter.variable} ${jetbrainsMono.variable} antialiased bg-slate-50 text-slate-900`}
       >
         <AuthListener />
-        {/* TimerProvider temporarily disabled for MVP testing */}
-        <AppShell
-          profileName={profile?.full_name}
-          role={profile?.role}
-          email={session?.user.email}
-          matters={matters}
-        >
-          {children}
-        </AppShell>
+        <TimerProvider>
+          <AppShell
+            profileName={profile?.full_name}
+            role={profile?.role}
+            email={session?.user.email}
+            matters={matters}
+          >
+            {children}
+          </AppShell>
+        </TimerProvider>
       </body>
     </html>
   );
