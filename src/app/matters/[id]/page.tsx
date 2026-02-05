@@ -10,7 +10,6 @@ import { supabaseAdmin } from "@/lib/supabase/server";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { CalendarClock } from "lucide-react";
 import { MatterDocumentsTab } from "@/components/matter-documents-tab";
 import { CommunicationsTab } from "@/components/matter/communications-tab";
 
@@ -26,6 +25,9 @@ const ResendIntakeButton = dynamic(
 );
 const EditMatterWorkflowModal = dynamic(
   () => import("@/components/matters/edit-matter-workflow-modal").then(mod => ({ default: mod.EditMatterWorkflowModal }))
+);
+const MatterTasksList = dynamic(
+  () => import("@/components/matters/matter-tasks-list").then(mod => ({ default: mod.MatterTasksList }))
 );
 
 interface MatterDetailPageProps {
@@ -204,59 +206,10 @@ export default async function MatterDetailPage({ params }: MatterDetailPageProps
           <div className="rounded-lg border border-slate-200 bg-white p-6">
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-xl font-semibold text-slate-900">Tasks</h2>
-<AddTaskModal matterId={id} />
+              <AddTaskModal matterId={id} />
             </div>
 
-            {tasks.length === 0 ? (
-              /* Empty State */
-              <div className="text-center py-12">
-                <svg
-                  className="mx-auto h-12 w-12 text-slate-400"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"
-                  />
-                </svg>
-                <h3 className="mt-2 text-sm font-medium text-slate-900">No tasks</h3>
-                <p className="mt-1 text-sm text-slate-500">
-                  Get started by creating a new task for this matter.
-                </p>
-              </div>
-            ) : (
-              /* Task List */
-              <div className="space-y-3">
-                {tasks.map((task) => (
-                  <div
-                    key={task.id}
-                    className="flex items-start justify-between p-4 rounded-lg border border-slate-200 hover:bg-slate-50"
-                  >
-                    <div className="flex-1">
-                      <h3 className="font-medium text-slate-900">{task.title}</h3>
-                      <div className="mt-2 flex items-center gap-2 text-xs">
-                        <Badge
-                          variant={task.responsibleParty === "client" ? "warning" : "default"}
-                        >
-                          {task.responsibleParty}
-                        </Badge>
-                        <Badge variant="outline">{task.status}</Badge>
-                        {task.dueDate && (
-                          <span className="flex items-center gap-1 text-slate-500">
-                            <CalendarClock className="h-3 w-3" />
-                            {new Date(task.dueDate).toLocaleDateString()}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
+            <MatterTasksList tasks={tasks} />
           </div>
         </TabsContent>
 
