@@ -1130,6 +1130,7 @@ export type PracticeSettings = {
   lateFeePercentage: number;
   autoRemindersEnabled: boolean;
   matterTypes: string[];
+  billingIncrementMinutes: number;
   createdAt: string;
   updatedAt: string;
 };
@@ -1156,6 +1157,7 @@ export async function getPracticeSettings(): Promise<{
           "Policy Review",
           "Litigation",
         ],
+        billingIncrementMinutes: 6,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       },
@@ -1190,6 +1192,7 @@ export async function getPracticeSettings(): Promise<{
       lateFeePercentage: data.late_fee_percentage ?? 0,
       autoRemindersEnabled: data.auto_reminders_enabled ?? false,
       matterTypes: (data.matter_types as string[]) || [],
+      billingIncrementMinutes: data.billing_increment_minutes ?? 6,
       createdAt: data.created_at ?? new Date().toISOString(),
       updatedAt: data.updated_at ?? new Date().toISOString(),
     },
