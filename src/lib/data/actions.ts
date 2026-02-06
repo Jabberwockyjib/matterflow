@@ -2511,7 +2511,6 @@ export async function updatePracticeSettings(
     defaultHourlyRate: number;
     paymentTermsDays: number;
     lateFeePercentage: number;
-    autoRemindersEnabled: boolean;
     matterTypes: string[];
     billingIncrementMinutes: number;
   }>
@@ -2560,8 +2559,6 @@ export async function updatePracticeSettings(
     dbSettings.payment_terms_days = settings.paymentTermsDays;
   if (settings.lateFeePercentage !== undefined)
     dbSettings.late_fee_percentage = settings.lateFeePercentage;
-  if (settings.autoRemindersEnabled !== undefined)
-    dbSettings.auto_reminders_enabled = settings.autoRemindersEnabled;
   if (settings.matterTypes !== undefined)
     dbSettings.matter_types = settings.matterTypes;
   if (settings.billingIncrementMinutes !== undefined)
@@ -3298,6 +3295,9 @@ const automationSettingsSchema = z.object({
   automation_lawyer_idle_days: z.string().regex(/^\d+$/, "Must be a number").optional(),
   automation_invoice_reminder_enabled: z.enum(["true", "false"]).optional(),
   automation_invoice_reminder_days: z.string().regex(/^[\d,]+$/, "Must be comma-separated numbers").optional(),
+  automation_invoice_first_reminder_days: z.string().regex(/^\d+$/, "Must be a number").optional(),
+  automation_invoice_due_date_reminder: z.enum(["true", "false"]).optional(),
+  automation_invoice_overdue_frequency_days: z.string().regex(/^\d+$/, "Must be a number").optional(),
 });
 
 // Combined schema for all firm settings
@@ -3368,6 +3368,7 @@ export async function updateFirmSettings(
 
     revalidatePath("/admin/settings");
     revalidatePath("/admin/settings/automations");
+    revalidatePath("/settings");
 
     return { ok: true };
   } catch (error) {

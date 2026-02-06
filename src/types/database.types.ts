@@ -399,6 +399,7 @@ export type Database = {
           created_at: string
           due_date: string | null
           id: string
+          last_reminder_sent_at: string | null
           line_items: Json
           matter_id: string
           square_invoice_id: string | null
@@ -410,6 +411,7 @@ export type Database = {
           created_at?: string
           due_date?: string | null
           id?: string
+          last_reminder_sent_at?: string | null
           line_items?: Json
           matter_id: string
           square_invoice_id?: string | null
@@ -421,6 +423,7 @@ export type Database = {
           created_at?: string
           due_date?: string | null
           id?: string
+          last_reminder_sent_at?: string | null
           line_items?: Json
           matter_id?: string
           square_invoice_id?: string | null

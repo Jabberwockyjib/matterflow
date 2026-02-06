@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { render } from "@react-email/components";
 import { IntakeReminderEmail } from "@/lib/email/templates/intake-reminder";
+import { DEFAULT_FIRM_SETTINGS } from "@/types/firm-settings";
 
 describe("IntakeReminderEmail", () => {
   const defaultProps = {
@@ -104,8 +105,8 @@ describe("IntakeReminderEmail", () => {
   describe("with firm settings", () => {
     it("uses settings when provided", async () => {
       const settings = {
+        ...DEFAULT_FIRM_SETTINGS,
         firm_name: "Williams Law Firm",
-        contact_email: "support@williams.com",
       };
 
       const html = await render(<IntakeReminderEmail {...defaultProps} settings={settings} />);

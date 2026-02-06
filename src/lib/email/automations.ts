@@ -226,8 +226,12 @@ export async function sendActivityReminders(): Promise<AutomationResult> {
 }
 
 /**
- * Send invoice reminders for unpaid invoices
- * Reminders at configurable day intervals (default: 3, 7, 14 days overdue)
+ * Send invoice reminders using a 3-phase schedule:
+ * 1. First reminder: X days after invoice sent (before due date)
+ * 2. Due date reminder: on the due date
+ * 3. Overdue reminders: recurring every Y days after due date
+ *
+ * Uses `last_reminder_sent_at` on invoices to prevent duplicate sends.
  */
 export async function sendInvoiceReminders(): Promise<AutomationResult> {
   const result: AutomationResult = { sent: 0, failed: 0, errors: [] };
@@ -240,22 +244,20 @@ export async function sendInvoiceReminders(): Promise<AutomationResult> {
       return result;
     }
 
-    // Parse reminder days from settings (comma-separated list)
-    const reminderDaysStr = settings.automation_invoice_reminder_days || "3,7,14";
-    const reminderDays = reminderDaysStr
-      .split(",")
-      .map((d) => parseInt(d.trim(), 10))
-      .filter((d) => !isNaN(d) && d > 0);
+    const firstReminderDays = parseInt(settings.automation_invoice_first_reminder_days || "15", 10);
+    const dueDateReminderEnabled = settings.automation_invoice_due_date_reminder !== "false";
+    const overdueFrequencyDays = parseInt(settings.automation_invoice_overdue_frequency_days || "7", 10);
 
     const supabase = supabaseAdmin();
-    const today = new Date();
+    const now = new Date();
+    const todayStr = now.toISOString().split("T")[0]; // YYYY-MM-DD
 
-    // Find invoices that are sent but not paid, with due dates in the past
+    // Fetch all unpaid invoices with a due date
     const { data: invoices, error } = await supabase
       .from("invoices")
-      .select("id, matter_id, total_cents, due_date, square_invoice_id, updated_at")
+      .select("id, matter_id, total_cents, due_date, square_invoice_id, updated_at, last_reminder_sent_at, created_at")
       .in("status", ["sent", "overdue", "partial"])
-      .lt("due_date", today.toISOString());
+      .not("due_date", "is", null);
 
     if (error || !invoices) {
       result.errors.push(error?.message || "No invoices found");
@@ -265,14 +267,52 @@ export async function sendInvoiceReminders(): Promise<AutomationResult> {
     for (const invoice of invoices) {
       if (!invoice.due_date) continue;
 
-      const daysOverdue = Math.floor(
-        (Date.now() - new Date(invoice.due_date).getTime()) / (1000 * 60 * 60 * 24),
+      const dueDate = new Date(invoice.due_date + "T00:00:00Z");
+      const daysSinceSent = Math.floor(
+        (now.getTime() - new Date(invoice.updated_at).getTime()) / (1000 * 60 * 60 * 24),
       );
+      const daysOverdue = Math.floor(
+        (now.getTime() - dueDate.getTime()) / (1000 * 60 * 60 * 24),
+      );
+      const lastReminder = invoice.last_reminder_sent_at
+        ? new Date(invoice.last_reminder_sent_at)
+        : null;
+      const daysSinceLastReminder = lastReminder
+        ? Math.floor((now.getTime() - lastReminder.getTime()) / (1000 * 60 * 60 * 24))
+        : null;
 
-      // Send reminders at configured intervals
-      const shouldSendReminder = reminderDays.includes(daysOverdue);
+      let reminderType: "first" | "due_date" | "overdue" | null = null;
 
-      if (!shouldSendReminder) continue;
+      // Phase 1: First reminder (before due date)
+      if (
+        todayStr < invoice.due_date &&
+        daysSinceSent >= firstReminderDays &&
+        !lastReminder
+      ) {
+        reminderType = "first";
+      }
+
+      // Phase 2: Due date reminder
+      if (
+        !reminderType &&
+        dueDateReminderEnabled &&
+        todayStr >= invoice.due_date &&
+        daysOverdue <= 0 &&
+        (!lastReminder || lastReminder < dueDate)
+      ) {
+        reminderType = "due_date";
+      }
+
+      // Phase 3: Overdue recurring reminders
+      if (
+        !reminderType &&
+        daysOverdue > 0 &&
+        (!lastReminder || (daysSinceLastReminder !== null && daysSinceLastReminder >= overdueFrequencyDays))
+      ) {
+        reminderType = "overdue";
+      }
+
+      if (!reminderType) continue;
 
       try {
         // Get matter and client details
@@ -300,7 +340,9 @@ export async function sendInvoiceReminders(): Promise<AutomationResult> {
               matterId: invoice.matter_id,
               invoiceId: invoice.id,
               invoiceAmount: `$${amount}`,
-              daysOverdue,
+              dueDate: invoice.due_date,
+              daysOverdue: reminderType === "overdue" ? daysOverdue : undefined,
+              reminderType,
               paymentLink: invoice.square_invoice_id
                 ? `https://squareup.com/invoice/${invoice.square_invoice_id}`
                 : undefined,
@@ -308,13 +350,18 @@ export async function sendInvoiceReminders(): Promise<AutomationResult> {
 
             if (emailResult.success) {
               result.sent++;
-              // Update invoice status to 'overdue' if not already
-              if (daysOverdue >= 3) {
-                await supabase
-                  .from("invoices")
-                  .update({ status: "overdue" })
-                  .eq("id", invoice.id);
+              // Update last_reminder_sent_at
+              const updateData: Record<string, unknown> = {
+                last_reminder_sent_at: now.toISOString(),
+              };
+              // Mark as overdue if past due date
+              if (daysOverdue > 0) {
+                updateData.status = "overdue";
               }
+              await supabase
+                .from("invoices")
+                .update(updateData)
+                .eq("id", invoice.id);
             } else {
               result.failed++;
               result.errors.push(`Failed to send invoice reminder for invoice ${invoice.id}`);

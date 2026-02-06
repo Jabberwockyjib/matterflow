@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { render } from "@react-email/components";
 import { InvoiceSentEmail } from "@/lib/email/templates/invoice-sent";
+import { DEFAULT_FIRM_SETTINGS } from "@/types/firm-settings";
 
 describe("InvoiceSentEmail", () => {
   const defaultProps = {
@@ -108,8 +109,8 @@ describe("InvoiceSentEmail", () => {
   describe("with firm settings", () => {
     it("uses settings when provided", async () => {
       const settings = {
+        ...DEFAULT_FIRM_SETTINGS,
         firm_name: "Smith & Associates",
-        contact_email: "contact@smith.com",
       };
 
       const html = await render(<InvoiceSentEmail {...defaultProps} settings={settings} />);

@@ -302,6 +302,7 @@ export function mockInvoice(overrides: Partial<Invoice> = {}): Invoice {
     line_items: [],
     due_date: null,
     square_invoice_id: null,
+    last_reminder_sent_at: null,
     created_at: now,
     updated_at: now,
     ...overrides,

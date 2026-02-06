@@ -17,6 +17,9 @@ export interface FirmSettings {
   automation_lawyer_idle_days: string;
   automation_invoice_reminder_enabled: string;
   automation_invoice_reminder_days: string;
+  automation_invoice_first_reminder_days: string;
+  automation_invoice_due_date_reminder: string;
+  automation_invoice_overdue_frequency_days: string;
 }
 
 /**
@@ -37,6 +40,9 @@ export const FIRM_SETTING_KEYS = [
   'automation_lawyer_idle_days',
   'automation_invoice_reminder_enabled',
   'automation_invoice_reminder_days',
+  'automation_invoice_first_reminder_days',
+  'automation_invoice_due_date_reminder',
+  'automation_invoice_overdue_frequency_days',
 ] as const;
 
 export type FirmSettingKey = typeof FIRM_SETTING_KEYS[number];
@@ -60,4 +66,7 @@ export const DEFAULT_FIRM_SETTINGS: FirmSettings = {
   automation_lawyer_idle_days: '7',
   automation_invoice_reminder_enabled: 'true',
   automation_invoice_reminder_days: '3,7,14',
+  automation_invoice_first_reminder_days: '15',
+  automation_invoice_due_date_reminder: 'true',
+  automation_invoice_overdue_frequency_days: '7',
 };

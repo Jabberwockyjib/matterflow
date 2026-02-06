@@ -1,5 +1,5 @@
 import { getSessionWithProfile } from "@/lib/auth/server";
-import { getPracticeSettings } from "@/lib/data/queries";
+import { getPracticeSettings, getFirmSettings } from "@/lib/data/queries";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ProfileSettingsForm } from "./profile-settings-form";
 import { PracticeSettingsForm } from "./practice-settings-form";
@@ -10,7 +10,10 @@ export const dynamic = 'force-dynamic';
 
 export default async function SettingsPage() {
   const { session, profile } = await getSessionWithProfile();
-  const { data: practiceSettings } = await getPracticeSettings();
+  const [{ data: practiceSettings }, firmSettings] = await Promise.all([
+    getPracticeSettings(),
+    getFirmSettings(),
+  ]);
 
   // Middleware handles auth, so if we're here, user is authenticated
   // Provide fallback values if profile data is missing
@@ -45,7 +48,7 @@ export default async function SettingsPage() {
 
         {isAdmin && (
           <TabsContent value="practice" className="space-y-4">
-            <PracticeSettingsForm settings={practiceSettings} />
+            <PracticeSettingsForm settings={practiceSettings} firmSettings={firmSettings} />
           </TabsContent>
         )}
 

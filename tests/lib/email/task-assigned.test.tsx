@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { render } from "@react-email/components";
 import { TaskAssignedEmail } from "@/lib/email/templates/task-assigned";
+import { DEFAULT_FIRM_SETTINGS } from "@/types/firm-settings";
 
 describe("TaskAssignedEmail", () => {
   const defaultProps = {
@@ -107,8 +108,8 @@ describe("TaskAssignedEmail", () => {
   describe("with firm settings", () => {
     it("uses settings when provided", async () => {
       const settings = {
+        ...DEFAULT_FIRM_SETTINGS,
         firm_name: "Johnson Law Group",
-        contact_email: "info@johnson.com",
       };
 
       const html = await render(<TaskAssignedEmail {...defaultProps} settings={settings} />);

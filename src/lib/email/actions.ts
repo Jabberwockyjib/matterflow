@@ -7,6 +7,7 @@ import { IntakeDeclinedEmail } from "./templates/intake-declined";
 import { IntakeReminderEmail } from "./templates/intake-reminder";
 import { IntakeSubmittedEmail } from "./templates/intake-submitted";
 import { InvoiceSentEmail } from "./templates/invoice-sent";
+import { PaymentReminderEmail, type ReminderType } from "./templates/payment-reminder";
 import { MatterCreatedEmail } from "./templates/matter-created";
 import { PaymentReceivedEmail } from "./templates/payment-received";
 import { TaskAssignedEmail } from "./templates/task-assigned";
@@ -218,27 +219,48 @@ interface SendInvoiceReminderEmailParams {
   matterId: string;
   invoiceId: string;
   invoiceAmount: string;
-  daysOverdue: number;
+  dueDate: string;
+  daysOverdue?: number;
   paymentLink?: string;
+  invoiceNumber?: string;
+  reminderType: ReminderType;
 }
 
 export async function sendInvoiceReminderEmail(
   params: SendInvoiceReminderEmailParams,
 ): Promise<EmailSendResult> {
   const settings = await getFirmSettings();
-  const urgency = params.daysOverdue > 14 ? "URGENT: " : "";
-  const template = InvoiceSentEmail({
+
+  const template = PaymentReminderEmail({
     clientName: params.clientName,
     matterTitle: params.matterTitle,
     invoiceAmount: params.invoiceAmount,
-    dueDate: `Overdue by ${params.daysOverdue} days`,
+    dueDate: params.dueDate,
+    daysOverdue: params.daysOverdue,
     paymentLink: params.paymentLink,
+    invoiceNumber: params.invoiceNumber,
+    reminderType: params.reminderType,
     settings,
   });
 
+  let subject: string;
+  switch (params.reminderType) {
+    case "first":
+      subject = `Payment Reminder: ${params.matterTitle} - ${params.invoiceAmount}`;
+      break;
+    case "due_date":
+      subject = `Payment Due Today: ${params.matterTitle} - ${params.invoiceAmount}`;
+      break;
+    case "overdue": {
+      const urgency = params.daysOverdue && params.daysOverdue > 14 ? "URGENT: " : "";
+      subject = `${urgency}Payment Overdue: ${params.matterTitle} - ${params.invoiceAmount}`;
+      break;
+    }
+  }
+
   return sendTemplateEmail(
     params.to,
-    `${urgency}Payment Reminder: ${params.matterTitle} - ${params.invoiceAmount}`,
+    subject,
     template,
     {
       type: "invoice_reminder",

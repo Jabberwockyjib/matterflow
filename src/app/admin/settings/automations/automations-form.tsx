@@ -46,13 +46,6 @@ export function AutomationsForm({ settings }: AutomationsFormProps) {
   const [lawyerIdleDays, setLawyerIdleDays] = useState(
     settings.automation_lawyer_idle_days || "7"
   );
-  const [invoiceEnabled, setInvoiceEnabled] = useState(
-    settings.automation_invoice_reminder_enabled === "true"
-  );
-  const [invoiceDays, setInvoiceDays] = useState(
-    settings.automation_invoice_reminder_days || "3,7,14"
-  );
-
   const handleSave = async () => {
     setSaving(true);
     setMessage(null);
@@ -64,8 +57,6 @@ export function AutomationsForm({ settings }: AutomationsFormProps) {
       automation_client_idle_days: clientIdleDays,
       automation_lawyer_idle_enabled: String(lawyerIdleEnabled),
       automation_lawyer_idle_days: lawyerIdleDays,
-      automation_invoice_reminder_enabled: String(invoiceEnabled),
-      automation_invoice_reminder_days: invoiceDays,
     };
 
     const result = await updateFirmSettings(updates);
@@ -189,36 +180,17 @@ export function AutomationsForm({ settings }: AutomationsFormProps) {
 
       <Card>
         <CardHeader>
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle>Invoice Reminders</CardTitle>
-              <CardDescription>
-                Remind clients about unpaid invoices
-              </CardDescription>
-            </div>
-            <Switch
-              checked={invoiceEnabled}
-              onCheckedChange={setInvoiceEnabled}
-            />
+          <div>
+            <CardTitle>Invoice Reminders</CardTitle>
+            <CardDescription>
+              Invoice reminder settings have moved to{" "}
+              <a href="/settings?tab=practice" className="text-blue-600 underline hover:text-blue-800">
+                Settings &gt; Practice &gt; Billing Defaults
+              </a>
+              .
+            </CardDescription>
           </div>
         </CardHeader>
-        {invoiceEnabled && (
-          <CardContent>
-            <div className="flex items-center gap-2">
-              <Label>Send reminders at days overdue:</Label>
-              <Input
-                type="text"
-                value={invoiceDays}
-                onChange={(e) => setInvoiceDays(e.target.value)}
-                className="w-32"
-                placeholder="3,7,14"
-              />
-            </div>
-            <p className="mt-2 text-sm text-muted-foreground">
-              Comma-separated list of days (e.g., 3,7,14)
-            </p>
-          </CardContent>
-        )}
       </Card>
 
       <Button onClick={handleSave} disabled={saving}>

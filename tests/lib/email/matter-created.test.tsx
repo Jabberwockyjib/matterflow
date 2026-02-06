@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { render } from "@react-email/components";
 import { MatterCreatedEmail } from "@/lib/email/templates/matter-created";
+import { DEFAULT_FIRM_SETTINGS } from "@/types/firm-settings";
 
 describe("MatterCreatedEmail", () => {
   const defaultProps = {
@@ -88,8 +89,8 @@ describe("MatterCreatedEmail", () => {
   describe("with firm settings", () => {
     it("uses settings when provided", async () => {
       const settings = {
+        ...DEFAULT_FIRM_SETTINGS,
         firm_name: "Parker & Associates",
-        contact_email: "hello@parker.com",
       };
 
       const html = await render(<MatterCreatedEmail {...defaultProps} settings={settings} />);
