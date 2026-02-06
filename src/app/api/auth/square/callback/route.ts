@@ -7,6 +7,7 @@ import {
   exchangeCodeForTokens,
   fetchFirstLocation,
 } from "@/lib/square/oauth";
+import { sanitizeReturnUrl } from "@/lib/auth/validate-return-url";
 
 // Use the public app URL for redirects (handles reverse proxy/Docker scenarios)
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3001";
@@ -54,7 +55,7 @@ export async function GET(request: Request) {
         const stateData = JSON.parse(
           Buffer.from(state, "base64").toString("utf-8")
         );
-        returnUrl = stateData.returnUrl || "/settings";
+        returnUrl = sanitizeReturnUrl(stateData.returnUrl) || "/settings";
         stateEnvironment = stateData.environment;
       } catch {
         console.warn("Failed to parse state parameter");

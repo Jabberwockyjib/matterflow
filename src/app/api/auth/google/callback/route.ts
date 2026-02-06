@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
-import { getTokensFromCode } from "@/lib/google-drive/client";
+import { getTokensFromCode, getGoogleUserEmail } from "@/lib/google-drive/client";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { getSessionWithProfile } from "@/lib/auth/server";
+import { sanitizeReturnUrl } from "@/lib/auth/validate-return-url";
 
 // Use the public app URL for redirects (handles reverse proxy/Docker scenarios)
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3001";
@@ -39,7 +40,7 @@ export async function GET(request: Request) {
         const stateData = JSON.parse(
           Buffer.from(state, "base64").toString("utf-8")
         );
-        returnUrl = stateData.returnUrl || "/";
+        returnUrl = sanitizeReturnUrl(stateData.returnUrl);
       } catch {
         console.warn("Failed to parse state parameter");
       }
@@ -82,11 +83,18 @@ export async function GET(request: Request) {
       );
     }
 
+    // Get the user's email from Google
+    let googleEmail: string | null = null;
+    if (tokens.access_token) {
+      googleEmail = await getGoogleUserEmail(tokens.access_token);
+    }
+
     const { error: updateError } = await supabase
       .from("practice_settings")
       .update({
         google_refresh_token: tokens.refresh_token,
         google_connected_at: new Date().toISOString(),
+        google_connected_email: googleEmail,
       })
       .eq("id", settings.id);
 
