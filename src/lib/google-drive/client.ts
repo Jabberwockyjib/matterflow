@@ -112,3 +112,68 @@ export async function refreshAccessToken(refreshToken: string): Promise<string> 
 
   return credentials.access_token;
 }
+
+/**
+ * Get the email of the authenticated Google user
+ */
+export async function getGoogleUserEmail(accessToken: string): Promise<string | null> {
+  try {
+    const response = await fetch(
+      "https://www.googleapis.com/oauth2/v2/userinfo",
+      {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      }
+    );
+
+    if (!response.ok) {
+      console.error("Failed to fetch Google user info:", response.status);
+      return null;
+    }
+
+    const data = await response.json();
+    return data.email || null;
+  } catch (error) {
+    console.error("Error fetching Google user email:", error);
+    return null;
+  }
+}
+
+/**
+ * Test the Google Drive connection by listing files
+ * Returns success status and any error message
+ */
+export async function testDriveConnection(refreshToken: string): Promise<{
+  success: boolean;
+  email?: string;
+  error?: string;
+}> {
+  try {
+    const oauth2Client = createOAuth2Client();
+    oauth2Client.setCredentials({
+      refresh_token: refreshToken,
+    });
+
+    // Refresh to get access token and verify credentials are valid
+    const { credentials } = await oauth2Client.refreshAccessToken();
+    if (!credentials.access_token) {
+      return { success: false, error: "Failed to refresh access token" };
+    }
+
+    // Get user email
+    const email = await getGoogleUserEmail(credentials.access_token);
+
+    // Try to list files to verify Drive access
+    const drive = google.drive({ version: "v3", auth: oauth2Client });
+    await drive.files.list({
+      pageSize: 1,
+      fields: "files(id, name)",
+    });
+
+    return { success: true, email: email || undefined };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Connection test failed";
+    return { success: false, error: message };
+  }
+}
