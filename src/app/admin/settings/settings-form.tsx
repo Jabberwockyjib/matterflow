@@ -16,6 +16,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { CheckCircle2, Loader2 } from "lucide-react";
+import { LogoUpload } from "@/components/settings/logo-upload";
 
 interface SettingsFormProps {
   initialSettings: FirmSettings;
@@ -124,20 +125,11 @@ export function SettingsForm({ initialSettings }: SettingsFormProps) {
               </div>
 
               <div className="grid gap-2">
-                <Label htmlFor="logo_url">Logo URL</Label>
-                <Input
-                  id="logo_url"
-                  type="url"
-                  placeholder="https://example.com/logo.png"
-                  value={settings.logo_url || ""}
-                  onChange={(e) =>
-                    updateSetting("logo_url", e.target.value || null)
-                  }
-                  disabled={loading}
+                <Label>Firm Logo</Label>
+                <LogoUpload
+                  currentLogoUrl={settings.logo_url}
+                  onLogoChange={(url) => updateSetting("logo_url", url)}
                 />
-                <p className="text-xs text-muted-foreground">
-                  URL to your firm logo (recommended: 200x50px PNG)
-                </p>
               </div>
 
               <div className="grid gap-2">

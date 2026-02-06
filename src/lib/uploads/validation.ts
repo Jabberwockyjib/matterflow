@@ -72,6 +72,42 @@ export function validateUploadedFile(file: File): string | null {
   return null;
 }
 
+const LOGO_MAX_FILE_SIZE = 2 * 1024 * 1024; // 2MB
+
+const LOGO_ALLOWED_EXTENSIONS = new Set(["png", "jpg", "jpeg", "webp", "svg"]);
+
+const LOGO_ALLOWED_MIMES = new Set([
+  "image/png",
+  "image/jpeg",
+  "image/webp",
+  "image/svg+xml",
+]);
+
+/**
+ * Validate a logo file for type and size restrictions.
+ * Returns an error string if invalid, null if valid.
+ */
+export function validateLogoFile(file: File): string | null {
+  if (file.size > LOGO_MAX_FILE_SIZE) {
+    return "Logo file too large. Maximum size is 2MB.";
+  }
+
+  if (file.size === 0) {
+    return "File is empty.";
+  }
+
+  const ext = file.name.split(".").pop()?.toLowerCase();
+  if (!ext || !LOGO_ALLOWED_EXTENSIONS.has(ext)) {
+    return `Invalid logo format. Accepted: ${Array.from(LOGO_ALLOWED_EXTENSIONS).join(", ")}`;
+  }
+
+  if (file.type && !LOGO_ALLOWED_MIMES.has(file.type)) {
+    return `Invalid MIME type "${file.type}". Only image files are allowed.`;
+  }
+
+  return null;
+}
+
 /**
  * Validate that the request content type is multipart/form-data.
  */
