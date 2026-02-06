@@ -16,6 +16,9 @@ import {
   Settings,
   ChevronLeft,
   ChevronRight,
+  LayoutDashboard,
+  Palette,
+  Zap,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -29,6 +32,7 @@ type NavLink = {
 // Links visible to staff and admin only
 const staffLinks: NavLink[] = [
   { href: "/", label: "Dashboard", icon: Home },
+  { href: "/dashboard", label: "Matter Board", icon: LayoutDashboard },
   { href: "/matters", label: "Matters", icon: Folder },
   { href: "/tasks", label: "Tasks", icon: CheckSquare },
   { href: "/time", label: "Time", icon: Clock },
@@ -47,6 +51,8 @@ const adminLinks: NavLink[] = [
   { href: "/admin/users", label: "Users", icon: Users },
   { href: "/admin/intake", label: "Intakes", icon: ClipboardList },
   { href: "/admin/templates", label: "Templates", icon: FileText },
+  { href: "/admin/settings", label: "Email Branding", icon: Palette },
+  { href: "/admin/settings/automations", label: "Automations", icon: Zap },
 ];
 
 type SidebarProps = {
@@ -80,6 +86,10 @@ export function Sidebar({ role, profileName }: SidebarProps) {
   const isActive = (href: string) => {
     if (href === "/") {
       return pathname === "/";
+    }
+    // Exact match for leaf routes that are prefixes of other routes
+    if (href === "/admin/settings") {
+      return pathname === "/admin/settings";
     }
     return pathname.startsWith(href);
   };
