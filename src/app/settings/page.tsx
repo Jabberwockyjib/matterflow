@@ -4,6 +4,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ProfileSettingsForm } from "./profile-settings-form";
 import { PracticeSettingsForm } from "./practice-settings-form";
 import { IntegrationsPanel } from "./integrations-panel";
+import { EmailTemplatesPanel } from "./email-templates-panel";
 
 export const dynamic = 'force-dynamic';
 
@@ -25,10 +26,11 @@ export default async function SettingsPage() {
       </div>
 
       <Tabs defaultValue="profile" className="w-full">
-        <TabsList className="grid w-full grid-cols-3">
+        <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="profile">Profile</TabsTrigger>
           {isAdmin && <TabsTrigger value="practice">Practice</TabsTrigger>}
           {isAdmin && <TabsTrigger value="integrations">Integrations</TabsTrigger>}
+          {isAdmin && <TabsTrigger value="email-templates">Email Templates</TabsTrigger>}
         </TabsList>
 
         <TabsContent value="profile" className="space-y-4">
@@ -56,6 +58,12 @@ export default async function SettingsPage() {
                 <p>Profile data not available</p>
               </div>
             )}
+          </TabsContent>
+        )}
+
+        {isAdmin && (
+          <TabsContent value="email-templates" className="space-y-4">
+            <EmailTemplatesPanel />
           </TabsContent>
         )}
       </Tabs>
