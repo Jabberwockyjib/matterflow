@@ -65,6 +65,7 @@ export async function middleware(req: NextRequest) {
       pathname.startsWith("/documents") ||
       pathname.startsWith("/settings") ||
       pathname.startsWith("/admin") ||
+      pathname.startsWith("/intake") ||
       pathname.startsWith("/dashboard"));
 
   // Check for Supabase auth tokens
