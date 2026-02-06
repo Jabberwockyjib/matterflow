@@ -6,6 +6,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/server";
+import { getSessionWithProfile } from "@/lib/auth/server";
 import { uploadFileToDrive } from "@/lib/google-drive/documents";
 import { createMatterFolders } from "@/lib/google-drive/folders";
 import type { DriveFolder, FolderType } from "@/lib/google-drive/types";
@@ -113,6 +114,15 @@ async function ensureMatterFolders(matterId: string): Promise<{
 
 export async function POST(request: NextRequest) {
   try {
+    // Verify user is authenticated
+    const { session } = await getSessionWithProfile();
+    if (!session) {
+      return NextResponse.json(
+        { ok: false, error: "Unauthorized: please sign in" },
+        { status: 401 }
+      );
+    }
+
     const formData = await request.formData();
     const matterId = formData.get("matterId") as string;
     const file = formData.get("file") as File;
