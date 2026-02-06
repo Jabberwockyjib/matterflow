@@ -6,6 +6,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { getSessionWithProfile } from "@/lib/auth/server";
 import { uploadFileToDrive } from "@/lib/google-drive/documents";
+import { sanitizeFilename } from "@/lib/utils/sanitize";
+import { validateUploadedFile } from "@/lib/uploads/validation";
+import { uploadLimiter, getRateLimitKey } from "@/lib/rate-limit";
 import type { Json } from "@/types/database.types";
 
 async function getPracticeRefreshToken(): Promise<string | null> {
@@ -39,9 +42,19 @@ async function getMatterFolderId(matterId: string): Promise<string | null> {
 
 export async function POST(request: NextRequest) {
   try {
+    // Rate limiting
+    const rateLimitKey = getRateLimitKey(request);
+    const rateCheck = uploadLimiter.check(rateLimitKey);
+    if (!rateCheck.allowed) {
+      return NextResponse.json(
+        { ok: false, error: "Too many uploads. Please try again later." },
+        { status: 429 }
+      );
+    }
+
     // Verify user is authenticated
-    const { session } = await getSessionWithProfile();
-    if (!session) {
+    const { session, profile } = await getSessionWithProfile();
+    if (!session || !profile) {
       return NextResponse.json(
         { ok: false, error: "Unauthorized: please sign in" },
         { status: 401 }
@@ -60,7 +73,32 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Validate file type and size
+    const fileError = validateUploadedFile(file);
+    if (fileError) {
+      return NextResponse.json(
+        { ok: false, error: fileError },
+        { status: 400 }
+      );
+    }
+
     const supabase = supabaseAdmin();
+
+    // IDOR protection: verify client owns this matter or user is staff/admin
+    if (profile.role === "client") {
+      const { data: matter } = await supabase
+        .from("matters")
+        .select("client_id")
+        .eq("id", matterId)
+        .single();
+
+      if (!matter || matter.client_id !== session.user.id) {
+        return NextResponse.json(
+          { ok: false, error: "You do not have access to this matter" },
+          { status: 403 }
+        );
+      }
+    }
 
     // Get practice Google refresh token
     const refreshToken = await getPracticeRefreshToken();
@@ -80,6 +118,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Sanitize filename to prevent path traversal / injection
+    const safeName = sanitizeFilename(file.name);
+
     // Convert file to buffer
     const arrayBuffer = await file.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
@@ -88,7 +129,7 @@ export async function POST(request: NextRequest) {
     const uploadResult = await uploadFileToDrive(
       refreshToken,
       {
-        name: file.name,
+        name: safeName,
         mimeType: file.type,
         buffer,
       },
@@ -109,7 +150,7 @@ export async function POST(request: NextRequest) {
       .insert({
         matter_id: matterId,
         task_id: taskId,
-        title: file.name,
+        title: safeName,
         drive_file_id: uploadResult.fileId!,
         folder_path: "01 Source Docs",
         version: 1,
@@ -139,7 +180,7 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error("Task upload error:", error);
     return NextResponse.json(
-      { ok: false, error: error instanceof Error ? error.message : "Upload failed" },
+      { ok: false, error: "Upload failed" },
       { status: 500 }
     );
   }

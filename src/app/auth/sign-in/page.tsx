@@ -11,6 +11,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { FormInput } from "@/components/ui/form-field";
 import { supabaseBrowser } from "@/lib/supabase/client";
 import { signInSchema, type SignInFormData } from "@/lib/validation/schemas";
+import { sanitizeReturnUrl } from "@/lib/auth/validate-return-url";
 import { useDraftPersistence } from "@/hooks/useDraftPersistence";
 import { useUnsavedChanges } from "@/hooks/useUnsavedChanges";
 import { showSuccess, showError } from "@/lib/toast";
@@ -19,7 +20,7 @@ export default function SignInPage() {
   const supabase = supabaseBrowser();
   const searchParams = useSearchParams();
   const router = useRouter();
-  const redirect = searchParams.get("redirect") || "/";
+  const redirect = sanitizeReturnUrl(searchParams.get("redirect"));
   const [isCheckingAuth, setIsCheckingAuth] = useState(true);
 
   // Check if user is already logged in

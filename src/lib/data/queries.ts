@@ -747,9 +747,10 @@ export async function fetchMattersWithFilters(
     }
 
     // Apply search filter (searches title for now, client name is filtered post-query)
-    // Note: Supabase ilike can be used for server-side text search
     if (searchQuery && searchQuery.trim()) {
-      const searchTerm = `%${searchQuery.trim()}%`;
+      const { escapePostgrestFilter } = await import("@/lib/utils/sanitize");
+      const sanitized = escapePostgrestFilter(searchQuery.trim());
+      const searchTerm = `%${sanitized}%`;
       query = query.or(`title.ilike.${searchTerm},next_action.ilike.${searchTerm}`);
     }
 

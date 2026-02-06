@@ -2030,11 +2030,14 @@ export type MatterSearchResult = {
 
 export async function searchMatters(query: string): Promise<{ data: MatterSearchResult[] }> {
   try {
+    await ensureStaffOrAdmin();
     const supabase = supabaseAdmin();
+    const { escapePostgrestFilter } = await import("@/lib/utils/sanitize");
+    const sanitized = escapePostgrestFilter(query);
     const { data: matters } = await supabase
       .from("matters")
       .select("id, title, matter_type, profiles:client_id (full_name)")
-      .or(`title.ilike.%${query}%`)
+      .ilike("title", `%${sanitized}%`)
       .limit(10);
 
     const results = (matters || []).map((m: any) => ({
@@ -2056,6 +2059,7 @@ export async function startTimer(
   notes?: string
 ): Promise<{ error?: string; entryId?: string }> {
   try {
+    await ensureStaffOrAdmin();
     const supabase = supabaseAdmin();
     const { session, profile } = await getSessionWithProfile();
 
@@ -2093,6 +2097,7 @@ export async function stopTimer(
   notes?: string
 ): Promise<{ error?: string; actualMinutes?: number; billableMinutes?: number }> {
   try {
+    await ensureStaffOrAdmin();
     const supabase = supabaseAdmin();
 
     // Get the time entry to calculate duration

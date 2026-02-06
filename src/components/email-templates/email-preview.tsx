@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Monitor, Smartphone } from "lucide-react";
+import DOMPurify from "dompurify";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { renderEmailWithPlaceholders } from "@/lib/email-templates/renderer";
@@ -60,9 +61,12 @@ export function EmailPreview({
     ...(practiceName && { practiceName }),
   };
 
-  // Render subject and body with sample data
+  // Render subject and body with sample data, sanitizing HTML to prevent XSS
   const renderedSubject = renderEmailWithPlaceholders(subject, previewData);
-  const renderedBody = renderEmailWithPlaceholders(bodyHtml, previewData);
+  const renderedBody = useMemo(() => {
+    const raw = renderEmailWithPlaceholders(bodyHtml, previewData);
+    return DOMPurify.sanitize(raw);
+  }, [bodyHtml, previewData]);
 
   return (
     <div className="flex flex-col h-full">

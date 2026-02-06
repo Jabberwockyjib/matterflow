@@ -14,8 +14,8 @@ const STAFF_ONLY_PATHS = [
   "/clients",
 ];
 
-// Debug logging for auth troubleshooting (disabled by default, enable for debugging)
-const DEBUG_AUTH = false;
+// Debug logging for auth troubleshooting — only available in development
+const DEBUG_AUTH = false && process.env.NODE_ENV === "development";
 
 type TokenPayload = {
   role?: string;

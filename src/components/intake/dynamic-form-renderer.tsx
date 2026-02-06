@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import type {
   IntakeFormTemplate,
   IntakeFormField,
@@ -59,14 +59,20 @@ export function DynamicFormRenderer({
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
   const [uploadingFields, setUploadingFields] = useState<Set<string>>(new Set());
 
+  // Use refs for values and callback to avoid recreating interval on every keystroke
+  const valuesRef = useRef(values);
+  valuesRef.current = values;
+  const onSaveDraftRef = useRef(onSaveDraft);
+  onSaveDraftRef.current = onSaveDraft;
+
   // Auto-save draft every 30 seconds
   useEffect(() => {
     if (readOnly || !onSaveDraft) return;
 
     const interval = setInterval(async () => {
-      if (Object.keys(values).length > 0) {
+      if (Object.keys(valuesRef.current).length > 0 && onSaveDraftRef.current) {
         try {
-          await onSaveDraft(values);
+          await onSaveDraftRef.current(valuesRef.current);
           setLastSaved(new Date());
         } catch (error) {
           console.error("Auto-save error:", error);
@@ -75,7 +81,7 @@ export function DynamicFormRenderer({
     }, 30000); // 30 seconds
 
     return () => clearInterval(interval);
-  }, [values, onSaveDraft, readOnly]);
+  }, [readOnly, onSaveDraft]);
 
   const shouldDisplayField = (field: IntakeFormField): boolean => {
     if (!field.conditionalDisplay) return true;

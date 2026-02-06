@@ -34,7 +34,16 @@ function verifyWebhookSignature(
   hmac.update(body);
   const expectedSignature = hmac.digest("base64");
 
-  return signature === expectedSignature;
+  // Use timing-safe comparison to prevent timing attacks
+  try {
+    return crypto.timingSafeEqual(
+      Buffer.from(signature),
+      Buffer.from(expectedSignature),
+    );
+  } catch {
+    // timingSafeEqual throws if buffers are different lengths
+    return false;
+  }
 }
 
 /**
@@ -69,11 +78,7 @@ export async function POST(request: NextRequest) {
     // Parse webhook payload
     const webhook: SquarePaymentWebhook = JSON.parse(body);
 
-    console.log("Received Square webhook:", {
-      type: webhook.type,
-      eventId: webhook.eventId,
-      merchantId: webhook.merchantId,
-    });
+    console.log("Received Square webhook:", webhook.type);
 
     // Handle different event types
     const eventType = webhook.type;
@@ -121,17 +126,11 @@ export async function POST(request: NextRequest) {
         console.log(`Unhandled event type: ${eventType}`);
     }
 
-    return NextResponse.json({
-      success: true,
-      eventType,
-      invoiceId,
-    });
+    return NextResponse.json({ success: true });
   } catch (error) {
     console.error("Error processing Square webhook:", error);
     return NextResponse.json(
-      {
-        error: error instanceof Error ? error.message : "Unknown error",
-      },
+      { error: "Internal server error" },
       { status: 500 },
     );
   }

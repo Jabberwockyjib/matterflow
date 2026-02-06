@@ -4,6 +4,7 @@ import { getTokensFromCode, getGoogleUserEmail } from "@/lib/google-drive/client
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { getSessionWithProfile } from "@/lib/auth/server";
 import { sanitizeReturnUrl } from "@/lib/auth/validate-return-url";
+import { verifyOAuthState } from "@/lib/auth/oauth-state";
 
 // Use the public app URL for redirects (handles reverse proxy/Docker scenarios)
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3001";
@@ -33,18 +34,15 @@ export async function GET(request: Request) {
       );
     }
 
-    // Parse state to get return URL
-    let returnUrl = "/";
-    if (state) {
-      try {
-        const stateData = JSON.parse(
-          Buffer.from(state, "base64").toString("utf-8")
-        );
-        returnUrl = sanitizeReturnUrl(stateData.returnUrl);
-      } catch {
-        console.warn("Failed to parse state parameter");
-      }
+    // Verify and parse state (HMAC-signed, time-limited)
+    const stateData = verifyOAuthState(state);
+    if (!stateData) {
+      console.error("Google OAuth: invalid or expired state parameter");
+      return NextResponse.redirect(
+        new URL("/?error=invalid_state", APP_URL)
+      );
     }
+    const returnUrl = sanitizeReturnUrl(stateData.returnUrl as string);
 
     // Exchange code for tokens
     const tokens = await getTokensFromCode(code);
@@ -57,11 +55,18 @@ export async function GET(request: Request) {
     }
 
     // Get current user from Supabase session
-    const { session } = await getSessionWithProfile();
+    const { session, profile } = await getSessionWithProfile();
 
     if (!session) {
       return NextResponse.redirect(
         new URL("/auth/sign-in?error=not_authenticated", APP_URL)
+      );
+    }
+
+    // Only staff and admin can connect Google Drive (practice-wide setting)
+    if (profile?.role === "client") {
+      return NextResponse.redirect(
+        new URL("/?error=insufficient_permissions", APP_URL)
       );
     }
 

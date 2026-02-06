@@ -6,6 +6,7 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { disconnectSquare, saveSquareWebhookKey } from "@/lib/data/actions";
+import { sanitizeReturnUrl } from "@/lib/auth/validate-return-url";
 
 interface SquareConnectProps {
   isConnected: boolean;
@@ -24,8 +25,9 @@ export function SquareConnect({
   environment,
   connectedAt,
   hasWebhookKey,
-  returnUrl = "/settings",
+  returnUrl: rawReturnUrl = "/settings",
 }: SquareConnectProps) {
+  const returnUrl = sanitizeReturnUrl(rawReturnUrl);
   const [loading, setLoading] = useState(false);
   const [disconnecting, setDisconnecting] = useState(false);
   const [savingKey, setSavingKey] = useState(false);

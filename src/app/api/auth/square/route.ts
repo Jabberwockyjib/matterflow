@@ -12,20 +12,22 @@
  * Flow:
  * 1. Get returnUrl from query params
  * 2. Load Square OAuth config from database/env
- * 3. Create state parameter with returnUrl, timestamp, and environment
+ * 3. Create HMAC-signed state parameter with returnUrl, timestamp, and environment
  * 4. Build authorization URL with required scopes
  * 5. Redirect user to Square for authorization
  */
 
 import { NextResponse } from "next/server";
 import { getSquareOAuthConfig, getSquareAuthUrl } from "@/lib/square/oauth";
+import { sanitizeReturnUrl } from "@/lib/auth/validate-return-url";
+import { createOAuthState } from "@/lib/auth/oauth-state";
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3001";
 const REDIRECT_URI = `${APP_URL}/api/auth/square/callback`;
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
-  const returnUrl = searchParams.get("returnUrl") || "/settings";
+  const returnUrl = sanitizeReturnUrl(searchParams.get("returnUrl")) || "/settings";
 
   // Get Square OAuth configuration
   const config = await getSquareOAuthConfig();
@@ -37,14 +39,11 @@ export async function GET(request: Request) {
     return NextResponse.redirect(errorUrl.toString());
   }
 
-  // Create state parameter for CSRF protection and to preserve returnUrl
-  // State contains: returnUrl, timestamp for expiration validation, environment
-  const statePayload = {
+  // Create HMAC-signed state parameter for CSRF protection
+  const state = createOAuthState({
     returnUrl,
-    timestamp: Date.now(),
     environment: config.environment,
-  };
-  const state = Buffer.from(JSON.stringify(statePayload)).toString("base64");
+  });
 
   // Build the Square authorization URL
   const authUrl = getSquareAuthUrl(config, state, REDIRECT_URI);

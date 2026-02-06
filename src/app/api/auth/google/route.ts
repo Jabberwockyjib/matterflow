@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { getAuthUrl } from "@/lib/google-drive/client";
+import { sanitizeReturnUrl } from "@/lib/auth/validate-return-url";
+import { createOAuthState } from "@/lib/auth/oauth-state";
 
 /**
  * Initiate Google OAuth flow for Drive access
@@ -8,12 +10,10 @@ import { getAuthUrl } from "@/lib/google-drive/client";
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
-    const returnUrl = searchParams.get("returnUrl") || "/";
+    const returnUrl = sanitizeReturnUrl(searchParams.get("returnUrl"));
 
-    // Generate state parameter for security (stores return URL)
-    const state = Buffer.from(
-      JSON.stringify({ returnUrl, timestamp: Date.now() })
-    ).toString("base64");
+    // Generate signed state parameter with HMAC and timestamp
+    const state = createOAuthState({ returnUrl });
 
     // Get OAuth authorization URL
     const authUrl = getAuthUrl(state);

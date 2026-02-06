@@ -64,10 +64,7 @@ export async function GET(request: Request) {
   } catch (error) {
     console.error("[Cron] Email automations failed:", error);
     return NextResponse.json(
-      {
-        success: false,
-        error: error instanceof Error ? error.message : "Unknown error",
-      },
+      { success: false, error: "Internal server error" },
       { status: 500 },
     );
   }
@@ -113,11 +110,9 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ success: true, result });
   } catch (error) {
+    console.error("[Cron] POST automation failed:", error);
     return NextResponse.json(
-      {
-        success: false,
-        error: error instanceof Error ? error.message : "Unknown error",
-      },
+      { success: false, error: "Internal server error" },
       { status: 500 },
     );
   }

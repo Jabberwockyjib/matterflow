@@ -22,6 +22,7 @@ export default function OAuthCallbackPage() {
 
   useEffect(() => {
     const processOAuthCallback = async () => {
+      try {
       const supabase = supabaseBrowser();
       if (!supabase) {
         setStatus("error");
@@ -38,9 +39,9 @@ export default function OAuthCallbackPage() {
         return;
       }
 
-      // Get invite code from URL or localStorage
-      const inviteCode = searchParams.get("code") || localStorage.getItem("matterflow_invite_code");
-      localStorage.removeItem("matterflow_invite_code"); // Clean up
+      // Get invite code from URL or sessionStorage
+      const inviteCode = searchParams.get("code") || sessionStorage.getItem("matterflow_invite_code");
+      sessionStorage.removeItem("matterflow_invite_code"); // Clean up
 
       // Check if this is a new user by looking at profile creation time
       // The trigger creates profiles immediately, so we check if it was created recently
@@ -101,6 +102,11 @@ export default function OAuthCallbackPage() {
       setStatus("success");
       showSuccess("Account created successfully!");
       router.push("/dashboard");
+      } catch (error) {
+        console.error("[OAuth Callback] Unexpected error:", error);
+        setStatus("error");
+        setErrorMessage("An unexpected error occurred. Please try again.");
+      }
     };
 
     processOAuthCallback();

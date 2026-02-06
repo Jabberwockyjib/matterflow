@@ -13,6 +13,7 @@ import { FormInput } from "@/components/ui/form-field";
 import { supabaseBrowser } from "@/lib/supabase/client";
 import { signUpSchema, type SignUpFormData } from "@/lib/validation/schemas";
 import { validateInviteCode, signUpWithInviteCode } from "@/lib/auth/signup-actions";
+import { sanitizeReturnUrl } from "@/lib/auth/validate-return-url";
 import { showSuccess, showError } from "@/lib/toast";
 
 export default function SignUpPage() {
@@ -20,7 +21,7 @@ export default function SignUpPage() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const inviteCodeFromUrl = searchParams.get("code") || "";
-  const redirect = searchParams.get("redirect") || "/";
+  const redirect = sanitizeReturnUrl(searchParams.get("redirect"));
 
   const [isCheckingAuth, setIsCheckingAuth] = useState(true);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
@@ -162,7 +163,7 @@ export default function SignUpPage() {
     }
 
     // Store invite code in localStorage for the OAuth callback
-    localStorage.setItem("matterflow_invite_code", inviteCode);
+    sessionStorage.setItem("matterflow_invite_code", inviteCode);
 
     setIsGoogleLoading(true);
     const { error } = await supabase.auth.signInWithOAuth({
@@ -180,7 +181,7 @@ export default function SignUpPage() {
       console.error("[Google Sign-up] Error:", error);
       showError(error.message);
       setIsGoogleLoading(false);
-      localStorage.removeItem("matterflow_invite_code");
+      sessionStorage.removeItem("matterflow_invite_code");
     }
   };
 

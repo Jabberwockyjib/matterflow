@@ -8,6 +8,7 @@ import {
   fetchFirstLocation,
 } from "@/lib/square/oauth";
 import { sanitizeReturnUrl } from "@/lib/auth/validate-return-url";
+import { verifyOAuthState } from "@/lib/auth/oauth-state";
 
 // Use the public app URL for redirects (handles reverse proxy/Docker scenarios)
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3001";
@@ -46,21 +47,16 @@ export async function GET(request: Request) {
       );
     }
 
-    // Parse state to get return URL and environment
-    let returnUrl = "/settings";
-    let stateEnvironment: "sandbox" | "production" | undefined;
-
-    if (state) {
-      try {
-        const stateData = JSON.parse(
-          Buffer.from(state, "base64").toString("utf-8")
-        );
-        returnUrl = sanitizeReturnUrl(stateData.returnUrl) || "/settings";
-        stateEnvironment = stateData.environment;
-      } catch {
-        console.warn("Failed to parse state parameter");
-      }
+    // Verify and parse state (HMAC-signed, time-limited)
+    const stateData = verifyOAuthState(state);
+    if (!stateData) {
+      console.error("Square OAuth: invalid or expired state parameter");
+      return NextResponse.redirect(
+        new URL("/settings?error=invalid_state", APP_URL)
+      );
     }
+    const returnUrl = sanitizeReturnUrl(stateData.returnUrl as string) || "/settings";
+    const stateEnvironment = stateData.environment as "sandbox" | "production" | undefined;
 
     // Verify user is authenticated
     const { session, profile } = await getSessionWithProfile();

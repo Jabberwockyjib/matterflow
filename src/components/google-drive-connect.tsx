@@ -4,20 +4,30 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { useState, useEffect } from "react";
 import { disconnectGoogle } from "@/lib/data/actions";
+import { sanitizeReturnUrl } from "@/lib/auth/validate-return-url";
 
 interface GoogleDriveConnectProps {
   isConnected?: boolean;
   connectedAt?: string;
+  connectedEmail?: string;
   returnUrl?: string;
 }
 
 export function GoogleDriveConnect({
   isConnected = false,
   connectedAt,
-  returnUrl = "/",
+  connectedEmail,
+  returnUrl: rawReturnUrl = "/",
 }: GoogleDriveConnectProps) {
+  const returnUrl = sanitizeReturnUrl(rawReturnUrl);
   const [loading, setLoading] = useState(false);
   const [disconnecting, setDisconnecting] = useState(false);
+  const [testing, setTesting] = useState(false);
+  const [testResult, setTestResult] = useState<{
+    success: boolean;
+    email?: string;
+    error?: string;
+  } | null>(null);
 
   useEffect(() => {
     // Check for connection success in URL
@@ -57,6 +67,20 @@ export function GoogleDriveConnect({
     }
   };
 
+  const handleTestConnection = async () => {
+    setTesting(true);
+    setTestResult(null);
+    try {
+      const response = await fetch("/api/google/test-connection");
+      const result = await response.json();
+      setTestResult(result);
+    } catch {
+      setTestResult({ success: false, error: "Failed to test connection" });
+    } finally {
+      setTesting(false);
+    }
+  };
+
   if (isConnected) {
     return (
       <Card className="p-4 bg-green-50 border-green-200">
@@ -80,14 +104,28 @@ export function GoogleDriveConnect({
             <p className="text-sm font-medium text-green-900">
               Google Workspace Connected
             </p>
+            {connectedEmail && (
+              <p className="text-xs text-green-700 font-medium">
+                {connectedEmail}
+              </p>
+            )}
             {connectedAt && (
-              <p className="text-xs text-green-700">
+              <p className="text-xs text-green-600">
                 Connected{" "}
                 {new Date(connectedAt).toLocaleDateString()}
               </p>
             )}
           </div>
           <div className="flex gap-2">
+            <Button
+              onClick={handleTestConnection}
+              disabled={testing}
+              size="sm"
+              variant="outline"
+              className="text-blue-700 border-blue-300 hover:bg-blue-100"
+            >
+              {testing ? "Testing..." : "Test Connection"}
+            </Button>
             <Button
               onClick={handleConnect}
               disabled={loading}
@@ -108,6 +146,28 @@ export function GoogleDriveConnect({
             </Button>
           </div>
         </div>
+
+        {/* Test Connection Result */}
+        {testResult && (
+          <div
+            className={`mt-3 p-2 rounded text-sm ${
+              testResult.success
+                ? "bg-green-100 text-green-800"
+                : "bg-red-100 text-red-800"
+            }`}
+          >
+            {testResult.success ? (
+              <>
+                Connection successful!
+                {testResult.email && (
+                  <span className="font-medium"> Connected as: {testResult.email}</span>
+                )}
+              </>
+            ) : (
+              <>Connection failed: {testResult.error}</>
+            )}
+          </div>
+        )}
       </Card>
     );
   }

@@ -119,11 +119,8 @@ export async function signUpWithInviteCode(data: {
 
   if (authError) {
     console.error("[Sign-up] Auth error:", authError);
-    // Handle specific errors
-    if (authError.message.includes("already been registered")) {
-      return { success: false, error: "An account with this email already exists" };
-    }
-    return { success: false, error: authError.message };
+    // Return generic error to prevent user enumeration
+    return { success: false, error: "Unable to create account. Please try again." };
   }
 
   if (!authData.user) {
@@ -131,14 +128,15 @@ export async function signUpWithInviteCode(data: {
   }
 
   // The handle_new_user trigger will create the profile
-  // Now mark the invitation as completed
+  // Now mark the invitation as completed (optimistic lock on pending status)
   const { error: updateError } = await supabase
     .from("client_invitations")
     .update({
       status: "completed",
       completed_at: new Date().toISOString(),
     })
-    .eq("id", inviteResult.invitation.id);
+    .eq("id", inviteResult.invitation.id)
+    .eq("status", "pending");
 
   if (updateError) {
     console.error("[Sign-up] Failed to update invitation:", updateError);

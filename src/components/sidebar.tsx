@@ -60,9 +60,13 @@ export function Sidebar({ role, profileName }: SidebarProps) {
 
   // Load collapsed state from localStorage
   useEffect(() => {
-    const saved = localStorage.getItem("sidebar-collapsed");
-    if (saved !== null) {
-      setCollapsed(JSON.parse(saved));
+    try {
+      const saved = localStorage.getItem("sidebar-collapsed");
+      if (saved === "true" || saved === "false") {
+        setCollapsed(saved === "true");
+      }
+    } catch {
+      // Ignore corrupted localStorage data
     }
   }, []);
 
