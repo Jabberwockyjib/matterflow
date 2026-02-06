@@ -18,6 +18,7 @@ export async function IntegrationsPanel({ profile: _profile }: IntegrationsPanel
     .select(`
       google_refresh_token,
       google_connected_at,
+      google_connected_email,
       square_access_token,
       square_merchant_id,
       square_location_id,
@@ -27,11 +28,23 @@ export async function IntegrationsPanel({ profile: _profile }: IntegrationsPanel
       square_webhook_signature_key
     `)
     .limit(1)
-    .maybeSingle();
+    .maybeSingle() as { data: {
+      google_refresh_token: string | null;
+      google_connected_at: string | null;
+      google_connected_email: string | null;
+      square_access_token: string | null;
+      square_merchant_id: string | null;
+      square_location_id: string | null;
+      square_location_name: string | null;
+      square_environment: string | null;
+      square_connected_at: string | null;
+      square_webhook_signature_key: string | null;
+    } | null };
 
   // Google connection status
   const isGoogleConnected = Boolean(practiceSettings?.google_refresh_token);
   const googleConnectedAt = practiceSettings?.google_connected_at || undefined;
+  const googleConnectedEmail = practiceSettings?.google_connected_email || undefined;
 
   // Square connection status (check DB first, then env vars for backwards compatibility)
   const isSquareConnectedViaOAuth = Boolean(practiceSettings?.square_access_token);
@@ -46,14 +59,14 @@ export async function IntegrationsPanel({ profile: _profile }: IntegrationsPanel
         locationName: practiceSettings?.square_location_name || undefined,
         environment: (practiceSettings?.square_environment as "sandbox" | "production") || "sandbox",
         connectedAt: practiceSettings?.square_connected_at || undefined,
-        webhookSignatureKey: practiceSettings?.square_webhook_signature_key || undefined,
+        hasWebhookKey: Boolean(practiceSettings?.square_webhook_signature_key),
       }
     : isSquareConnectedViaEnv
     ? {
         locationId: process.env.SQUARE_LOCATION_ID,
         environment: (process.env.SQUARE_ENVIRONMENT as "sandbox" | "production") || "sandbox",
         connectedAt: undefined,
-        webhookSignatureKey: process.env.SQUARE_WEBHOOK_SIGNATURE_KEY || undefined,
+        hasWebhookKey: Boolean(process.env.SQUARE_WEBHOOK_SIGNATURE_KEY),
       }
     : undefined;
 
@@ -71,6 +84,7 @@ export async function IntegrationsPanel({ profile: _profile }: IntegrationsPanel
           <GoogleDriveConnect
             isConnected={isGoogleConnected}
             connectedAt={googleConnectedAt}
+            connectedEmail={googleConnectedEmail}
             returnUrl="/settings?tab=integrations"
           />
 
@@ -149,7 +163,7 @@ export async function IntegrationsPanel({ profile: _profile }: IntegrationsPanel
             locationName={squareSettings?.locationName || squareSettings?.locationId}
             environment={squareSettings?.environment}
             connectedAt={squareSettings?.connectedAt}
-            webhookSignatureKey={squareSettings?.webhookSignatureKey}
+            hasWebhookKey={squareSettings?.hasWebhookKey}
             returnUrl="/settings?tab=integrations"
           />
         </CardContent>

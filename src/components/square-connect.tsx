@@ -13,7 +13,7 @@ interface SquareConnectProps {
   locationName?: string;
   environment?: string;
   connectedAt?: string;
-  webhookSignatureKey?: string;
+  hasWebhookKey?: boolean;
   returnUrl?: string;
 }
 
@@ -23,13 +23,13 @@ export function SquareConnect({
   locationName,
   environment,
   connectedAt,
-  webhookSignatureKey: initialWebhookKey,
+  hasWebhookKey,
   returnUrl = "/settings",
 }: SquareConnectProps) {
   const [loading, setLoading] = useState(false);
   const [disconnecting, setDisconnecting] = useState(false);
   const [savingKey, setSavingKey] = useState(false);
-  const [webhookKey, setWebhookKey] = useState(initialWebhookKey || "");
+  const [webhookKey, setWebhookKey] = useState("");
 
   useEffect(() => {
     // Check for connection success in URL
@@ -225,7 +225,7 @@ export function SquareConnect({
                   {savingKey ? "Saving..." : "Save"}
                 </Button>
               </div>
-              {initialWebhookKey && (
+              {hasWebhookKey && (
                 <p className="text-xs text-green-700 mt-1">
                   Signature key is configured
                 </p>
