@@ -48,20 +48,21 @@ export async function POST(request: NextRequest) {
     const signature = request.headers.get("x-square-hmacsha256-signature");
     const signatureKey = await getSquareWebhookSignatureKey();
 
-    // Verify webhook signature if signature key is configured
-    if (signatureKey) {
-      const isValid = verifyWebhookSignature(body, signature, signatureKey);
+    // Verify webhook signature (mandatory)
+    if (!signatureKey) {
+      console.error("SQUARE_WEBHOOK_SIGNATURE_KEY not configured. Rejecting webhook.");
+      return NextResponse.json(
+        { error: "Webhook signature verification not configured" },
+        { status: 500 },
+      );
+    }
 
-      if (!isValid) {
-        console.error("Invalid Square webhook signature");
-        return NextResponse.json(
-          { error: "Invalid signature" },
-          { status: 401 },
-        );
-      }
-    } else {
-      console.warn(
-        "SQUARE_WEBHOOK_SIGNATURE_KEY not set. Webhook signature verification skipped.",
+    const isValid = verifyWebhookSignature(body, signature, signatureKey);
+    if (!isValid) {
+      console.error("Invalid Square webhook signature");
+      return NextResponse.json(
+        { error: "Invalid signature" },
+        { status: 401 },
       );
     }
 
