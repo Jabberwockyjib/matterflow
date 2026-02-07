@@ -6,6 +6,7 @@ import {
   createViewDay,
   createViewWeek,
   createViewMonthGrid,
+  type CalendarEventExternal,
 } from "@schedule-x/calendar";
 import { createEventsServicePlugin } from "@schedule-x/events-service";
 import { createDragAndDropPlugin } from "@schedule-x/drag-and-drop";
@@ -46,14 +47,22 @@ const CALENDAR_CATEGORIES = {
 
 type MatterOption = { id: string; title: string };
 
-function toScheduleXEvent(event: CalendarEventWithMatter) {
-  const base: Record<string, unknown> = {
+function toScheduleXEvent(event: CalendarEventWithMatter): CalendarEventExternal {
+  const start = event.all_day
+    ? event.start_time.slice(0, 10)
+    : event.start_time.slice(0, 16);
+  const end = event.all_day
+    ? event.end_time.slice(0, 10)
+    : event.end_time.slice(0, 16);
+
+  return {
     id: event.id,
+    start,
+    end,
     title: event.title,
     description: event.description || undefined,
     location: event.location || undefined,
     calendarId: event.event_type,
-    // Store our data for later retrieval
     _matterflow: {
       matterId: event.matter_id,
       taskId: event.task_id,
@@ -61,17 +70,7 @@ function toScheduleXEvent(event: CalendarEventWithMatter) {
       matterTitle: event.matter_title,
       syncStatus: event.sync_status,
     },
-  };
-
-  if (event.all_day) {
-    base.start = event.start_time.slice(0, 10);
-    base.end = event.end_time.slice(0, 10);
-  } else {
-    base.start = event.start_time.slice(0, 16);
-    base.end = event.end_time.slice(0, 16);
-  }
-
-  return base;
+  } as CalendarEventExternal;
 }
 
 type CalendarClientProps = {
