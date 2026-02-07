@@ -92,6 +92,14 @@ export async function IntegrationsPanel({ profile: _profile }: IntegrationsPanel
 
           {isGoogleConnected && (
             <div className="mt-4 space-y-4">
+              {/* Signed-in account */}
+              {googleConnectedEmail && (
+                <div className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg">
+                  <p className="text-xs text-slate-500">Signed in as</p>
+                  <p className="text-sm font-medium text-slate-900">{googleConnectedEmail}</p>
+                </div>
+              )}
+
               {/* Google Drive Status */}
               <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
                 <div className="flex items-center gap-2">
