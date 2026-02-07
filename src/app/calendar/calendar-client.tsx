@@ -191,9 +191,9 @@ export function CalendarClient({ initialEvents, matterOptions }: CalendarClientP
   });
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-[calc(100vh-4rem)] overflow-hidden">
       {/* Header */}
-      <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200">
+      <div className="flex-none flex items-center justify-between px-6 py-4 border-b border-slate-200">
         <div>
           <h1 className="text-2xl font-bold text-slate-900">Calendar</h1>
           <p className="text-sm text-slate-500">Manage your schedule and events</p>
@@ -221,7 +221,7 @@ export function CalendarClient({ initialEvents, matterOptions }: CalendarClientP
       </div>
 
       {/* Legend */}
-      <div className="flex items-center gap-4 px-6 py-2 border-b border-slate-100 text-xs">
+      <div className="flex-none flex items-center gap-4 px-6 py-2 border-b border-slate-100 text-xs">
         {[
           { label: "Task Due", color: "#d97706" },
           { label: "Call", color: "#2563eb" },
@@ -241,8 +241,10 @@ export function CalendarClient({ initialEvents, matterOptions }: CalendarClientP
       </div>
 
       {/* Calendar */}
-      <div className="flex-1 p-4 overflow-hidden">
-        <ScheduleXCalendar calendarApp={calendar} />
+      <div className="flex-1 min-h-0 p-4 overflow-auto">
+        <div className="h-full">
+          <ScheduleXCalendar calendarApp={calendar} />
+        </div>
       </div>
 
       {/* Event Dialog */}
