@@ -5,11 +5,12 @@ import { ProfileSettingsForm } from "./profile-settings-form";
 import { PracticeSettingsForm } from "./practice-settings-form";
 import { IntegrationsPanel } from "./integrations-panel";
 import { EmailTemplatesPanel } from "./email-templates-panel";
+import { IntakeFormsPanel } from "./intake-forms-panel";
 
 export const dynamic = 'force-dynamic';
 
 export default async function SettingsPage() {
-  const { session, profile } = await getSessionWithProfile();
+  const { profile } = await getSessionWithProfile();
   const [{ data: practiceSettings }, firmSettings] = await Promise.all([
     getPracticeSettings(),
     getFirmSettings(),
@@ -29,11 +30,12 @@ export default async function SettingsPage() {
       </div>
 
       <Tabs defaultValue="profile" className="w-full">
-        <TabsList className="grid w-full grid-cols-4">
+        <TabsList className={`grid w-full ${isAdmin ? "grid-cols-5" : "grid-cols-1"}`}>
           <TabsTrigger value="profile">Profile</TabsTrigger>
           {isAdmin && <TabsTrigger value="practice">Practice</TabsTrigger>}
           {isAdmin && <TabsTrigger value="integrations">Integrations</TabsTrigger>}
           {isAdmin && <TabsTrigger value="email-templates">Email Templates</TabsTrigger>}
+          {isAdmin && <TabsTrigger value="intake-forms">Intake Forms</TabsTrigger>}
         </TabsList>
 
         <TabsContent value="profile" className="space-y-4">
@@ -67,6 +69,12 @@ export default async function SettingsPage() {
         {isAdmin && (
           <TabsContent value="email-templates" className="space-y-4">
             <EmailTemplatesPanel />
+          </TabsContent>
+        )}
+
+        {isAdmin && (
+          <TabsContent value="intake-forms" className="space-y-4">
+            <IntakeFormsPanel />
           </TabsContent>
         )}
       </Tabs>

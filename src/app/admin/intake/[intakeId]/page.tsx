@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { getIntakeResponseByMatterId, getTemplateForMatterType } from "@/lib/intake";
+import { getIntakeResponseByMatterId, getTemplateFromDb, getTemplateForMatterType } from "@/lib/intake";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { IntakeReviewClient } from "./intake-review-client";
 import { DynamicFormRenderer } from "@/components/intake/dynamic-form-renderer";
@@ -114,7 +114,8 @@ export default async function IntakeReviewPage({
     );
   }
 
-  const template = getTemplateForMatterType(matter.matter_type);
+  // Try DB-first, fall back to hardcoded templates
+  const template = await getTemplateFromDb(matter.matter_type) || getTemplateForMatterType(matter.matter_type);
 
   if (!template) {
     return (

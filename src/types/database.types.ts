@@ -236,6 +236,90 @@ export type Database = {
           },
         ]
       }
+      email_template_versions: {
+        Row: {
+          body_html: string
+          body_json: Json
+          created_at: string
+          created_by: string | null
+          id: string
+          subject: string
+          template_id: string
+          version: number
+        }
+        Insert: {
+          body_html: string
+          body_json?: Json
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          subject: string
+          template_id: string
+          version: number
+        }
+        Update: {
+          body_html?: string
+          body_json?: Json
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          subject?: string
+          template_id?: string
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "email_template_versions_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "email_template_versions_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "email_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      email_templates: {
+        Row: {
+          body_html: string
+          body_json: Json
+          created_at: string
+          email_type: string
+          id: string
+          is_enabled: boolean
+          name: string
+          subject: string
+          updated_at: string
+        }
+        Insert: {
+          body_html: string
+          body_json?: Json
+          created_at?: string
+          email_type: string
+          id?: string
+          is_enabled?: boolean
+          name: string
+          subject: string
+          updated_at?: string
+        }
+        Update: {
+          body_html?: string
+          body_json?: Json
+          created_at?: string
+          email_type?: string
+          id?: string
+          is_enabled?: boolean
+          name?: string
+          subject?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       firm_settings: {
         Row: {
           id: string
@@ -330,6 +414,54 @@ export type Database = {
             referencedColumns: ["user_id"]
           },
         ]
+      }
+      intake_form_templates: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          description: string | null
+          id: string
+          is_active: boolean
+          is_default: boolean
+          matter_type: string | null
+          name: string
+          sections: Json
+          source: string
+          source_form_id: string | null
+          updated_at: string
+          version: number
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          is_default?: boolean
+          matter_type?: string | null
+          name: string
+          sections?: Json
+          source?: string
+          source_form_id?: string | null
+          updated_at?: string
+          version?: number
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          is_default?: boolean
+          matter_type?: string | null
+          name?: string
+          sections?: Json
+          source?: string
+          source_form_id?: string | null
+          updated_at?: string
+          version?: number
+        }
+        Relationships: []
       }
       intake_responses: {
         Row: {
@@ -808,12 +940,14 @@ export type Database = {
         Row: {
           address: string | null
           auto_reminders_enabled: boolean | null
+          billing_increment_minutes: number | null
           contact_email: string | null
           contact_phone: string | null
           created_at: string | null
           default_hourly_rate: number | null
           firm_name: string
           google_connected_at: string | null
+          google_connected_email: string | null
           google_refresh_token: string | null
           id: string
           late_fee_percentage: number | null
@@ -830,7 +964,6 @@ export type Database = {
           square_refresh_token: string | null
           square_webhook_signature_key: string | null
           updated_at: string | null
-          billing_increment_minutes: number | null
         }
         Insert: {
           address?: string | null
@@ -842,6 +975,7 @@ export type Database = {
           default_hourly_rate?: number | null
           firm_name?: string
           google_connected_at?: string | null
+          google_connected_email?: string | null
           google_refresh_token?: string | null
           id?: string
           late_fee_percentage?: number | null
@@ -869,6 +1003,7 @@ export type Database = {
           default_hourly_rate?: number | null
           firm_name?: string
           google_connected_at?: string | null
+          google_connected_email?: string | null
           google_refresh_token?: string | null
           id?: string
           late_fee_percentage?: number | null
@@ -1241,6 +1376,7 @@ export type Database = {
       }
       time_entries: {
         Row: {
+          billable_duration_minutes: number | null
           created_at: string
           created_by: string | null
           description: string | null
@@ -1252,14 +1388,13 @@ export type Database = {
           started_at: string
           status: string
           task_id: string | null
-          billable_duration_minutes: number | null
         }
         Insert: {
+          billable_duration_minutes?: number | null
           created_at?: string
           created_by?: string | null
           description?: string | null
           duration_minutes?: number | null
-          billable_duration_minutes?: number | null
           ended_at?: string | null
           id?: string
           matter_id: string
@@ -1269,6 +1404,7 @@ export type Database = {
           task_id?: string | null
         }
         Update: {
+          billable_duration_minutes?: number | null
           created_at?: string
           created_by?: string | null
           description?: string | null
@@ -1280,7 +1416,6 @@ export type Database = {
           started_at?: string
           status?: string
           task_id?: string | null
-          billable_duration_minutes?: number | null
         }
         Relationships: [
           {
@@ -1314,6 +1449,26 @@ export type Database = {
       current_user_role: {
         Args: never
         Returns: Database["public"]["Enums"]["user_role"]
+      }
+      get_practice_settings_safe: {
+        Args: never
+        Returns: {
+          address: string
+          auto_reminders_enabled: boolean
+          contact_email: string
+          contact_phone: string
+          default_hourly_rate: number
+          firm_name: string
+          google_connected_at: string
+          google_connected_email: string
+          id: string
+          late_fee_percentage: number
+          matter_types: Json
+          payment_terms_days: number
+          square_connected_at: string
+          square_environment: string
+          square_location_name: string
+        }[]
       }
     }
     Enums: {

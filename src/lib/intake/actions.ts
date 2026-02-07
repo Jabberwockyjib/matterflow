@@ -9,12 +9,13 @@
 import { revalidatePath } from "next/cache";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { getSessionWithProfile } from "@/lib/auth/server";
-import { getTemplateForMatterType } from "./templates";
 import { validateFormResponse } from "./validation";
 import type { Database } from "@/types/database.types";
 import type {
   IntakeFormResponse,
+  IntakeFormSection,
   IntakeFormSubmission,
+  IntakeFormTemplate,
   Result,
 } from "./types";
 
@@ -23,6 +24,35 @@ type Json = Database["public"]["Tables"]["intake_responses"]["Row"]["responses"]
 export type ActionResult =
   | { ok: true; data?: unknown }
   | { error: string };
+
+/**
+ * Query the intake_form_templates table for an active template matching a matter type.
+ * Returns the most recently updated active template, or null if none found.
+ */
+export async function getTemplateFromDb(
+  matterType: string,
+): Promise<IntakeFormTemplate | null> {
+  const supabase = supabaseAdmin();
+  const { data } = await supabase
+    .from("intake_form_templates")
+    .select("*")
+    .eq("matter_type", matterType)
+    .eq("is_active", true)
+    .order("updated_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (!data) return null;
+
+  return {
+    id: data.id,
+    name: data.name,
+    matterType: data.matter_type || "",
+    description: data.description || undefined,
+    sections: data.sections as unknown as IntakeFormSection[],
+    version: data.version,
+  };
+}
 
 /**
  * Get intake form for a matter
@@ -59,13 +89,13 @@ export async function getIntakeForm(
         ok: true,
         data: {
           response: existingResponse,
-          template: getTemplateForMatterType(matter.matter_type),
+          template: await getTemplateFromDb(matter.matter_type),
         },
       };
     }
 
-    // Otherwise, get template for matter type
-    const template = getTemplateForMatterType(matter.matter_type);
+    // Otherwise, get template for matter type from DB
+    const template = await getTemplateFromDb(matter.matter_type);
 
     if (!template) {
       return {
@@ -172,7 +202,7 @@ export async function submitIntakeForm(
       return { error: "Matter not found" };
     }
 
-    const template = getTemplateForMatterType(matter.matter_type);
+    const template = await getTemplateFromDb(matter.matter_type);
 
     if (!template) {
       return { error: "Form template not found" };
@@ -468,4 +498,124 @@ export async function getIntakeResponseByMatterId(
       error: error instanceof Error ? error.message : "Unknown error",
     };
   }
+}
+
+/**
+ * Get all intake form templates (admin only)
+ */
+export async function getIntakeFormTemplates(): Promise<{
+  data?: any[];
+  error?: string;
+}> {
+  const { profile } = await getSessionWithProfile();
+  if (!profile || profile.role !== "admin") {
+    return { error: "Unauthorized" };
+  }
+
+  const supabase = supabaseAdmin();
+  const { data, error } = await supabase
+    .from("intake_form_templates")
+    .select("*")
+    .order("created_at", { ascending: false });
+
+  if (error) return { error: error.message };
+  return { data: data || [] };
+}
+
+/**
+ * Get a single intake form template by ID
+ */
+export async function getIntakeFormTemplateById(
+  templateId: string,
+): Promise<{ data?: any; error?: string }> {
+  const supabase = supabaseAdmin();
+  const { data, error } = await supabase
+    .from("intake_form_templates")
+    .select("*")
+    .eq("id", templateId)
+    .single();
+
+  if (error) return { error: error.message };
+  return { data };
+}
+
+/**
+ * Create or update an intake form template (admin only)
+ */
+export async function saveIntakeFormTemplate(
+  templateId: string | null,
+  template: {
+    name: string;
+    matter_type?: string;
+    description?: string;
+    sections: any[];
+    source?: string;
+    source_form_id?: string;
+  },
+): Promise<ActionResult> {
+  const { session, profile } = await getSessionWithProfile();
+  if (!profile || profile.role !== "admin") {
+    return { error: "Unauthorized" };
+  }
+
+  const supabase = supabaseAdmin();
+
+  if (templateId) {
+    // Update existing
+    const { error } = await supabase
+      .from("intake_form_templates")
+      .update({
+        name: template.name,
+        matter_type: template.matter_type || null,
+        description: template.description || null,
+        sections: template.sections,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", templateId);
+
+    if (error) return { error: error.message };
+  } else {
+    // Create new
+    const { error } = await supabase
+      .from("intake_form_templates")
+      .insert({
+        name: template.name,
+        matter_type: template.matter_type || null,
+        description: template.description || null,
+        sections: template.sections,
+        source: template.source || "custom",
+        source_form_id: template.source_form_id || null,
+        created_by: session!.user.id,
+      });
+
+    if (error) return { error: error.message };
+  }
+
+  revalidatePath("/settings");
+  return { ok: true };
+}
+
+/**
+ * Delete an intake form template (admin only, soft delete)
+ */
+export async function deleteIntakeFormTemplate(
+  templateId: string,
+): Promise<ActionResult> {
+  const { profile } = await getSessionWithProfile();
+  if (!profile || profile.role !== "admin") {
+    return { error: "Unauthorized" };
+  }
+
+  const supabase = supabaseAdmin();
+
+  // Soft delete - set is_active to false
+  const { error } = await supabase
+    .from("intake_form_templates")
+    .update({ is_active: false, updated_at: new Date().toISOString() })
+    .eq("id", templateId);
+
+  if (error) return { error: error.message };
+
+  revalidatePath("/settings");
+  return { ok: true };
 }

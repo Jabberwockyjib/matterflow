@@ -39,4 +39,9 @@ export {
   approveIntakeForm,
   getAllIntakeResponses,
   getIntakeResponseByMatterId,
+  getTemplateFromDb,
+  getIntakeFormTemplates,
+  getIntakeFormTemplateById,
+  saveIntakeFormTemplate,
+  deleteIntakeFormTemplate,
 } from "./actions";
