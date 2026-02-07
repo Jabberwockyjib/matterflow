@@ -14,6 +14,8 @@ const GOOGLE_REDIRECT_URI = process.env.GOOGLE_REDIRECT_URI || "http://localhost
 
 // Scopes required for Drive, Gmail, Forms, and Calendar operations
 export const GOOGLE_SCOPES = [
+  // User info (for displaying connected account email)
+  "https://www.googleapis.com/auth/userinfo.email",
   // Drive scopes
   "https://www.googleapis.com/auth/drive.file",
   "https://www.googleapis.com/auth/drive.appdata",
@@ -119,29 +121,44 @@ export async function refreshAccessToken(refreshToken: string): Promise<string> 
 
 /**
  * Get the email of the authenticated Google user
+ * Tries userinfo endpoint first, falls back to Gmail profile
  */
 export async function getGoogleUserEmail(accessToken: string): Promise<string | null> {
+  // Try userinfo endpoint (requires userinfo.email scope)
   try {
     const response = await fetch(
       "https://www.googleapis.com/oauth2/v2/userinfo",
       {
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-        },
+        headers: { Authorization: `Bearer ${accessToken}` },
       }
     );
 
-    if (!response.ok) {
-      console.error("Failed to fetch Google user info:", response.status);
-      return null;
+    if (response.ok) {
+      const data = await response.json();
+      if (data.email) return data.email;
     }
-
-    const data = await response.json();
-    return data.email || null;
-  } catch (error) {
-    console.error("Error fetching Google user email:", error);
-    return null;
+  } catch {
+    // Fall through to Gmail fallback
   }
+
+  // Fallback: use Gmail profile (requires gmail.readonly scope)
+  try {
+    const response = await fetch(
+      "https://gmail.googleapis.com/gmail/v1/users/me/profile",
+      {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      }
+    );
+
+    if (response.ok) {
+      const data = await response.json();
+      if (data.emailAddress) return data.emailAddress;
+    }
+  } catch {
+    // Both methods failed
+  }
+
+  return null;
 }
 
 /**
