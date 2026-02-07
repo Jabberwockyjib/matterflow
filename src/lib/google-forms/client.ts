@@ -90,10 +90,47 @@ export function parseGoogleFormId(input: string): string | null {
   // URL patterns
   // https://docs.google.com/forms/d/{formId}/edit
   // https://docs.google.com/forms/d/e/{formId}/viewform
-  // https://forms.gle/{shortId} - won't work, need full URL
   const urlMatch = trimmed.match(/\/forms\/d\/(?:e\/)?([a-zA-Z0-9_-]+)/);
   if (urlMatch) {
     return urlMatch[1];
+  }
+
+  return null;
+}
+
+/**
+ * Resolve a shortened URL (e.g. forms.gle) to its full destination
+ */
+async function resolveRedirect(url: string): Promise<string | null> {
+  try {
+    const response = await fetch(url, { method: "HEAD", redirect: "follow" });
+    return response.url || null;
+  } catch {
+    // Try GET as fallback (some servers don't support HEAD)
+    try {
+      const response = await fetch(url, { redirect: "follow" });
+      return response.url || null;
+    } catch {
+      return null;
+    }
+  }
+}
+
+/**
+ * Parse form ID, resolving shortened URLs if needed
+ */
+export async function parseGoogleFormIdAsync(input: string): Promise<string | null> {
+  // Try direct parse first
+  const directId = parseGoogleFormId(input);
+  if (directId) return directId;
+
+  // Check if it looks like a shortened URL (forms.gle, bit.ly, etc.)
+  const trimmed = input.trim();
+  if (/^https?:\/\//.test(trimmed)) {
+    const resolved = await resolveRedirect(trimmed);
+    if (resolved) {
+      return parseGoogleFormId(resolved);
+    }
   }
 
   return null;

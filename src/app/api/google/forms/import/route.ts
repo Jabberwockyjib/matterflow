@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getSessionWithProfile } from "@/lib/auth/server";
-import { parseGoogleFormId, fetchGoogleForm } from "@/lib/google-forms/client";
+import { parseGoogleFormIdAsync, fetchGoogleForm } from "@/lib/google-forms/client";
 import { convertGoogleFormToTemplate } from "@/lib/google-forms/converter";
 
 /**
@@ -29,7 +29,7 @@ export async function POST(request: Request) {
       );
     }
 
-    const formId = parseGoogleFormId(formUrl);
+    const formId = await parseGoogleFormIdAsync(formUrl);
 
     if (!formId) {
       return NextResponse.json(
