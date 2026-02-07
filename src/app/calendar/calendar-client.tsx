@@ -86,10 +86,10 @@ export function CalendarClient({ initialEvents, matterOptions }: CalendarClientP
   const [allEvents, setAllEvents] = useState(initialEvents);
 
   const handleRangeUpdate = useCallback(
-    async (range: { start: string; end: string }) => {
+    async (range: { start: Temporal.ZonedDateTime; end: Temporal.ZonedDateTime }) => {
       try {
-        const startDate = new Date(range.start).toISOString();
-        const endDate = new Date(range.end).toISOString();
+        const startDate = new Date(range.start.epochMilliseconds).toISOString();
+        const endDate = new Date(range.end.epochMilliseconds).toISOString();
         const events = await fetchCalendarEventsAction(startDate, endDate);
         setAllEvents(events);
 
@@ -109,11 +109,9 @@ export function CalendarClient({ initialEvents, matterOptions }: CalendarClientP
   );
 
   const handleClickDateTime = useCallback(
-    (dateTime: unknown) => {
-      const dtStr = String(dateTime);
-      // dateTime comes as "YYYY-MM-DD HH:MM" or Temporal type
-      const startTime = dtStr.includes("T") ? dtStr : dtStr.replace(" ", "T") + ":00";
-      const endDate = new Date(new Date(startTime).getTime() + 60 * 60 * 1000);
+    (dateTime: Temporal.ZonedDateTime) => {
+      const startTime = new Date(dateTime.epochMilliseconds).toISOString().slice(0, 19);
+      const endDate = new Date(dateTime.epochMilliseconds + 60 * 60 * 1000);
       const endTime = endDate.toISOString().slice(0, 19);
 
       setDialogData({
@@ -128,7 +126,7 @@ export function CalendarClient({ initialEvents, matterOptions }: CalendarClientP
   );
 
   const handleEventClick = useCallback(
-    (calendarEvent: Record<string, unknown>) => {
+    (calendarEvent: CalendarEventExternal) => {
       const event = allEvents.find((e) => e.id === calendarEvent.id);
       if (!event) return;
 
@@ -152,7 +150,7 @@ export function CalendarClient({ initialEvents, matterOptions }: CalendarClientP
   );
 
   const handleEventUpdate = useCallback(
-    async (updatedEvent: Record<string, unknown>) => {
+    async (updatedEvent: CalendarEventExternal) => {
       // Drag-and-drop update
       const eventId = updatedEvent.id as string;
       const existing = allEvents.find((e) => e.id === eventId);
