@@ -14,6 +14,7 @@ import {
 } from "@/components/cards/content-card";
 import {
   ArrowRight,
+  Calendar,
   CheckCircle2,
   Clock4,
   FileText,
@@ -31,6 +32,7 @@ import {
   fetchTimeEntries,
   getClientPendingIntake,
 } from "@/lib/data/queries";
+import { fetchUpcomingEvents } from "@/lib/calendar/queries";
 import { getSessionWithProfile } from "@/lib/auth/server";
 import { cn, isOverdue, formatDueDate } from "@/lib/utils";
 import { ClientDashboard } from "@/components/client-dashboard";
@@ -177,12 +179,13 @@ export default async function Home() {
   }
 
   // Staff/Admin dashboard
-  const [{ data: matters, source: matterSource }, { data: tasks }, { data: invoices }, { data: timeEntries }] =
+  const [{ data: matters, source: matterSource }, { data: tasks }, { data: invoices }, { data: timeEntries }, upcomingEvents] =
     await Promise.all([
       fetchMatters(),
       fetchTasks(),
       fetchInvoices(),
       fetchTimeEntries(),
+      fetchUpcomingEvents(5),
     ]);
 
   // Build lookup map once O(n) instead of O(n * stages) iterations
@@ -379,6 +382,66 @@ export default async function Home() {
             </ContentCardContent>
           </ContentCard>
         </div>
+
+        {/* Upcoming Events */}
+        {upcomingEvents.length > 0 && (
+          <div className="mt-6">
+            <ContentCard className="animate-fade-in" style={{ animationDelay: "125ms" }}>
+              <ContentCardHeader className="pb-3">
+                <ContentCardTitle className="flex items-center gap-2">
+                  Upcoming Events
+                  <Calendar className="h-4 w-4 text-slate-500" />
+                </ContentCardTitle>
+                <ContentCardDescription>Next events on your calendar.</ContentCardDescription>
+              </ContentCardHeader>
+              <ContentCardContent className="space-y-2">
+                {upcomingEvents.map((event) => {
+                  const startDate = new Date(event.start_time);
+                  const isToday = startDate.toDateString() === new Date().toDateString();
+                  return (
+                    <div
+                      key={event.id}
+                      className="flex items-center justify-between rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs dark:border-slate-700 dark:bg-slate-900"
+                    >
+                      <div className="flex items-center gap-2">
+                        <span
+                          className="inline-block h-2 w-2 rounded-full"
+                          style={{
+                            backgroundColor:
+                              event.event_type === "task_due" ? "#d97706" :
+                              event.event_type === "scheduled_call" ? "#2563eb" :
+                              event.event_type === "deadline" ? "#dc2626" :
+                              event.event_type === "court_date" ? "#7c3aed" :
+                              event.event_type === "meeting" ? "#059669" : "#6b7280",
+                          }}
+                        />
+                        <div>
+                          <p className="font-medium text-slate-900 dark:text-slate-50">
+                            {event.title}
+                          </p>
+                          {event.matter_title && (
+                            <p className="text-slate-500">{event.matter_title}</p>
+                          )}
+                        </div>
+                      </div>
+                      <div className="text-right text-slate-600 dark:text-slate-400">
+                        <p className={isToday ? "font-semibold text-primary" : ""}>
+                          {isToday ? "Today" : startDate.toLocaleDateString(undefined, { month: "short", day: "numeric" })}
+                        </p>
+                        {!event.all_day && (
+                          <p>{startDate.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })}</p>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+                <Link href="/calendar" className="text-xs font-medium text-primary hover:underline">
+                  View full calendar &rarr;
+                </Link>
+              </ContentCardContent>
+            </ContentCard>
+          </div>
+        )}
 
         <div className="mt-6 grid gap-6 lg:grid-cols-2">
           <ContentCard className="animate-fade-in" style={{ animationDelay: "150ms" }}>

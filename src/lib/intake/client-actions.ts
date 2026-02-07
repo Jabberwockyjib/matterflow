@@ -14,12 +14,16 @@ type UploadResult =
 export async function uploadIntakeFile(
   matterId: string,
   file: File,
-  _folderType: string = "intake"
+  _folderType: string = "intake",
+  inviteCode?: string
 ): Promise<UploadResult> {
   try {
     const formData = new FormData();
     formData.append("matterId", matterId);
     formData.append("file", file);
+    if (inviteCode) {
+      formData.append("inviteCode", inviteCode);
+    }
 
     const response = await fetch("/api/intake/upload", {
       method: "POST",

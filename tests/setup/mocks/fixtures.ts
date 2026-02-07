@@ -7,6 +7,7 @@ type Task = Database['public']['Tables']['tasks']['Row']
 type TimeEntry = Database['public']['Tables']['time_entries']['Row']
 type Document = Database['public']['Tables']['documents']['Row']
 type Invoice = Database['public']['Tables']['invoices']['Row']
+type CalendarEvent = Database['public']['Tables']['calendar_events']['Row']
 type UserRole = Database['public']['Enums']['user_role']
 
 // Default IDs for consistent test data
@@ -14,6 +15,7 @@ const DEFAULT_USER_ID = 'test-user-id-123'
 const DEFAULT_MATTER_ID = 'test-matter-id-456'
 const DEFAULT_TASK_ID = 'test-task-id-789'
 const DEFAULT_TIME_ENTRY_ID = 'test-time-entry-id-012'
+const DEFAULT_CALENDAR_EVENT_ID = 'test-calendar-event-id-345'
 
 /**
  * Generate a unique ID for test entities
@@ -173,6 +175,9 @@ export function mockMatter(overrides: Partial<Matter> = {}): Matter {
     billing_model: 'hourly',
     owner_id: DEFAULT_USER_ID,
     client_id: null,
+    client_name: null,
+    client_email: null,
+    invitation_id: null,
     responsible_party: 'attorney',
     next_action: 'Review and respond',
     next_action_due_date: futureDate,
@@ -310,6 +315,43 @@ export function mockInvoice(overrides: Partial<Invoice> = {}): Invoice {
 }
 
 /**
+ * Mock calendar event factory
+ *
+ * @example
+ * ```ts
+ * const event = mockCalendarEvent({ title: 'Client Meeting' })
+ * const taskEvent = mockCalendarEvent({ event_type: 'task_due', task_id: 'task-123' })
+ * ```
+ */
+export function mockCalendarEvent(overrides: Partial<CalendarEvent> = {}): CalendarEvent {
+  const now = timestamp()
+  const oneHourLater = new Date(Date.now() + 60 * 60 * 1000).toISOString()
+  return {
+    id: DEFAULT_CALENDAR_EVENT_ID,
+    google_calendar_event_id: null,
+    title: 'Test Calendar Event',
+    description: null,
+    location: null,
+    start_time: now,
+    end_time: oneHourLater,
+    all_day: false,
+    matter_id: DEFAULT_MATTER_ID,
+    task_id: null,
+    event_type: 'manual',
+    color: null,
+    sync_status: 'pending',
+    last_synced_at: null,
+    sync_error: null,
+    google_etag: null,
+    google_updated_at: null,
+    created_by: DEFAULT_USER_ID,
+    created_at: now,
+    updated_at: now,
+    ...overrides,
+  }
+}
+
+/**
  * Create multiple mock entities
  *
  * @example
@@ -339,4 +381,5 @@ export const defaultIds = {
   matterId: DEFAULT_MATTER_ID,
   taskId: DEFAULT_TASK_ID,
   timeEntryId: DEFAULT_TIME_ENTRY_ID,
+  calendarEventId: DEFAULT_CALENDAR_EVENT_ID,
 } as const

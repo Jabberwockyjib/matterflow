@@ -12,7 +12,7 @@ const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
 const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
 const GOOGLE_REDIRECT_URI = process.env.GOOGLE_REDIRECT_URI || "http://localhost:3000/api/auth/google/callback";
 
-// Scopes required for Drive, Gmail, and Forms operations
+// Scopes required for Drive, Gmail, Forms, and Calendar operations
 export const GOOGLE_SCOPES = [
   // Drive scopes
   "https://www.googleapis.com/auth/drive.file",
@@ -22,6 +22,8 @@ export const GOOGLE_SCOPES = [
   "https://www.googleapis.com/auth/gmail.send",
   // Forms scope (read-only, for importing form structure)
   "https://www.googleapis.com/auth/forms.body.readonly",
+  // Calendar scope (full read/write for two-way sync)
+  "https://www.googleapis.com/auth/calendar",
 ];
 
 // Legacy alias for backwards compatibility

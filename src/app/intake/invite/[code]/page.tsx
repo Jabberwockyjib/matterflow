@@ -1,6 +1,5 @@
 import { notFound, redirect } from 'next/navigation'
 import { supabaseAdmin } from '@/lib/supabase/server'
-import { getSessionWithProfile } from '@/lib/auth/server'
 
 interface PageProps {
   params: Promise<{ code: string }>
@@ -18,18 +17,8 @@ export default async function InviteRedemptionPage({ params }: PageProps) {
     .eq('invite_code', code)
     .single()
 
-  // If invitation doesn't exist, show 404
   if (error || !invitation) {
     notFound()
-  }
-
-  // Check if user is authenticated
-  const { session } = await getSessionWithProfile()
-
-  // If not authenticated, redirect to sign-up with the invite code
-  // Include redirect back to this page so after signup they continue the intake flow
-  if (!session) {
-    redirect(`/auth/sign-up?code=${code}&redirect=/intake/invite/${code}`)
   }
 
   // Check if invitation is expired
@@ -43,28 +32,6 @@ export default async function InviteRedemptionPage({ params }: PageProps) {
           </h1>
           <p className="text-slate-600 mb-6">
             This invitation link has expired. Please contact your lawyer for a new invitation.
-          </p>
-          <p className="text-sm text-slate-500">
-            Invitation code: <code className="bg-slate-100 px-2 py-1 rounded">{code}</code>
-          </p>
-        </div>
-      </div>
-    )
-  }
-
-  // Check if invitation is already completed
-  if (invitation.status === 'completed') {
-    return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
-        <div className="bg-white rounded-lg border border-slate-200 p-8 max-w-md text-center">
-          <h1 className="text-2xl font-bold text-slate-900 mb-4">
-            Already Completed
-          </h1>
-          <p className="text-slate-600 mb-6">
-            You've already completed this intake form. Your lawyer will be in touch soon.
-          </p>
-          <p className="text-sm text-slate-500">
-            If you need to make changes, please contact your lawyer directly.
           </p>
         </div>
       </div>
@@ -87,21 +54,35 @@ export default async function InviteRedemptionPage({ params }: PageProps) {
     )
   }
 
-  // Check if a matter already exists for this invitation
-  const { data: existingMatters } = await supabase
-    .from('matters')
-    .select('id')
-    .eq('client_email', invitation.client_email)
-    .eq('title', `${invitation.matter_type || 'General'} for ${invitation.client_name}`)
-    .limit(1)
-
-  if (existingMatters && existingMatters.length > 0) {
-    // Matter exists, redirect to intake form
-    redirect(`/intake/${existingMatters[0].id}`)
+  // Check if invitation is already completed
+  if (invitation.status === 'completed') {
+    // If there's a linked matter, redirect to it
+    if (invitation.matter_id) {
+      redirect(`/intake/${invitation.matter_id}?code=${code}`)
+    }
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
+        <div className="bg-white rounded-lg border border-slate-200 p-8 max-w-md text-center">
+          <h1 className="text-2xl font-bold text-slate-900 mb-4">
+            Already Completed
+          </h1>
+          <p className="text-slate-600 mb-6">
+            This intake form has already been submitted. Your lawyer will be in touch soon.
+          </p>
+          <p className="text-sm text-slate-500">
+            If you need to make changes, please contact your lawyer directly.
+          </p>
+        </div>
+      </div>
+    )
   }
 
-  // Create a new matter for this invitation
-  // Get the owner from the invitation's invited_by, or use the first admin as fallback
+  // If the invitation has a linked matter (auto-created in inviteClient), redirect directly
+  if (invitation.matter_id) {
+    redirect(`/intake/${invitation.matter_id}?code=${code}`)
+  }
+
+  // Legacy invitation without auto-created matter — create one now
   let ownerId = invitation.invited_by
   if (!ownerId) {
     const { data: adminUser } = await supabase
@@ -113,6 +94,9 @@ export default async function InviteRedemptionPage({ params }: PageProps) {
     ownerId = adminUser?.user_id || ''
   }
 
+  const dueDate = new Date()
+  dueDate.setDate(dueDate.getDate() + 7)
+
   const { data: matter, error: matterError } = await supabase
     .from('matters')
     .insert({
@@ -121,9 +105,12 @@ export default async function InviteRedemptionPage({ params }: PageProps) {
       stage: 'Intake Sent',
       responsible_party: 'client',
       next_action: 'Complete intake form',
-      next_action_due_date: invitation.expires_at ?? new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+      next_action_due_date: dueDate.toISOString().split('T')[0],
       billing_model: 'hourly',
       owner_id: ownerId,
+      client_name: invitation.client_name,
+      client_email: invitation.client_email,
+      invitation_id: invitation.id,
     })
     .select('id')
     .single()
@@ -139,14 +126,16 @@ export default async function InviteRedemptionPage({ params }: PageProps) {
           <p className="text-slate-600 mb-6">
             We encountered an error setting up your intake form. Please contact your lawyer.
           </p>
-          <p className="text-sm text-slate-500 font-mono">
-            Error: {matterError?.message || 'Unknown error'}
-          </p>
         </div>
       </div>
     )
   }
 
-  // Redirect to the intake form
-  redirect(`/intake/${matter.id}`)
+  // Link matter back to invitation
+  await supabase
+    .from('client_invitations')
+    .update({ matter_id: matter.id })
+    .eq('id', invitation.id)
+
+  redirect(`/intake/${matter.id}?code=${code}`)
 }

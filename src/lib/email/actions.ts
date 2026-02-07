@@ -1,5 +1,6 @@
 "use server";
 
+import { AccountCreationEmail } from "./templates/account-creation-email";
 import { ActivityReminderEmail } from "./templates/activity-reminder";
 import { InfoRequestEmail } from "./templates/info-request";
 import { InfoResponseReceivedEmail } from "./templates/info-response-received";
@@ -567,6 +568,39 @@ export async function sendTaskRevisionRequestedEmail(
       type: "task_revision_requested",
       matterId: params.matterId,
       taskId: params.taskId,
+      recipientRole: "client",
+    },
+  );
+}
+
+interface SendAccountCreationEmailParams {
+  to: string;
+  clientName: string;
+  matterTitle: string;
+  matterId: string;
+  lawyerName: string;
+  signUpLink: string;
+}
+
+export async function sendAccountCreationEmail(
+  params: SendAccountCreationEmailParams,
+): Promise<EmailSendResult> {
+  const settings = await getFirmSettings();
+  const template = AccountCreationEmail({
+    clientName: params.clientName,
+    matterTitle: params.matterTitle,
+    lawyerName: params.lawyerName,
+    signUpLink: params.signUpLink,
+    settings,
+  });
+
+  return sendTemplateEmail(
+    params.to,
+    `Your intake has been approved - Create your account`,
+    template,
+    {
+      type: "account_creation",
+      matterId: params.matterId,
       recipientRole: "client",
     },
   );

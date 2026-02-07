@@ -107,12 +107,12 @@ pnpm dev                  # Start Next.js on port 3001 (access via http://matter
 pnpm build                # Production build
 pnpm start                # Run production server
 
-# Production Deployment (VPS)
+# Production Deployment (VPS via Docker)
 ssh deploy@178.156.188.33                    # SSH into production server
-# On VPS: cd /var/www/matterflow && git pull && pnpm install && pnpm build && pm2 restart matterflow
+# On VPS: cd ~/matterflow && git pull && docker compose -f docker-compose.prod.yml build --no-cache && docker compose -f docker-compose.prod.yml up -d
 
 # Quick deploy from local (push + deploy)
-git push origin main && ssh deploy@178.156.188.33 "cd /var/www/matterflow && git pull && pnpm install && pnpm build && pm2 restart matterflow"
+git push origin main && ssh deploy@178.156.188.33 "cd ~/matterflow && git pull && docker compose -f docker-compose.prod.yml build --no-cache && docker compose -f docker-compose.prod.yml up -d"
 
 # Quality checks
 pnpm lint                 # ESLint (Next.js config)
@@ -154,8 +154,8 @@ supabase gen types typescript --local > src/types/database.types.ts
 | App URL | https://matter.develotype.com |
 | VPS IP | 178.156.188.33 |
 | SSH Access | `ssh deploy@178.156.188.33` |
-| App Directory | /var/www/matterflow |
-| Process Manager | PM2 (`pm2 restart matterflow`) |
+| App Directory | ~/matterflow |
+| Process Manager | Docker Compose (`docker compose -f docker-compose.prod.yml up -d`) |
 | Database | Supabase Cloud (hosted) |
 
 ## Architecture & Key Patterns

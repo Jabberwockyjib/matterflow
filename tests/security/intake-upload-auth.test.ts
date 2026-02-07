@@ -11,6 +11,7 @@ vi.mock("@/lib/supabase/server", () => ({
           maybeSingle: vi.fn(() => ({ data: null })),
         })),
         eq: vi.fn(() => ({
+          single: vi.fn(() => ({ data: null, error: { message: "not found" } })),
           maybeSingle: vi.fn(() => ({ data: null })),
         })),
       })),
@@ -41,23 +42,48 @@ describe("POST /api/intake/upload - Authentication", () => {
     vi.clearAllMocks();
   });
 
-  it("returns 401 when no session exists", async () => {
+  it("returns 401 when no session and no invite code", async () => {
     mockGetSession.mockResolvedValue(MOCK_NO_SESSION);
 
     const formData = new FormData();
     formData.append("matterId", "test-matter-id");
     formData.append("file", createMockFile());
 
-    const request = new Request("http://localhost/api/intake/upload", {
+    // Use mock request object so formData() doesn't hang in jsdom
+    const request = {
       method: "POST",
-      body: formData,
-    });
+      url: "http://localhost/api/intake/upload",
+      headers: new Headers(),
+      formData: vi.fn().mockResolvedValue(formData),
+    };
 
     const response = await POST(request as any);
     const json = await response.json();
 
     expect(response.status).toBe(401);
     expect(json.error).toMatch(/unauthorized|sign in/i);
+  });
+
+  it("returns 401 when no session and invalid invite code", async () => {
+    mockGetSession.mockResolvedValue(MOCK_NO_SESSION);
+
+    const formData = new FormData();
+    formData.append("matterId", "test-matter-id");
+    formData.append("file", createMockFile());
+    formData.append("inviteCode", "INVALID-CODE");
+
+    const request = {
+      method: "POST",
+      url: "http://localhost/api/intake/upload",
+      headers: new Headers(),
+      formData: vi.fn().mockResolvedValue(formData),
+    };
+
+    const response = await POST(request as any);
+    const json = await response.json();
+
+    expect(response.status).toBe(401);
+    expect(json.error).toMatch(/unauthorized|invalid/i);
   });
 
   it("allows authenticated client to upload", async () => {
@@ -67,18 +93,17 @@ describe("POST /api/intake/upload - Authentication", () => {
     formData.append("matterId", "test-matter-id");
     formData.append("file", createMockFile());
 
-    // Use a mock request with formData() that resolves immediately
-    // (jsdom's Request.formData() can hang with multipart bodies)
     const request = {
       method: "POST",
       url: "http://localhost/api/intake/upload",
+      headers: new Headers(),
       formData: vi.fn().mockResolvedValue(formData),
     };
 
     const response = await POST(request as any);
     // Should not be 401 - proves auth check passed
     expect(response.status).not.toBe(401);
-    // Should proceed to validation (400 = Google Drive not connected, which is expected with null mocks)
-    expect([400, 500]).toContain(response.status);
+    // Should proceed past auth (400 = Google Drive not connected, 403 = IDOR check with null mock, 500 = other mock issues)
+    expect([400, 403, 500]).toContain(response.status);
   });
 });

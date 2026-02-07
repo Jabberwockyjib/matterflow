@@ -19,6 +19,7 @@ export async function IntegrationsPanel({ profile: _profile }: IntegrationsPanel
       google_refresh_token,
       google_connected_at,
       google_connected_email,
+      google_calendar_last_sync,
       square_access_token,
       square_merchant_id,
       square_location_id,
@@ -32,6 +33,7 @@ export async function IntegrationsPanel({ profile: _profile }: IntegrationsPanel
       google_refresh_token: string | null;
       google_connected_at: string | null;
       google_connected_email: string | null;
+      google_calendar_last_sync: string | null;
       square_access_token: string | null;
       square_merchant_id: string | null;
       square_location_id: string | null;
@@ -77,7 +79,7 @@ export async function IntegrationsPanel({ profile: _profile }: IntegrationsPanel
         <CardHeader>
           <CardTitle>Google Workspace</CardTitle>
           <CardDescription>
-            Connect Google Drive and Gmail for document management and email sync
+            Connect Google Drive, Gmail, and Calendar for documents, email, and scheduling
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -139,6 +141,36 @@ export async function IntegrationsPanel({ profile: _profile }: IntegrationsPanel
                     </p>
                     <p className="text-xs text-green-700">
                       Email sync and sending enabled
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Google Calendar Status */}
+              <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
+                <div className="flex items-center gap-2">
+                  <svg
+                    className="w-5 h-5 text-green-600"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+                    />
+                  </svg>
+                  <div>
+                    <p className="text-sm font-medium text-green-900">
+                      Google Calendar Connected
+                    </p>
+                    <p className="text-xs text-green-700">
+                      Two-way event sync enabled
+                      {practiceSettings?.google_calendar_last_sync && (
+                        <> &middot; Last synced {new Date(practiceSettings.google_calendar_last_sync).toLocaleString()}</>
+                      )}
                     </p>
                   </div>
                 </div>

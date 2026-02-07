@@ -19,6 +19,7 @@ import {
   LayoutDashboard,
   Palette,
   Zap,
+  Calendar,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -35,6 +36,7 @@ const staffLinks: NavLink[] = [
   { href: "/dashboard", label: "Matter Board", icon: LayoutDashboard },
   { href: "/matters", label: "Matters", icon: Folder },
   { href: "/tasks", label: "Tasks", icon: CheckSquare },
+  { href: "/calendar", label: "Calendar", icon: Calendar },
   { href: "/time", label: "Time", icon: Clock },
   { href: "/billing", label: "Billing", icon: CreditCard },
   { href: "/documents", label: "Documents", icon: FileText },

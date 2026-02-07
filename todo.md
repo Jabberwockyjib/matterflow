@@ -4,6 +4,12 @@
 - (none)
 
 ## Next Up
+- [ ] **Deploy anonymous intake to production** — `git push && ssh deploy` (code is ready, migration applied)
+- [ ] **Token encryption at rest** — OAuth tokens in `practice_settings` stored as plaintext (low priority)
+- [ ] **Leaked password protection** — Enable via Supabase dashboard (Auth → Settings)
+- [ ] Manual E2E test: Anonymous intake flow (invite → click link in incognito → fill form → submit → create account)
+- [ ] Manual E2E test: Existing signup-first flow still works after changes
+
 - [ ] **Test Coverage Phase 2** - Core business logic with mocked Supabase (target 50%)
   - `lib/data/actions.ts` (47% → 70%): createMatter, createTask, createTimeEntry, startTimeEntry, stopTimeEntry
   - `lib/data/queries.ts` (34% → 60%): fetchMatters, fetchTasks, fetchTimeEntries
@@ -13,7 +19,6 @@
   - `lib/google-drive/*` (0%): Mock Drive API for folder creation, file upload
   - `lib/email/actions.ts` (0%): Mock Gmail API for email sending
   - `lib/document-templates/*` (0%): Mock Anthropic + mammoth for template parsing
-- [ ] Manual E2E test: Full client onboarding flow (invite → signup → intake → review → approve)
 - [ ] Test Square webhook with ngrok for payment confirmation emails
 - [ ] CaseFox data migration
 - [ ] Set up production monitoring/alerting
@@ -27,54 +32,39 @@
 - [ ] Unsubscribe preferences for non-essential emails
 - [ ] Bulk invitation import (CSV)
 
-## Completed (This Session - 2026-01-28)
-- [x] Fixed intake review page 500 error (snake_case property name mismatch)
-- [x] Added migration for missing updated_at triggers
-- [x] Fixed CI coverage threshold failure (lowered from 60% to 25%/20%)
-- [x] Added 195 new tests across 11 test files:
-  - `tests/lib/intake/validation.test.ts` (48 tests) - form validation
-  - `tests/lib/toast.test.ts` (26 tests) - toast utilities
-  - `tests/components/ui/badges.test.tsx` (19 tests) - badge components
-  - `tests/lib/intake/templates.test.ts` (17 tests) - intake templates
-  - `tests/hooks/useDebounce.test.ts` (7 tests) - debounce hook
-  - `tests/hooks/useKeyboardShortcut.test.ts` (33 tests) - keyboard shortcuts
-  - `tests/hooks/useRouteContext.test.ts` (17 tests) - route context
-  - `tests/lib/email/password-reset.test.ts` (5 tests) - email template
-  - `tests/lib/email/activity-reminder.test.ts` (5 tests) - email template
-  - `tests/lib/data/queries-extended.test.ts` (12 tests) - query functions
-  - `tests/lib/data/actions-extended.test.ts` (6 tests) - delete/update actions
-- [x] Improved test coverage from ~29% to 32.54% (1547 tests passing)
-- [x] Added Phase 1 tests: UI components (switch, tabs, table, skeleton, responsibility-icon)
-- [x] Added Phase 1 tests: Email templates (invoice-sent, task-assigned, matter-created, intake-reminder, intake-submitted)
-- [x] Added Phase 1 tests: Utilities (timer analytics, supabase server, auth server, date-helpers, parsing)
-- [x] Fixed Google OAuth redirect for production (use NEXT_PUBLIC_APP_URL)
-- [x] Updated integrations panel - removed Resend, added Google Workspace status with Drive+Gmail indicators
-- [x] Implemented automatic Gmail sync cron endpoint (`/api/cron/gmail-sync`)
-- [x] Added Google disconnect/reconnect functionality in settings
-- [x] Fixed AI JSON parsing when Claude returns markdown-wrapped responses (stripMarkdownCodeBlock helper)
-- [x] Set up VPS auto-deploy script (polls git every 5 minutes)
-- [x] Fixed client invitation email flow (contact_email was missing in practice_settings)
-- [x] Fixed client signup redirect to continue intake flow after authentication
-- [x] Added resend intake reminder with copy link button on matter detail page
-- [x] Fixed "no email provided" on intake cards - now fetches from auth instead of form responses
-- [x] Enabled "Review Intake" button - links to `/admin/intake/[intakeId]`
-- [x] Added file upload support for intake forms via `/api/intake/upload`
-- [x] Auto-initialize Google Drive folders when uploading intake files
-- [x] Added General intake template for matters created with "General" type
-- [x] Created invitation detail page at `/admin/invitations/[id]`
-- [x] Added resendInvitationEmail, cancelInvitation, extendInvitation server actions
-- [x] Enabled View and Copy buttons on invitation pipeline cards
+## Completed (This Session - 2026-02-07)
+- [x] **Anonymous Intake Forms with Deferred Account Creation** — 10-phase implementation
+  - **Migration:** `supabase/migrations/20260207000001_anonymous_intake.sql` — adds `matter_id` to `client_invitations`, `invitation_id`/`client_name`/`client_email` to `matters` (applied to production via MCP)
+  - **Middleware:** Removed `/intake` from protected routes — intake pages handle their own auth via invite code verification
+  - **Auto-create matter on invite:** `inviteClient()` in `src/lib/data/actions.ts` now creates a matter immediately when sending invitation
+  - **Invite redemption rewrite:** `src/app/intake/invite/[code]/page.tsx` — no auth required, uses `matter_id` lookup, handles legacy invitations
+  - **Anonymous intake access:** `src/app/intake/[matterId]/page.tsx` accepts `?code=` param, verifies invite code against matter
+  - **Anonymous file uploads:** `src/app/api/intake/upload/route.ts` supports invite code as alternative to session auth
+  - **Fixed submitIntakeForm crash:** `src/lib/intake/actions.ts` no longer crashes when `client_id` is null, marks invitation as completed
+  - **Thank-you page enhanced:** `src/app/intake/[matterId]/thank-you/page.tsx` shows "Create Your Account" section for anonymous users
+  - **Post-approval email:** New `src/lib/email/templates/account-creation-email.tsx` sent when admin approves anonymous intake
+  - **Account linking:** `src/lib/auth/signup-actions.ts` links existing matter to new user on signup (both password and OAuth)
+  - **Tests fixed:** Updated 3 test files (`middleware-intake`, `intake-upload-auth`, `client-actions`) and test fixtures
+  - **Types updated:** `src/types/database.types.ts` and `tests/setup/mocks/fixtures.ts` for new columns
+
+## Completed (Previous Session - 2026-02-06)
+- [x] **Firm Logo Upload Feature** — Upload pipeline for firm branding in emails and settings
+- [x] **Fixed orphaned navigation routes** — 3 pages only reachable by direct URL
+- [x] **Configurable Payment Reminder Schedule** — Full 3-phase invoice reminder system
+- [x] **Security Hardening (8 Phases)** — 34 vulnerabilities fixed, 58 new tests
 
 ## Completed (Previous Sessions)
+### 2026-02-05/06
+- [x] Email Template Editor Feature, Fixed CLAUDE.md Deployment Commands
+
+### 2026-02-05
+- [x] Minimum Billing Increment Feature
+
+### 2026-02-04/05
+- [x] Matter Workflow Edit UI, Interactive Task Management, Timer on Task Cards
+
+### 2026-01-28
+- [x] Fixed intake review 500, added 195 tests, Google OAuth production fix, Gmail sync cron
+
 ### 2026-01-27
-- [x] Implemented Gmail incoming email sync with AI summaries
-- [x] Created automation configuration UI at `/admin/settings/automations`
-- [x] Added AI document summary on upload
-
-### 2026-01-21
-- [x] Implemented email template branding/configuration system
-- [x] Added email template tests for payment-received and intake-declined
-
-### 2026-01-13
-- [x] Reviewed and committed email system changes
-- [x] Committed session handoff files, plans, and document templates
+- [x] Gmail incoming email sync, automation config UI, AI document summary

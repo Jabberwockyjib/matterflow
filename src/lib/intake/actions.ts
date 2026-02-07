@@ -280,6 +280,38 @@ export async function submitIntakeForm(
       }
     }
 
+    // Get full matter details for client name and invitation linking
+    const { data: fullMatter } = await supabase
+      .from("matters")
+      .select("client_id, client_name, invitation_id")
+      .eq("id", matterId)
+      .single();
+
+    // Determine client name — from linked profile or matter's client_name field
+    let clientName = "Client";
+    if (fullMatter?.client_id) {
+      const { data: clientProfile } = await supabase
+        .from("profiles")
+        .select("full_name")
+        .eq("user_id", fullMatter.client_id)
+        .maybeSingle();
+      clientName = clientProfile?.full_name || clientName;
+    } else if (fullMatter?.client_name) {
+      clientName = fullMatter.client_name;
+    }
+
+    // Mark invitation as completed if this was an anonymous submission
+    if (fullMatter?.invitation_id) {
+      await supabase
+        .from("client_invitations")
+        .update({
+          status: "completed",
+          completed_at: new Date().toISOString(),
+        })
+        .eq("id", fullMatter.invitation_id)
+        .eq("status", "pending");
+    }
+
     // Send email notification to lawyer
     try {
       const { sendIntakeSubmittedEmail } = await import("@/lib/email/actions");
@@ -292,17 +324,11 @@ export async function submitIntakeForm(
 
       const { data: { user: lawyerUser } } = await supabase.auth.admin.getUserById(matter.owner_id);
 
-      const { data: clientProfile } = await supabase
-        .from("profiles")
-        .select("full_name")
-        .eq("user_id", matter.client_id!)
-        .maybeSingle();
-
       if (lawyerUser?.email) {
         await sendIntakeSubmittedEmail({
           to: lawyerUser.email,
           lawyerName: lawyerProfile?.full_name || "Counselor",
-          clientName: clientProfile?.full_name || "Client",
+          clientName,
           matterId,
           formType,
         });
@@ -394,6 +420,47 @@ export async function approveIntakeForm(
           approved_at: new Date().toISOString(),
         },
       });
+    }
+
+    // Send account creation email if this was an anonymous submission
+    try {
+      const { data: fullMatter } = await supabase
+        .from("matters")
+        .select("client_id, client_email, client_name, invitation_id, title, owner_id")
+        .eq("id", matterId)
+        .single();
+
+      if (fullMatter && !fullMatter.client_id && fullMatter.client_email && fullMatter.invitation_id) {
+        // Get invite code
+        const { data: invitation } = await supabase
+          .from("client_invitations")
+          .select("invite_code")
+          .eq("id", fullMatter.invitation_id)
+          .single();
+
+        if (invitation?.invite_code) {
+          const { data: lawyerProfile } = await supabase
+            .from("profiles")
+            .select("full_name")
+            .eq("user_id", fullMatter.owner_id)
+            .single();
+
+          const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+          const signUpLink = `${appUrl}/auth/sign-up?code=${invitation.invite_code}`;
+
+          const { sendAccountCreationEmail } = await import("@/lib/email/actions");
+          await sendAccountCreationEmail({
+            to: fullMatter.client_email,
+            clientName: fullMatter.client_name || "Client",
+            matterTitle: fullMatter.title,
+            matterId,
+            lawyerName: lawyerProfile?.full_name || "Your Lawyer",
+            signUpLink,
+          });
+        }
+      }
+    } catch (emailError) {
+      console.error("Failed to send account creation email:", emailError);
     }
 
     revalidatePath(`/intake/${matterId}`);

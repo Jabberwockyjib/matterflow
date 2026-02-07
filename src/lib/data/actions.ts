@@ -758,6 +758,16 @@ export async function createTask(formData: FormData): Promise<ActionResult> {
       }
     }
 
+    // Auto-create calendar event if task has a due date
+    if (dueDate && taskId) {
+      try {
+        const { createCalendarEventForTask } = await import("@/lib/calendar/actions");
+        await createCalendarEventForTask(taskId, title, dueDate, matterId);
+      } catch (calErr) {
+        console.error("Failed to create calendar event for task:", calErr);
+      }
+    }
+
     revalidatePath("/");
     revalidatePath("/tasks");
     return { ok: true };
@@ -2232,6 +2242,41 @@ export async function inviteClient(formData: FormData): Promise<{
       return { ok: false, error: error?.message || 'Failed to create invitation' }
     }
 
+    // Auto-create matter for this invitation
+    const dueDate = new Date()
+    dueDate.setDate(dueDate.getDate() + 7)
+
+    const { data: matter, error: matterError } = await supabase
+      .from('matters')
+      .insert({
+        title: `${matterType || 'General'} for ${clientName}`,
+        matter_type: matterType || 'General',
+        stage: 'Intake Sent',
+        responsible_party: 'client',
+        next_action: 'Complete intake form',
+        next_action_due_date: dueDate.toISOString().split('T')[0],
+        billing_model: 'hourly',
+        owner_id: session.user.id,
+        client_name: clientName,
+        client_email: clientEmail,
+        invitation_id: invitation.id,
+      })
+      .select('id')
+      .single()
+
+    if (matterError) {
+      console.error('Error creating matter for invitation:', matterError)
+      // Don't fail the invitation if matter creation fails
+    }
+
+    // Link matter back to invitation
+    if (matter) {
+      await supabase
+        .from('client_invitations')
+        .update({ matter_id: matter.id })
+        .eq('id', invitation.id)
+    }
+
     // Generate invite link
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
     const inviteLink = `${appUrl}/intake/invite/${inviteCode}`
@@ -2287,6 +2332,7 @@ export async function inviteClient(formData: FormData): Promise<{
       metadata: {
         client_email: clientEmail,
         matter_type: matterType,
+        matter_id: matter?.id || null,
       } as Json,
     })
 
@@ -3101,8 +3147,21 @@ export async function scheduleCallAction(formData: FormData): Promise<ActionResu
       // Don't fail the operation if audit logging fails
     }
 
-    // TODO: Send calendar invite email to client
-    // This will be implemented in email integration phase
+    // Auto-create calendar event for the scheduled call
+    if (task?.id && validated.dateTime) {
+      try {
+        const { createCalendarEventForTask } = await import("@/lib/calendar/actions");
+        await createCalendarEventForTask(
+          task.id,
+          "Consultation Call",
+          validated.dateTime,
+          matter.id,
+          "scheduled_call"
+        );
+      } catch (calErr) {
+        console.error("Failed to create calendar event for scheduled call:", calErr);
+      }
+    }
 
     revalidatePath("/admin/intake");
     revalidatePath(`/admin/intake/${validated.intakeResponseId}`);

@@ -18,27 +18,71 @@ vi.mock('@/lib/auth/server', () => ({
   }),
 }))
 
-describe('inviteClient', () => {
-  const mockSupabase = {
-    from: vi.fn(() => ({
-      insert: vi.fn(() => ({
-        select: vi.fn(() => ({
-          single: vi.fn().mockResolvedValue({
-            data: {
-              id: 'invite-1',
-              invite_code: 'ABC123',
-              client_name: 'Test Client',
-              client_email: 'test@example.com',
-            },
-            error: null,
-          }),
-        })),
-      })),
-    })),
+/**
+ * Build a chainable mock that handles arbitrary Supabase query chains.
+ * Each table has specific return values for its operations.
+ */
+function createMockSupabase() {
+  const chainable = (terminal: any = { data: null, error: null }) => {
+    const obj: any = {}
+    const methods = ['select', 'insert', 'update', 'upsert', 'eq', 'is', 'limit', 'single', 'maybeSingle', 'order']
+    for (const m of methods) {
+      if (m === 'single' || m === 'maybeSingle') {
+        obj[m] = vi.fn().mockResolvedValue(terminal)
+      } else {
+        obj[m] = vi.fn(() => obj)
+      }
+    }
+    return obj
   }
+
+  return {
+    from: vi.fn((table: string) => {
+      if (table === 'client_invitations') {
+        // insert().select().single() returns the invitation
+        const chain = chainable({
+          data: {
+            id: 'invite-1',
+            invite_code: 'ABC123',
+            client_name: 'Test Client',
+            client_email: 'test@example.com',
+          },
+          error: null,
+        })
+        // update() returns success
+        chain.update = vi.fn(() => chainable({ data: null, error: null }))
+        return chain
+      }
+      if (table === 'matters') {
+        return chainable({
+          data: { id: 'matter-1' },
+          error: null,
+        })
+      }
+      if (table === 'practice_settings') {
+        return chainable({
+          data: {
+            google_refresh_token: null,
+            contact_email: null,
+            firm_name: 'Test Firm',
+          },
+          error: null,
+        })
+      }
+      if (table === 'audit_logs') {
+        return chainable({ data: null, error: null })
+      }
+      return chainable()
+    }),
+  }
+}
+
+describe('inviteClient', () => {
+  let mockSupabase: ReturnType<typeof createMockSupabase>
 
   beforeEach(() => {
     vi.clearAllMocks()
+    mockSupabase = createMockSupabase()
     vi.spyOn(server, 'supabaseEnvReady').mockReturnValue(true)
     vi.spyOn(server, 'supabaseAdmin').mockReturnValue(mockSupabase as any)
   })

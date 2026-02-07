@@ -7,6 +7,7 @@ const MUTATING_METHODS = ["POST", "PUT", "PATCH", "DELETE"];
 const STAFF_ONLY_PATHS = [
   "/matters",
   "/tasks",
+  "/calendar",
   "/time",
   "/billing",
   "/documents",
@@ -60,12 +61,12 @@ export async function middleware(req: NextRequest) {
     !isPublic &&
     (pathname.startsWith("/matters") ||
       pathname.startsWith("/tasks") ||
+      pathname.startsWith("/calendar") ||
       pathname.startsWith("/time") ||
       pathname.startsWith("/billing") ||
       pathname.startsWith("/documents") ||
       pathname.startsWith("/settings") ||
       pathname.startsWith("/admin") ||
-      pathname.startsWith("/intake") ||
       pathname.startsWith("/dashboard"));
 
   // Check for Supabase auth tokens

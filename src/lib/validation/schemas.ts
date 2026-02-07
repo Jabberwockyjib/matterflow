@@ -403,6 +403,39 @@ export const invoiceStatusSchema = z.object({
 export type InvoiceStatusFormData = z.infer<typeof invoiceStatusSchema>;
 
 // ============================================================================
+// Calendar Event Schemas
+// ============================================================================
+
+export const calendarEventTypeValues = [
+  "manual",
+  "task_due",
+  "scheduled_call",
+  "deadline",
+  "court_date",
+  "meeting",
+] as const;
+
+/**
+ * Schema for creating/updating a calendar event
+ */
+export const calendarEventSchema = z.object({
+  title: requiredString("Title"),
+  startTime: z.string().datetime({ message: "Valid start time is required" }),
+  endTime: z.string().datetime({ message: "Valid end time is required" }),
+  allDay: z.boolean().default(false),
+  eventType: z.enum(calendarEventTypeValues, {
+    error: "Please select a valid event type",
+  }).default("manual"),
+  matterId: optionalUuid,
+  taskId: optionalUuid,
+  description: optionalString,
+  location: optionalString,
+  color: optionalString,
+});
+
+export type CalendarEventFormData = z.infer<typeof calendarEventSchema>;
+
+// ============================================================================
 // Intake Response Schemas
 // ============================================================================
 

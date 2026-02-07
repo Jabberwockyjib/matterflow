@@ -1,144 +1,106 @@
 # Project Status
 
-**Last Updated:** 2026-01-28
+**Last Updated:** 2026-02-07
 
 ## Current State
 
-MatterFlow is deployed to production at `matter.develotype.com` on a Hetzner VPS. The full client onboarding flow is now working: invite client → client signs up → client fills intake form (with file uploads) → admin reviews and approves. Gmail is used for all email sending (no longer using Resend). Auto-deploy is configured via git polling script on VPS.
+MatterFlow is deployed to production at `matter.develotype.com` (Docker on VPS at 178.156.188.33). The full client onboarding flow now supports **anonymous intake** — clients can fill and submit intake forms without creating an account first. Matters are auto-created when the lawyer sends an invitation. Clients are prompted to create accounts on the thank-you page and via email after intake approval. The existing signup-first flow still works.
 
 **What's Working:**
 - Matter pipeline, time tracking, invoicing, Square payments
+- **Anonymous intake forms** — clients receive invite link, fill form without account, prompted to create account after
+- **Auto-created matters on invite** — matter immediately created when lawyer invites client
+- **Account linking on signup** — if client creates account later, existing matter is automatically linked
+- Firm logo upload — auto-resized via sharp, renders in all email templates
+- Configurable payment reminders — 3-phase schedule
+- Email Template Editor (admin only)
 - Client portal (view, upload, intake forms, pay)
 - Email sending via Gmail API (practice-wide OAuth)
 - Google Drive document organization with auto-folder creation
 - Gmail incoming email sync with AI summaries
-- Automatic Gmail sync via cron (`/api/cron/gmail-sync`)
-- Automation configuration UI at `/admin/settings/automations`
-- AI document summary on upload
 - Client invitation flow with email + link copying
-- Intake form submission with file uploads to Google Drive
-- Intake review with approve/decline/request info actions
-- Invitation management (view, resend, cancel, extend)
+
+**All working pages are navigable from the sidebar** — verified 2026-02-06.
 
 **Production URL:** https://matter.develotype.com
-**Build Status:** `pnpm build` passes
+**Build Status:** `pnpm build` passes (not yet deployed with anonymous intake changes)
 
-## Recent Changes (2026-01-28)
+## Recent Changes (2026-02-07)
 
-### Test Coverage Improvements
-- Lowered CI coverage thresholds in `vitest.config.ts` (60% → 25% statements, 20% branches)
-- **Total tests now: 1547** (coverage: 32.54%)
-- New test files created:
-  - `tests/lib/intake/validation.test.ts` - 48 tests for intake form validation
-  - `tests/lib/toast.test.ts` - 26 tests for toast utility functions
-  - `tests/components/ui/badges.test.tsx` - 19 tests for badge components
-  - `tests/lib/intake/templates.test.ts` - 17 tests for intake templates
-  - `tests/hooks/useDebounce.test.ts` - 7 tests for debounce hook
-  - `tests/hooks/useKeyboardShortcut.test.ts` - 33 tests for keyboard shortcuts
-  - `tests/hooks/useRouteContext.test.ts` - 17 tests for route context parsing
-  - `tests/lib/email/password-reset.test.ts` - 5 tests for password reset email
-  - `tests/lib/email/activity-reminder.test.ts` - 5 tests for activity reminder email
-  - `tests/lib/data/queries-extended.test.ts` - 12 tests for query functions
-  - `tests/lib/data/actions-extended.test.ts` - 6 tests for delete/update actions
-  - `tests/components/ui/switch.test.tsx` - 10 tests for Switch component
-  - `tests/components/ui/tabs.test.tsx` - 15 tests for Tabs component
-  - `tests/components/ui/table.test.tsx` - 26 tests for Table components
-  - `tests/components/ui/skeleton.test.tsx` - 10 tests for Skeleton component
-  - `tests/components/ui/responsibility-icon.test.tsx` - 18 tests for ResponsibilityIcon
-  - `tests/lib/email/invoice-sent.test.tsx` - 14 tests for invoice email
-  - `tests/lib/email/task-assigned.test.tsx` - 14 tests for task email
-  - `tests/lib/email/matter-created.test.tsx` - 11 tests for matter email
-  - `tests/lib/email/intake-reminder.test.tsx` - 14 tests for intake reminder email
-  - `tests/lib/email/intake-submitted.test.tsx` - 11 tests for intake submitted email
-  - `tests/lib/timer/analytics.test.ts` - 37 tests for timer analytics
-  - `tests/lib/supabase/server.test.ts` - 10 tests for Supabase admin client
-  - `tests/lib/auth/server.test.ts` - 11 tests for auth session utilities
-  - `tests/lib/document-templates/parsing.test.ts` - 9 tests for template parsing
-  - `tests/lib/utils/date-helpers.test.ts` - 44 tests for date utilities
+### Anonymous Intake Forms with Deferred Account Creation
 
-### Bug Fixes
-- `src/app/admin/intake/[intakeId]/page.tsx` - Fixed 500 error on intake review page (snake_case property names)
-- `supabase/migrations/0024_add_updated_at_triggers.sql` - Added missing updated_at triggers
+**Flow:** Lawyer invites client → matter auto-created → client clicks invite link → intake form shown (no account needed) → client submits → thank-you page with "Create Account" option → admin approves → account creation email sent → client signs up → matter linked
 
-### Production Deployment Fixes
-- `src/app/api/auth/google/callback/route.ts` - Fixed OAuth redirect to use `NEXT_PUBLIC_APP_URL`
-- `src/app/settings/integrations-panel.tsx` - Removed Resend, added Google Workspace with Drive+Gmail status
+**14 files modified/created:**
 
-### Gmail Integration Improvements
-- `src/app/api/cron/gmail-sync/route.ts` - New cron endpoint for automatic Gmail sync
-- `src/lib/data/actions.ts` - Updated `syncGmailForMatter` to use practice-wide Google token
-- `src/lib/data/actions.ts` - Added `disconnectGoogle` action
-- `src/components/google-drive-connect.tsx` - Added disconnect/reconnect buttons
+| File | Change |
+|------|--------|
+| `supabase/migrations/20260207000001_anonymous_intake.sql` | NEW — `matter_id` on invitations, `invitation_id`/`client_name`/`client_email` on matters |
+| `src/types/database.types.ts` | Updated types for new columns |
+| `src/middleware.ts` | Removed `/intake` from protected routes |
+| `src/lib/data/actions.ts` | `inviteClient()` auto-creates matter |
+| `src/app/intake/invite/[code]/page.tsx` | REWRITTEN — no auth, uses `matter_id` lookup |
+| `src/app/intake/[matterId]/page.tsx` | Accepts `?code=` for anonymous access |
+| `src/app/intake/[matterId]/intake-form-client.tsx` | Passes `inviteCode` to renderer and redirect |
+| `src/components/intake/dynamic-form-renderer.tsx` | Passes `inviteCode` to upload API |
+| `src/lib/intake/client-actions.ts` | Sends `inviteCode` in FormData |
+| `src/app/api/intake/upload/route.ts` | Accepts invite code as anonymous auth |
+| `src/lib/intake/actions.ts` | Fixed null `client_id` crash, marks invitation completed, sends account creation email on approval |
+| `src/app/intake/[matterId]/thank-you/page.tsx` | "Create Account" section for anonymous users |
+| `src/lib/email/templates/account-creation-email.tsx` | NEW — post-approval email |
+| `src/lib/email/actions.ts` | `sendAccountCreationEmail()` |
+| `src/lib/email/types.ts` | Added `account_creation` to `EmailType` |
+| `src/lib/auth/signup-actions.ts` | Links matter to user on signup (password + OAuth) |
 
-### AI JSON Parsing Fix
-- `src/lib/ai/document-summary.ts` - Added `stripMarkdownCodeBlock` helper
-- `src/lib/ai/email-summary.ts` - Added `stripMarkdownCodeBlock` helper
-- `src/lib/document-templates/parsing.ts` - Added `stripMarkdownCodeBlock` helper
+**Tests updated:** `middleware-intake.test.ts`, `intake-upload-auth.test.ts`, `client-actions.test.ts`, `fixtures.ts`
 
-### Client Onboarding Flow Fixes
-- `src/app/intake/invite/[code]/page.tsx` - Fixed redirect after signup to continue intake flow
-- `src/app/settings/practice-settings-form.tsx` - Made contact email required with helper text
-- `src/components/matters/resend-intake-button.tsx` - New component for resend + copy link
-- `src/app/matters/[id]/page.tsx` - Added yellow banner for "Intake Sent" stage with resend options
-
-### Intake Review Workflow Fixes
-- `src/lib/data/queries.ts` - Updated `fetchIntakesByReviewStatus` to fetch client email from auth
-- `src/lib/data/queries.ts` - Added `clientEmail` and `clientName` to `IntakeReview` type
-- `src/components/clients/pipeline-card.tsx` - Enabled Review Intake button, linked to admin page
-- `src/app/api/intake/upload/route.ts` - New API route for file uploads with auto-folder creation
-- `src/lib/intake/client-actions.ts` - Client helper to call upload API
-- `src/app/intake/[matterId]/intake-form-client.tsx` - Updated to upload files before form submission
-- `src/lib/intake/templates.ts` - Added `generalIntakeTemplate` for "General" matter type
-- `src/app/admin/intake/[intakeId]/page.tsx` - Added null check for matter relation
-
-### Invitation Management
-- `src/app/admin/invitations/[id]/page.tsx` - New invitation detail page
-- `src/app/admin/invitations/[id]/invitation-actions.tsx` - Actions component
-- `src/lib/data/actions.ts` - Added `resendInvitationEmail`, `cancelInvitation`, `extendInvitation`
-- `src/components/clients/pipeline-card.tsx` - Enabled View and Copy buttons
-
-## VPS Deployment
-
-**Auto-deploy script:** `/home/deploy/auto-deploy.sh` (polls git every 5 minutes via cron)
-
-**Cron jobs on VPS:**
-```
-*/5 * * * * /home/deploy/auto-deploy.sh >> /home/deploy/auto-deploy.log 2>&1
-0 * * * * curl -s -H "Authorization: Bearer $CRON_SECRET" https://matter.develotype.com/api/cron/gmail-sync
-0 6 * * * curl -s -H "Authorization: Bearer $CRON_SECRET" https://matter.develotype.com/api/cron/email-automations
-```
+**Migration:** Applied to production via Supabase MCP.
 
 ## Known Issues
 
-- Intake form file upload requires Google Drive to be connected (shows error if not)
-- Files uploaded before Google Drive folders existed won't retroactively appear (manual fix: re-upload)
+- Code changes not yet deployed to production (need `git push && ssh deploy`)
+- Existing uploads before Google fix: Files are in different Google account. User needs to reconnect with correct account
 - `tests/lib/email/client.test.ts` is broken - imports `sendInvitationEmail` which isn't exported (pre-existing)
+- Test file `tests/hooks/useKeyboardShortcut.test.ts` has TypeScript errors with vitest mocks (pre-existing)
+- `tests/integration/tasks.test.tsx` fails on `instructions` field, `tests/validation/schemas.test.ts` on task status enum (pre-existing)
+- Email template editor preview shows body-only (no BaseLayout header/footer) — by design
 
 ## Architecture Notes
 
-### Email Flow
-- All emails now sent via Gmail API using practice-wide OAuth token stored in `practice_settings.google_refresh_token`
-- No longer using Resend - removed from integrations panel
-- Contact email must be set in Settings > Practice for emails to send
+### Anonymous Intake Flow
+- **Authorization:** Invite code (`?code=` query param) verified against `client_invitations.matter_id` ↔ `matters.invitation_id`
+- **Middleware:** `/intake` routes are NOT protected — each page handles its own auth (code verification or session check)
+- **File uploads:** Anonymous uploads authorized by verifying invite code in `POST /api/intake/upload`
+- **Matter creation:** Happens in `inviteClient()` at invitation time, not when client visits the link
+- **Legacy support:** Old invitations without `matter_id` trigger matter creation on first visit to invite link
+- **Account linking:** `signUpWithInviteCode()` and `linkUserToInvitation()` both set `matters.client_id` when user creates account
+- **Invitation lifecycle:** `pending` → `completed` (set by `submitIntakeForm` on anonymous submit, or by signup actions)
 
-### Intake File Uploads
-- Files uploaded via `/api/intake/upload` API route (FormData)
-- Auto-creates Google Drive folders if they don't exist
-- Files stored in "00 Intake" folder under the matter
-- Document metadata stored in `documents` table
+### Firm Logo Upload
+- **Storage:** Supabase Storage `firm-assets` bucket, files at `logos/firm-logo-{timestamp}.{ext}`
+- **Setting:** `firm_settings.logo_url` stores the public URL
+- **Resize:** sharp (server-side) to max 400x200px PNG; SVGs pass through as-is
 
-### Invitation Flow
-- Invitations created in `client_invitations` table with unique `invite_code`
-- Client clicks link → redirected to signup → redirected back to `/intake/invite/[code]`
-- Matter auto-created with "Intake Sent" stage
-- Client fills intake form → stage changes to "Intake Received"
-- Admin reviews at `/admin/intake/[intakeId]`
+### Payment Reminder System
+- **Settings source:** `firm_settings` table (not `practice_settings`)
+- **Automation:** `sendInvoiceReminders()` runs via `/api/cron/email-automations`
+- **Duplicate prevention:** `invoices.last_reminder_sent_at` checked against frequency
+
+### Email Template System
+- **Database:** `email_templates` + `email_template_versions` (history)
+- **Rendering:** `renderEmailWithPlaceholders(template, data)` replaces `{{token}}` with values
 
 ## Verification Commands
 
 ```bash
 pnpm build        # Production build (passes)
-pnpm typecheck    # TypeScript validation
-pnpm test --run   # Run all tests
+pnpm typecheck    # TypeScript validation (passes, ignoring pre-existing test file errors)
+pnpm test --run   # Run all tests (3 pre-existing failures, 85 files pass)
 pnpm dev          # Start dev server on port 3001
+
+# Production deployment (VPS via Docker)
+git push origin main && ssh deploy@178.156.188.33 "cd ~/matterflow && git pull && docker compose -f docker-compose.prod.yml build --no-cache && docker compose -f docker-compose.prod.yml up -d"
+
+# Verify production health
+ssh deploy@178.156.188.33 "curl -s http://localhost:3002/api/health"
 ```

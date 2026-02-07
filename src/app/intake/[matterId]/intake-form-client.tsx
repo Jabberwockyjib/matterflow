@@ -11,6 +11,7 @@ interface IntakeFormClientProps {
   template: IntakeFormTemplate;
   initialValues: Record<string, any>;
   status: "draft" | "submitted" | "approved";
+  inviteCode?: string;
 }
 
 export function IntakeFormClient({
@@ -18,6 +19,7 @@ export function IntakeFormClient({
   template,
   initialValues,
   status,
+  inviteCode,
 }: IntakeFormClientProps) {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
@@ -59,8 +61,11 @@ export function IntakeFormClient({
       if ("error" in result) {
         setError(result.error || "Failed to submit form. Please try again.");
       } else {
-        // Redirect to thank you page
-        router.push(`/intake/${matterId}/thank-you`);
+        // Redirect to thank you page, preserving invite code
+        const thankYouUrl = inviteCode
+          ? `/intake/${matterId}/thank-you?code=${inviteCode}`
+          : `/intake/${matterId}/thank-you`;
+        router.push(thankYouUrl);
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to submit form");
@@ -129,6 +134,7 @@ export function IntakeFormClient({
         readOnly={isReadOnly}
         submitButtonText="Submit Intake Form"
         matterId={matterId}
+        inviteCode={inviteCode}
       />
     </div>
   );

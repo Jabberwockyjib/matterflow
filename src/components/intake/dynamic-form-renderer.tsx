@@ -41,6 +41,7 @@ interface DynamicFormRendererProps {
   readOnly?: boolean;
   submitButtonText?: string;
   matterId?: string;
+  inviteCode?: string;
 }
 
 export function DynamicFormRenderer({
@@ -51,6 +52,7 @@ export function DynamicFormRenderer({
   readOnly = false,
   submitButtonText = "Submit",
   matterId,
+  inviteCode,
 }: DynamicFormRendererProps) {
   const [values, setValues] = useState<Record<string, any>>(initialValues);
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -528,7 +530,7 @@ export function DynamicFormRenderer({
                       const placeholder = newFiles[i];
 
                       try {
-                        const result = await uploadIntakeFile(matterId, file, "intake");
+                        const result = await uploadIntakeFile(matterId, file, "intake", inviteCode);
 
                         if (result.ok) {
                           uploadedFiles.push({

@@ -18,7 +18,8 @@ export type EmailType =
   | "payment_received"
   | "matter_stage_changed"
   | "info_request"
-  | "info_request_response";
+  | "info_request_response"
+  | "account_creation";
 
 export interface EmailMetadata {
   type: EmailType;

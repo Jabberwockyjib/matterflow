@@ -143,6 +143,25 @@ export async function signUpWithInviteCode(data: {
     // Don't fail the signup for this, just log it
   }
 
+  // Link existing matter to the new user (for anonymous intake submissions)
+  try {
+    const { data: invitation } = await supabase
+      .from("client_invitations")
+      .select("matter_id")
+      .eq("id", inviteResult.invitation.id)
+      .single();
+
+    if (invitation?.matter_id) {
+      await supabase
+        .from("matters")
+        .update({ client_id: authData.user.id })
+        .eq("id", invitation.matter_id)
+        .is("client_id", null);
+    }
+  } catch (linkError) {
+    console.error("[Sign-up] Failed to link matter:", linkError);
+  }
+
   return { success: true, userId: authData.user.id };
 }
 
@@ -213,6 +232,25 @@ export async function linkUserToInvitation(
   if (updateError) {
     console.error("[linkUserToInvitation] Failed to update invitation:", updateError);
     return { success: false, error: "Failed to mark invitation as used" };
+  }
+
+  // Link existing matter to the user (for anonymous intake submissions)
+  try {
+    const { data: inv } = await supabase
+      .from("client_invitations")
+      .select("matter_id")
+      .eq("id", invitationId)
+      .single();
+
+    if (inv?.matter_id) {
+      await supabase
+        .from("matters")
+        .update({ client_id: userId })
+        .eq("id", inv.matter_id)
+        .is("client_id", null);
+    }
+  } catch (linkError) {
+    console.error("[linkUserToInvitation] Failed to link matter:", linkError);
   }
 
   return { success: true };

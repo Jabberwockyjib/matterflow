@@ -1,7 +1,8 @@
 /**
  * API route for uploading files during intake form submission
  *
- * Handles FormData file uploads and stores in Google Drive
+ * Handles FormData file uploads and stores in Google Drive.
+ * Supports both authenticated users and anonymous access via invite code.
  */
 
 import { NextRequest, NextResponse } from "next/server";
@@ -69,7 +70,7 @@ async function ensureMatterFolders(matterId: string): Promise<{
   // Get matter details
   const { data: matter } = await supabase
     .from("matters")
-    .select("title, client_id")
+    .select("title, client_id, client_name")
     .eq("id", matterId)
     .maybeSingle();
 
@@ -77,15 +78,15 @@ async function ensureMatterFolders(matterId: string): Promise<{
     return { folderId: null, error: "Matter not found" };
   }
 
-  // Get client name
-  let clientName = "Unknown Client";
+  // Get client name — from profile if linked, otherwise from matter
+  let clientName = matter.client_name || "Unknown Client";
   if (matter.client_id) {
     const { data: clientProfile } = await supabase
       .from("profiles")
       .select("full_name")
       .eq("user_id", matter.client_id)
       .maybeSingle();
-    clientName = clientProfile?.full_name || "Unknown Client";
+    clientName = clientProfile?.full_name || clientName;
   }
 
   try {
@@ -115,6 +116,38 @@ async function ensureMatterFolders(matterId: string): Promise<{
   }
 }
 
+/**
+ * Verify an invite code grants access to a specific matter for uploads.
+ */
+async function verifyInviteCodeForMatter(
+  inviteCode: string,
+  matterId: string
+): Promise<boolean> {
+  const supabase = supabaseAdmin();
+
+  const { data: invitation } = await supabase
+    .from("client_invitations")
+    .select("id, matter_id, status, expires_at")
+    .eq("invite_code", inviteCode)
+    .single();
+
+  if (!invitation) return false;
+  if (invitation.status === "cancelled") return false;
+  if (invitation.expires_at && new Date() > new Date(invitation.expires_at)) return false;
+
+  // Check matter linkage
+  if (invitation.matter_id === matterId) return true;
+
+  // Fallback: check matter's invitation_id
+  const { data: matter } = await supabase
+    .from("matters")
+    .select("invitation_id")
+    .eq("id", matterId)
+    .single();
+
+  return matter?.invitation_id === invitation.id;
+}
+
 export async function POST(request: NextRequest) {
   try {
     // Rate limiting
@@ -127,18 +160,33 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Verify user is authenticated
-    const { session, profile } = await getSessionWithProfile();
-    if (!session || !profile) {
-      return NextResponse.json(
-        { ok: false, error: "Unauthorized: please sign in" },
-        { status: 401 }
-      );
-    }
-
     const formData = await request.formData();
     const matterId = formData.get("matterId") as string;
     const file = formData.get("file") as File;
+    const inviteCode = formData.get("inviteCode") as string | null;
+
+    // Try auth first
+    const { session, profile } = await getSessionWithProfile();
+    let isAnonymous = false;
+
+    if (!session || !profile) {
+      // No session — check invite code
+      if (inviteCode && matterId) {
+        const valid = await verifyInviteCodeForMatter(inviteCode, matterId);
+        if (!valid) {
+          return NextResponse.json(
+            { ok: false, error: "Unauthorized: invalid invite code" },
+            { status: 401 }
+          );
+        }
+        isAnonymous = true;
+      } else {
+        return NextResponse.json(
+          { ok: false, error: "Unauthorized: please sign in" },
+          { status: 401 }
+        );
+      }
+    }
 
     if (!matterId) {
       return NextResponse.json(
@@ -166,14 +214,15 @@ export async function POST(request: NextRequest) {
     const supabase = supabaseAdmin();
 
     // IDOR protection: verify client owns this matter or user is staff/admin
-    if (profile.role === "client") {
+    // Skip for anonymous (already verified via invite code above)
+    if (!isAnonymous && profile!.role === "client") {
       const { data: matter } = await supabase
         .from("matters")
         .select("client_id")
         .eq("id", matterId)
         .single();
 
-      if (!matter || matter.client_id !== session.user.id) {
+      if (!matter || matter.client_id !== session!.user.id) {
         return NextResponse.json(
           { ok: false, error: "You do not have access to this matter" },
           { status: 403 }

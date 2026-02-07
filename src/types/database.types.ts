@@ -52,6 +52,97 @@ export type Database = {
           },
         ]
       }
+      calendar_events: {
+        Row: {
+          all_day: boolean
+          color: string | null
+          created_at: string
+          created_by: string | null
+          description: string | null
+          end_time: string
+          event_type: string
+          google_calendar_event_id: string | null
+          google_etag: string | null
+          google_updated_at: string | null
+          id: string
+          last_synced_at: string | null
+          location: string | null
+          matter_id: string | null
+          start_time: string
+          sync_error: string | null
+          sync_status: string
+          task_id: string | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          all_day?: boolean
+          color?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          end_time: string
+          event_type?: string
+          google_calendar_event_id?: string | null
+          google_etag?: string | null
+          google_updated_at?: string | null
+          id?: string
+          last_synced_at?: string | null
+          location?: string | null
+          matter_id?: string | null
+          start_time: string
+          sync_error?: string | null
+          sync_status?: string
+          task_id?: string | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          all_day?: boolean
+          color?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          end_time?: string
+          event_type?: string
+          google_calendar_event_id?: string | null
+          google_etag?: string | null
+          google_updated_at?: string | null
+          id?: string
+          last_synced_at?: string | null
+          location?: string | null
+          matter_id?: string | null
+          start_time?: string
+          sync_error?: string | null
+          sync_status?: string
+          task_id?: string | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "calendar_events_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "calendar_events_matter_id_fkey"
+            columns: ["matter_id"]
+            isOneToOne: false
+            referencedRelation: "matters"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "calendar_events_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       client_invitations: {
         Row: {
           client_email: string
@@ -64,6 +155,7 @@ export type Database = {
           invite_code: string
           invited_at: string | null
           invited_by: string | null
+          matter_id: string | null
           matter_type: string | null
           notes: string | null
           status: string
@@ -80,6 +172,7 @@ export type Database = {
           invite_code: string
           invited_at?: string | null
           invited_by?: string | null
+          matter_id?: string | null
           matter_type?: string | null
           notes?: string | null
           status: string
@@ -96,6 +189,7 @@ export type Database = {
           invite_code?: string
           invited_at?: string | null
           invited_by?: string | null
+          matter_id?: string | null
           matter_type?: string | null
           notes?: string | null
           status?: string
@@ -108,6 +202,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "client_invitations_matter_id_fkey"
+            columns: ["matter_id"]
+            isOneToOne: false
+            referencedRelation: "matters"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -846,10 +947,13 @@ export type Database = {
       matters: {
         Row: {
           billing_model: string
+          client_email: string | null
           client_id: string | null
+          client_name: string | null
           created_at: string
           id: string
           intake_received_at: string | null
+          invitation_id: string | null
           matter_type: string
           next_action: string
           next_action_due_date: string
@@ -861,10 +965,13 @@ export type Database = {
         }
         Insert: {
           billing_model: string
+          client_email?: string | null
           client_id?: string | null
+          client_name?: string | null
           created_at?: string
           id?: string
           intake_received_at?: string | null
+          invitation_id?: string | null
           matter_type: string
           next_action: string
           next_action_due_date?: string
@@ -876,10 +983,13 @@ export type Database = {
         }
         Update: {
           billing_model?: string
+          client_email?: string | null
           client_id?: string | null
+          client_name?: string | null
           created_at?: string
           id?: string
           intake_received_at?: string | null
+          invitation_id?: string | null
           matter_type?: string
           next_action?: string
           next_action_due_date?: string
@@ -896,6 +1006,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "matters_invitation_id_fkey"
+            columns: ["invitation_id"]
+            isOneToOne: false
+            referencedRelation: "client_invitations"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "matters_owner_id_fkey"
