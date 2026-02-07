@@ -2,6 +2,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { GoogleDriveConnect } from "@/components/google-drive-connect";
 import { SquareConnect } from "@/components/square-connect";
 import { supabaseAdmin } from "@/lib/supabase/server";
+import { testDriveConnection } from "@/lib/google-drive/client";
 import type { Database } from "@/types/database.types";
 
 type Profile = Database["public"]["Tables"]["profiles"]["Row"];
@@ -46,7 +47,23 @@ export async function IntegrationsPanel({ profile: _profile }: IntegrationsPanel
   // Google connection status
   const isGoogleConnected = Boolean(practiceSettings?.google_refresh_token);
   const googleConnectedAt = practiceSettings?.google_connected_at || undefined;
-  const googleConnectedEmail = practiceSettings?.google_connected_email || undefined;
+
+  // Backfill email if missing (connected before column existed)
+  let googleConnectedEmail = practiceSettings?.google_connected_email || undefined;
+  if (isGoogleConnected && !googleConnectedEmail && practiceSettings?.google_refresh_token) {
+    try {
+      const result = await testDriveConnection(practiceSettings.google_refresh_token);
+      if (result.success && result.email) {
+        googleConnectedEmail = result.email;
+        await supabase
+          .from("practice_settings")
+          .update({ google_connected_email: result.email } as Record<string, string>)
+          .eq("google_refresh_token", practiceSettings.google_refresh_token);
+      }
+    } catch {
+      // Non-critical — just skip the email display
+    }
+  }
 
   // Square connection status (check DB first, then env vars for backwards compatibility)
   const isSquareConnectedViaOAuth = Boolean(practiceSettings?.square_access_token);
