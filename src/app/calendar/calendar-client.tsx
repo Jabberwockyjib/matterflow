@@ -55,6 +55,7 @@ function toScheduleXEvent(event: CalendarEventWithMatter): CalendarEventExternal
     ? event.end_time.slice(0, 10)
     : event.end_time.slice(0, 16);
 
+  // Schedule-X accepts string dates at runtime but types expect Temporal objects
   return {
     id: event.id,
     start,
@@ -70,7 +71,7 @@ function toScheduleXEvent(event: CalendarEventWithMatter): CalendarEventExternal
       matterTitle: event.matter_title,
       syncStatus: event.sync_status,
     },
-  } as CalendarEventExternal;
+  } as unknown as CalendarEventExternal;
 }
 
 type CalendarClientProps = {
