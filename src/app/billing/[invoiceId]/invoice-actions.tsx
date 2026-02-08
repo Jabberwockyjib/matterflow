@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Mail, CheckCircle, Copy, Check } from "lucide-react";
+import { Mail, CheckCircle, Copy, Check, Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { updateInvoiceStatus, resendInvoiceEmail } from "@/lib/data/actions";
 
@@ -39,6 +39,17 @@ export function InvoiceActions({ invoiceId, status, squarePaymentUrl }: InvoiceA
     router.refresh();
   }
 
+  async function handleSendInvoice() {
+    setLoading("send");
+    const formData = new FormData();
+    formData.set("id", invoiceId);
+    formData.set("status", "sent");
+
+    await updateInvoiceStatus(formData);
+    setLoading(null);
+    router.refresh();
+  }
+
   async function handleCopyLink() {
     if (squarePaymentUrl) {
       await navigator.clipboard.writeText(squarePaymentUrl);
@@ -49,6 +60,17 @@ export function InvoiceActions({ invoiceId, status, squarePaymentUrl }: InvoiceA
 
   return (
     <div className="flex items-center gap-2">
+      {status === "draft" && (
+        <Button
+          size="sm"
+          onClick={handleSendInvoice}
+          disabled={loading === "send"}
+        >
+          <Send className="h-4 w-4 mr-2" />
+          {loading === "send" ? "Sending..." : "Send Invoice"}
+        </Button>
+      )}
+
       {squarePaymentUrl && (
         <Button
           variant="outline"
