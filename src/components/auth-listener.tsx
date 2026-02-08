@@ -7,72 +7,68 @@ import { supabaseBrowser } from "@/lib/supabase/client";
 /**
  * AuthListener - Global auth state change listener component.
  *
- * This component subscribes to Supabase auth state changes and triggers
- * a full page reload when the auth state changes. This ensures server
- * components re-fetch data with the updated session.
+ * Subscribes to Supabase auth state changes and triggers a full page reload
+ * only when the user identity actually changes (sign-in or sign-out).
  *
- * The component is mounted in the root layout and does not render any UI.
- * It uses window.location.assign() for navigation to ensure a full page
- * reload rather than a client-side navigation.
+ * IMPORTANT: Supabase's BroadcastChannel broadcasts token refreshes as
+ * SIGNED_IN events to other tabs. Without tracking the current user ID,
+ * this causes an infinite reload loop when the app is open in multiple
+ * tabs (Tab A refreshes token -> broadcasts SIGNED_IN -> Tab B reloads ->
+ * Tab B broadcasts SIGNED_IN -> Tab A reloads -> ...).
  *
- * Auth events handled:
- * - SIGNED_IN: User has signed in (session established)
- * - SIGNED_OUT: User has signed out (session cleared)
- * - TOKEN_REFRESHED: Session token was refreshed (no action needed)
+ * The fix: track the current user ID and only reload when it changes.
+ * Token refreshes for the same user are ignored.
  */
 export function AuthListener() {
-  // Track if this is the initial mount to avoid unnecessary reloads
-  const initialMount = useRef(true);
+  // Track the current user ID to detect actual identity changes vs token refreshes
+  const currentUserIdRef = useRef<string | null | undefined>(undefined);
 
   useEffect(() => {
     const supabase = supabaseBrowser();
 
-    // If no Supabase client is available (e.g., during build), skip setup
     if (!supabase) {
       return;
     }
 
-    console.log('[AuthListener] Setting up auth state listener');
-
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((event, session) => {
-      console.log('[AuthListener] Auth state change:', {
-        event,
-        hasSession: !!session,
-        isInitialMount: initialMount.current
-      });
+      const newUserId = session?.user?.id ?? null;
+      const previousUserId = currentUserIdRef.current;
 
-      // Skip reload on initial mount - session is already loaded by server
-      if (initialMount.current) {
-        initialMount.current = false;
-        console.log('[AuthListener] Skipping reload on initial mount');
+      // On first callback (initial session load), just record the user ID
+      if (previousUserId === undefined) {
+        currentUserIdRef.current = newUserId;
         return;
       }
 
-      // Handle auth state changes that require a page reload
-      // to synchronize server and client state
-      if (event === "SIGNED_IN" || event === "SIGNED_OUT") {
-        console.log('[AuthListener] Reloading page for event:', event);
+      // Only act on events that change the user identity
+      if (event === "SIGNED_OUT" && previousUserId !== null) {
+        currentUserIdRef.current = null;
+        window.location.assign("/auth/sign-in");
+        return;
+      }
 
-        // Special handling for sign-in page: redirect to home instead of reloading
-        if (window.location.pathname === "/auth/sign-in" && event === "SIGNED_IN") {
-          console.log('[AuthListener] On sign-in page, redirecting to home');
+      if (event === "SIGNED_IN" && newUserId !== previousUserId) {
+        currentUserIdRef.current = newUserId;
+
+        if (window.location.pathname === "/auth/sign-in") {
           window.location.assign("/");
         } else {
-          // Use window.location.assign() to trigger a full page reload,
-          // ensuring server components re-fetch with updated session
           window.location.assign(window.location.pathname);
         }
+        return;
       }
+
+      // TOKEN_REFRESHED or SIGNED_IN for the same user (cross-tab broadcast)
+      // — just update the ref, no reload needed
+      currentUserIdRef.current = newUserId;
     });
 
     return () => {
-      console.log('[AuthListener] Unsubscribing from auth state changes');
       subscription.unsubscribe();
     };
   }, []);
 
-  // This component does not render any UI
   return null;
 }
