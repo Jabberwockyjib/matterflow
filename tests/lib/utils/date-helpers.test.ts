@@ -7,6 +7,7 @@ import {
   getDaysSince,
   formatDueDateStatus,
   getDueDateUrgency,
+  formatDateForInput,
 } from "@/lib/utils/date-helpers";
 
 describe("date-helpers", () => {
@@ -203,6 +204,32 @@ describe("date-helpers", () => {
 
     it("returns null for undefined input", () => {
       expect(getDueDateUrgency(undefined, referenceDate)).toBeNull();
+    });
+  });
+
+  describe("formatDateForInput", () => {
+    it("formats ISO date string to YYYY-MM-DD", () => {
+      expect(formatDateForInput("2024-03-15T10:30:00.000Z")).toBe("2024-03-15");
+    });
+
+    it("returns empty string for null", () => {
+      expect(formatDateForInput(null)).toBe("");
+    });
+
+    it("returns empty string for undefined", () => {
+      expect(formatDateForInput(undefined)).toBe("");
+    });
+
+    it("returns empty string for empty string", () => {
+      expect(formatDateForInput("")).toBe("");
+    });
+
+    it("returns empty string for invalid date", () => {
+      expect(formatDateForInput("not-a-date")).toBe("");
+    });
+
+    it("handles date-only string", () => {
+      expect(formatDateForInput("2024-03-15")).toBe("2024-03-15");
     });
   });
 

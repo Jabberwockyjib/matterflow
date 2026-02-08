@@ -5,6 +5,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { getSessionWithProfile } from "@/lib/auth/server";
+import { verifyClientMatterAccess } from "@/lib/data/queries";
 import { uploadFileToDrive } from "@/lib/google-drive/documents";
 import { sanitizeFilename } from "@/lib/utils/sanitize";
 import { validateUploadedFile } from "@/lib/uploads/validation";
@@ -86,13 +87,8 @@ export async function POST(request: NextRequest) {
 
     // IDOR protection: verify client owns this matter or user is staff/admin
     if (profile.role === "client") {
-      const { data: matter } = await supabase
-        .from("matters")
-        .select("client_id")
-        .eq("id", matterId)
-        .single();
-
-      if (!matter || matter.client_id !== session.user.id) {
+      const hasAccess = await verifyClientMatterAccess(matterId, session.user.id);
+      if (!hasAccess) {
         return NextResponse.json(
           { ok: false, error: "You do not have access to this matter" },
           { status: 403 }

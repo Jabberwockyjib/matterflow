@@ -18,6 +18,7 @@ import { TaskRevisionRequestedEmail } from "./templates/task-revision-requested"
 import type { EmailSendResult } from "./types";
 import { sendTemplateEmail } from "./service";
 import { getFirmSettings } from "@/lib/data/queries";
+import { InvitationEmail } from "./templates/invitation-email";
 
 /**
  * Email actions for MatterFlow
@@ -600,6 +601,41 @@ export async function sendAccountCreationEmail(
     template,
     {
       type: "account_creation",
+      matterId: params.matterId,
+      recipientRole: "client",
+    },
+  );
+}
+
+interface SendClientInvitationEmailParams {
+  to: string;
+  clientName: string;
+  inviteCode: string;
+  inviteLink: string;
+  lawyerName: string;
+  message?: string;
+  matterId?: string;
+}
+
+export async function sendClientInvitationEmail(
+  params: SendClientInvitationEmailParams,
+): Promise<EmailSendResult> {
+  const settings = await getFirmSettings();
+  const template = InvitationEmail({
+    clientName: params.clientName,
+    inviteCode: params.inviteCode,
+    inviteLink: params.inviteLink,
+    lawyerName: params.lawyerName,
+    message: params.message,
+    settings,
+  });
+
+  return sendTemplateEmail(
+    params.to,
+    "Complete Your Intake Form for MatterFlow",
+    template,
+    {
+      type: "client_invitation",
       matterId: params.matterId,
       recipientRole: "client",
     },

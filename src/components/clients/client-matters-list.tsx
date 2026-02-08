@@ -1,22 +1,11 @@
 import Link from "next/link";
-import { Badge } from "@/components/ui/badge";
+import { StageBadge } from "@/components/ui/stage-badge";
 import { FileText } from "lucide-react";
 import type { ClientMatterSummary } from "@/lib/data/queries";
 
 interface ClientMattersListProps {
   matters: ClientMatterSummary[];
 }
-
-const stageBadgeColors: Record<string, string> = {
-  "Lead Created": "bg-slate-100 text-slate-700",
-  "Intake Sent": "bg-yellow-100 text-yellow-800",
-  "Intake Received": "bg-blue-100 text-blue-800",
-  "Under Review": "bg-purple-100 text-purple-800",
-  "Waiting on Client": "bg-orange-100 text-orange-800",
-  "Completed": "bg-green-100 text-green-800",
-  "Archived": "bg-gray-100 text-gray-600",
-  "Declined": "bg-red-100 text-red-800",
-};
 
 export function ClientMattersList({ matters }: ClientMattersListProps) {
   if (matters.length === 0) {
@@ -43,9 +32,7 @@ export function ClientMattersList({ matters }: ClientMattersListProps) {
                 </p>
                 <p className="text-xs text-slate-500">{matter.matterType}</p>
               </div>
-              <Badge className={stageBadgeColors[matter.stage] || "bg-slate-100"}>
-                {matter.stage}
-              </Badge>
+              <StageBadge stage={matter.stage} />
             </div>
           </Link>
         </li>

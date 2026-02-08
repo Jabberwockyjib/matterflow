@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useModalState } from '@/hooks/use-modal-state'
 import { UserPlus, Copy, Check } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -24,9 +25,7 @@ import {
 import { inviteClient } from '@/lib/data/actions'
 
 export function InviteClientModal() {
-  const [open, setOpen] = useState(false)
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const { open, setOpen, loading, setLoading, error, setError, reset } = useModalState()
   const [success, setSuccess] = useState<{ code: string; link: string } | null>(
     null
   )
@@ -36,7 +35,7 @@ export function InviteClientModal() {
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
     setLoading(true)
-    setError(null)
+    setError("")
 
     const formData = new FormData(e.currentTarget)
     const result = await inviteClient(formData)
@@ -57,7 +56,7 @@ export function InviteClientModal() {
 
   function handleClose() {
     setOpen(false)
-    setError(null)
+    setError("")
     setSuccess(null)
     setCopied(false)
   }
@@ -82,7 +81,7 @@ export function InviteClientModal() {
         setOpen(isOpen)
         if (!isOpen) {
           // Reset all state when dialog closes
-          setError(null)
+          setError("")
           setSuccess(null)
           setCopied(false)
           setMatterType('')

@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { getSessionWithProfile } from "@/lib/auth/server";
+import { ensureStaffOrAdmin } from "@/lib/auth/authorization";
 import { supabaseAdmin, supabaseEnvReady } from "@/lib/supabase/server";
 import type { Json } from "@/types/database.types";
 import type {
@@ -22,17 +22,6 @@ type ActionResult<T = unknown> = {
   success: boolean;
   error?: string;
   data?: T;
-};
-
-const ensureStaffOrAdmin = async () => {
-  const { profile, session } = await getSessionWithProfile();
-  if (!session) {
-    return { error: "Unauthorized: please sign in" } as const;
-  }
-  if (profile?.role === "client") {
-    return { error: "Forbidden: clients cannot perform this action" } as const;
-  }
-  return { session, profile } as const;
 };
 
 // ============================================================================

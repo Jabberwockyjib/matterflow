@@ -12,6 +12,7 @@ import {
   responsiblePartyValues,
 } from "@/lib/validation/schemas";
 import { showFormSuccess, showFormError } from "@/lib/toast";
+import { formatDateForInput } from "@/lib/utils/date-helpers";
 
 // ============================================================================
 // Schema (Form Input)
@@ -98,13 +99,6 @@ const responsiblePartyOptions = responsiblePartyValues.map((value) => ({
  * />
  * ```
  */
-// Helper to format date for input (YYYY-MM-DD)
-function formatDateForInput(dateStr: string | null): string {
-  if (!dateStr) return "";
-  const date = new Date(dateStr);
-  return date.toISOString().split("T")[0];
-}
-
 export function MatterStageForm({
   matterId,
   currentStage,

@@ -6,7 +6,7 @@ import { Plus, X } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { SortDropdown, type SortOption } from "@/components/ui/sort-dropdown";
-import { MatterCard } from "@/components/cards/matter-card";
+import { MatterCard } from "@/components/matter-card";
 import {
   ContentCard,
   ContentCardContent,
@@ -344,15 +344,7 @@ export function MattersListClient({
           {sortedMatters.map((matter, index) => (
             <MatterCard
               key={matter.id}
-              id={matter.id}
-              title={matter.title}
-              matterType={matter.matterType}
-              stage={matter.stage}
-              billingModel={matter.billingModel}
-              nextAction={matter.nextAction}
-              nextActionDueDate={matter.nextActionDueDate}
-              responsibleParty={matter.responsibleParty}
-              updatedAt={matter.updatedAt}
+              matter={matter}
               className="animate-fade-in"
               style={{ animationDelay: `${index * 50}ms` }}
             />

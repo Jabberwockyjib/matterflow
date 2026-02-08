@@ -1,8 +1,8 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { getSessionWithProfile } from "@/lib/auth/server";
-import { supabaseAdmin, supabaseEnvReady } from "@/lib/supabase/server";
+import { ensureSupabase, ensureStaffOrAdmin } from "@/lib/auth/authorization";
+import { supabaseAdmin } from "@/lib/supabase/server";
 import type { Json } from "@/types/database.types";
 import { calendarEventSchema } from "@/lib/validation/schemas";
 
@@ -10,24 +10,6 @@ type ActionResult = {
   ok?: boolean;
   error?: string;
   data?: unknown;
-};
-
-const ensureSupabase = () => {
-  if (!supabaseEnvReady()) {
-    throw new Error("Supabase environment variables are not set");
-  }
-  return supabaseAdmin();
-};
-
-const ensureStaffOrAdmin = async () => {
-  const { profile, session } = await getSessionWithProfile();
-  if (!session) {
-    return { error: "Unauthorized: please sign in" } as const;
-  }
-  if (profile?.role === "client") {
-    return { error: "Forbidden: clients cannot perform this action" } as const;
-  }
-  return { session, profile } as const;
 };
 
 const logAudit = async ({

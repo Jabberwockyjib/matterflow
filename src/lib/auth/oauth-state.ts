@@ -1,4 +1,4 @@
-import crypto from "crypto";
+import { createHmacSignature, verifyHmacSignature } from "./hmac";
 
 /**
  * OAuth state token utilities.
@@ -32,10 +32,7 @@ export function createOAuthState(payload: Record<string, unknown>): string {
   };
 
   const dataString = JSON.stringify(data);
-  const hmac = crypto
-    .createHmac("sha256", getHmacSecret())
-    .update(dataString)
-    .digest("hex");
+  const hmac = createHmacSignature(getHmacSecret(), dataString, "hex");
 
   const statePayload = {
     data: dataString,
@@ -66,17 +63,7 @@ export function verifyOAuthState(
     if (!decoded.data || !decoded.sig) return null;
 
     // Verify HMAC signature
-    const expectedHmac = crypto
-      .createHmac("sha256", getHmacSecret())
-      .update(decoded.data)
-      .digest("hex");
-
-    if (
-      !crypto.timingSafeEqual(
-        Buffer.from(decoded.sig, "hex"),
-        Buffer.from(expectedHmac, "hex")
-      )
-    ) {
+    if (!verifyHmacSignature(getHmacSecret(), decoded.data, decoded.sig, "hex")) {
       console.warn("OAuth state: invalid HMAC signature");
       return null;
     }

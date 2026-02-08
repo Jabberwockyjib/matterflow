@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { useModalState } from "@/hooks/use-modal-state";
 import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -30,14 +30,12 @@ interface AddTaskModalProps {
 
 export function AddTaskModal({ matterId }: AddTaskModalProps) {
   const router = useRouter();
-  const [open, setOpen] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const { open, setOpen, loading, setLoading, error, setError } = useModalState();
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setLoading(true);
-    setError(null);
+    setError("");
 
     const formData = new FormData(e.currentTarget);
     formData.set("matterId", matterId);

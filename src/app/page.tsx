@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { StatCard } from "@/components/cards/stat-card";
-import { MatterCard } from "@/components/cards/matter-card";
+import { MatterCard } from "@/components/matter-card";
 import {
   ContentCard,
   ContentCardContent,
@@ -34,7 +34,7 @@ import {
 } from "@/lib/data/queries";
 import { fetchUpcomingEvents } from "@/lib/calendar/queries";
 import { getSessionWithProfile } from "@/lib/auth/server";
-import { cn, isOverdue, formatDueDate } from "@/lib/utils";
+import { cn } from "@/lib/utils";
 import { ClientDashboard } from "@/components/client-dashboard";
 
 const automations = [
@@ -62,18 +62,6 @@ const badgeVariant = (badge: string) => {
   return "outline";
 };
 
-const responsiblePartyColor = (party: string) => {
-  switch (party) {
-    case "lawyer":
-      return "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200";
-    case "staff":
-      return "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200";
-    case "client":
-      return "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200";
-    default:
-      return "bg-zinc-100 text-zinc-800 dark:bg-zinc-900 dark:text-zinc-200";
-  }
-};
 
 const stages = [
   "Lead Created",
@@ -332,15 +320,7 @@ export default async function Home() {
                   sortedMatters.slice(0, 8).map((matter, index) => (
                     <MatterCard
                       key={matter.id}
-                      id={matter.id}
-                      title={matter.title}
-                      matterType={matter.matterType}
-                      stage={matter.stage}
-                      billingModel={matter.billingModel}
-                      nextAction={matter.nextAction}
-                      nextActionDueDate={matter.nextActionDueDate}
-                      responsibleParty={matter.responsibleParty}
-                      updatedAt={matter.updatedAt}
+                      matter={matter}
                       className="animate-fade-in"
                       style={{ animationDelay: `${index * 50}ms` }}
                     />

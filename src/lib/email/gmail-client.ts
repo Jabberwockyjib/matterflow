@@ -1,5 +1,6 @@
 import { google } from 'googleapis'
 import { render } from '@react-email/render'
+import { createOAuth2Client } from '@/lib/google-drive/client'
 
 /**
  * Gmail API client for sending emails via OAuth
@@ -10,17 +11,9 @@ import { render } from '@react-email/render'
  * Get OAuth2 client with refresh token
  */
 function getOAuth2Client(refreshToken: string) {
-  const oauth2Client = new google.auth.OAuth2(
-    process.env.GOOGLE_CLIENT_ID,
-    process.env.GOOGLE_CLIENT_SECRET,
-    process.env.GOOGLE_REDIRECT_URI
-  )
-
-  oauth2Client.setCredentials({
-    refresh_token: refreshToken,
-  })
-
-  return oauth2Client
+  const client = createOAuth2Client()
+  client.setCredentials({ refresh_token: refreshToken })
+  return client
 }
 
 /**

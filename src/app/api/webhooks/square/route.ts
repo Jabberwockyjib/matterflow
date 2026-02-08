@@ -12,39 +12,10 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import crypto from "crypto";
 import { syncSquarePaymentStatus } from "@/lib/square/actions";
 import { getSquareWebhookSignatureKey } from "@/lib/square/client";
+import { verifyHmacSignature } from "@/lib/auth/hmac";
 import type { SquarePaymentWebhook } from "@/lib/square/types";
-
-/**
- * Verify Square webhook signature
- *
- * Square signs all webhook requests with HMAC SHA-256.
- * This prevents unauthorized webhook calls.
- */
-function verifyWebhookSignature(
-  body: string,
-  signature: string | null,
-  signatureKey: string,
-): boolean {
-  if (!signature) return false;
-
-  const hmac = crypto.createHmac("sha256", signatureKey);
-  hmac.update(body);
-  const expectedSignature = hmac.digest("base64");
-
-  // Use timing-safe comparison to prevent timing attacks
-  try {
-    return crypto.timingSafeEqual(
-      Buffer.from(signature),
-      Buffer.from(expectedSignature),
-    );
-  } catch {
-    // timingSafeEqual throws if buffers are different lengths
-    return false;
-  }
-}
 
 /**
  * POST /api/webhooks/square
@@ -66,7 +37,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const isValid = verifyWebhookSignature(body, signature, signatureKey);
+    const isValid = signature ? verifyHmacSignature(signatureKey, body, signature, "base64") : false;
     if (!isValid) {
       console.error("Invalid Square webhook signature");
       return NextResponse.json(

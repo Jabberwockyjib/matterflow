@@ -6,10 +6,11 @@ import { render } from "@react-email/components";
 
 import { getSessionWithProfile } from "@/lib/auth/server";
 import { supabaseAdmin, supabaseEnvReady } from "@/lib/supabase/server";
+import { ensureSupabase, ensureStaffOrAdmin, ensureAdmin } from "@/lib/auth/authorization";
 import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/types/database.types";
 import type { Json } from "@/types/database.types";
-import { sendMatterCreatedEmail, sendTaskAssignedEmail, sendInvoiceEmail, sendTaskResponseSubmittedEmail, sendTaskApprovedEmail, sendTaskRevisionRequestedEmail } from "@/lib/email/actions";
+import { sendMatterCreatedEmail, sendTaskAssignedEmail, sendInvoiceEmail, sendTaskResponseSubmittedEmail, sendTaskApprovedEmail, sendTaskRevisionRequestedEmail, sendClientInvitationEmail, sendIntakeReminderEmail } from "@/lib/email/actions";
 import { sendEmail } from "@/lib/email/service";
 import { fetchGmailEmails, extractEmailAddress } from "@/lib/email/gmail-client";
 import { summarizeEmail } from "@/lib/ai/email-summary";
@@ -18,7 +19,7 @@ import AdminPasswordResetEmail from "@/lib/email/templates/admin-password-reset"
 import { inviteUserSchema, passwordResetSchema, changePasswordSchema, declineIntakeSchema, scheduleCallSchema, updateIntakeNotesSchema, updateClientProfileSchema } from "@/lib/validation/schemas";
 import { infoRequestSchema, infoResponseSchema } from "@/lib/validation/info-request-schemas";
 import { FIRM_SETTING_KEYS, type FirmSettingKey } from "@/types/firm-settings";
-import { invalidateFirmSettingsCache } from "@/lib/data/queries";
+import { invalidateFirmSettingsCache, getClientInfo } from "@/lib/data/queries";
 import { z } from "zod";
 import { calculateBillableDuration } from "@/lib/billing/utils";
 
@@ -103,17 +104,8 @@ async function sendTaskApprovalEmail(
 ) {
   const supabase = ensureSupabase();
 
-  // Get client profile
-  const { data: clientProfile } = await supabase
-    .from("profiles")
-    .select("full_name")
-    .eq("user_id", clientUserId)
-    .single();
-
-  // Get client email from auth
-  const { data: { user: clientUser } } = await supabase.auth.admin.getUserById(clientUserId);
-
-  if (!clientUser?.email) {
+  const clientInfo = await getClientInfo(clientUserId);
+  if (!clientInfo) {
     console.error("No email found for client");
     return;
   }
@@ -126,8 +118,8 @@ async function sendTaskApprovalEmail(
     .single();
 
   await sendTaskApprovedEmail({
-    to: clientUser.email,
-    recipientName: clientProfile?.full_name || "Client",
+    to: clientInfo.email,
+    recipientName: clientInfo.fullName,
     taskTitle,
     taskId,
     matterTitle: matter?.title || "Your Matter",
@@ -147,17 +139,8 @@ async function sendTaskRevisionEmail(
 ) {
   const supabase = ensureSupabase();
 
-  // Get client profile
-  const { data: clientProfile } = await supabase
-    .from("profiles")
-    .select("full_name")
-    .eq("user_id", clientUserId)
-    .single();
-
-  // Get client email from auth
-  const { data: { user: clientUser } } = await supabase.auth.admin.getUserById(clientUserId);
-
-  if (!clientUser?.email) {
+  const clientInfo = await getClientInfo(clientUserId);
+  if (!clientInfo) {
     console.error("No email found for client");
     return;
   }
@@ -170,8 +153,8 @@ async function sendTaskRevisionEmail(
     .single();
 
   await sendTaskRevisionRequestedEmail({
-    to: clientUser.email,
-    recipientName: clientProfile?.full_name || "Client",
+    to: clientInfo.email,
+    recipientName: clientInfo.fullName,
     taskTitle,
     taskId,
     matterTitle: matter?.title || "Your Matter",
@@ -179,35 +162,6 @@ async function sendTaskRevisionEmail(
     revisionNotes: notes,
   });
 }
-
-const ensureSupabase = () => {
-  if (!supabaseEnvReady()) {
-    throw new Error("Supabase environment variables are not set");
-  }
-  return supabaseAdmin();
-};
-
-const ensureStaffOrAdmin = async () => {
-  const { profile, session } = await getSessionWithProfile();
-  if (!session) {
-    return { error: "Unauthorized: please sign in" } as const;
-  }
-  if (profile?.role === "client") {
-    return { error: "Forbidden: clients cannot perform this action" } as const;
-  }
-  return { session, profile } as const;
-};
-
-const ensureAdmin = async () => {
-  const { profile, session } = await getSessionWithProfile();
-  if (!session) {
-    return { error: "Unauthorized: please sign in" } as const;
-  }
-  if (profile?.role !== "admin") {
-    return { error: "Forbidden: only admins can perform this action" } as const;
-  }
-  return { session, profile } as const;
-};
 
 const logAudit = async ({
   supabase,
@@ -307,31 +261,20 @@ export async function createMatter(formData: FormData): Promise<ActionResult> {
     // Send email notification to client if client is specified
     if (clientId && matterId) {
       try {
-        // Fetch client and owner profiles
-        const { data: clientProfile } = await supabase
-          .from("profiles")
-          .select("full_name, user_id")
-          .eq("user_id", clientId)
-          .maybeSingle();
+        const [clientInfo, ownerProfileResult] = await Promise.all([
+          getClientInfo(clientId),
+          supabase.from("profiles").select("full_name").eq("user_id", ownerId).maybeSingle(),
+        ]);
 
-        const { data: ownerProfile } = await supabase
-          .from("profiles")
-          .select("full_name")
-          .eq("user_id", ownerId)
-          .maybeSingle();
-
-        // Get client email from auth.users
-        const { data: { user: clientUser } } = await supabase.auth.admin.getUserById(clientId);
-
-        if (clientUser?.email && clientProfile) {
+        if (clientInfo) {
           const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
           await sendMatterCreatedEmail({
-            to: clientUser.email,
-            clientName: clientProfile.full_name || "Client",
+            to: clientInfo.email,
+            clientName: clientInfo.fullName,
             matterTitle: title,
             matterId,
             matterType,
-            lawyerName: ownerProfile?.full_name || "Your Attorney",
+            lawyerName: ownerProfileResult.data?.full_name || "Your Attorney",
             nextAction,
             intakeLink: `${appUrl}/intake/${matterId}`,
           });
@@ -730,19 +673,13 @@ export async function createTask(formData: FormData): Promise<ActionResult> {
           .maybeSingle();
 
         if (matter?.client_id) {
-          const { data: clientProfile } = await supabase
-            .from("profiles")
-            .select("full_name")
-            .eq("user_id", matter.client_id)
-            .maybeSingle();
+          const clientInfo = await getClientInfo(matter.client_id);
 
-          const { data: { user: clientUser } } = await supabase.auth.admin.getUserById(matter.client_id);
-
-          if (clientUser?.email && clientProfile) {
+          if (clientInfo) {
             const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
             await sendTaskAssignedEmail({
-              to: clientUser.email,
-              recipientName: clientProfile.full_name || "Client",
+              to: clientInfo.email,
+              recipientName: clientInfo.fullName,
               taskTitle: title,
               taskId,
               matterTitle: matter.title,
@@ -1251,21 +1188,15 @@ export async function updateInvoiceStatus(formData: FormData): Promise<ActionRes
             .maybeSingle();
 
           if (matter?.client_id) {
-            const { data: clientProfile } = await supabase
-              .from("profiles")
-              .select("full_name")
-              .eq("user_id", matter.client_id)
-              .maybeSingle();
+            const clientInfo = await getClientInfo(matter.client_id);
 
-            const { data: { user: clientUser } } = await supabase.auth.admin.getUserById(matter.client_id);
-
-            if (clientUser?.email && clientProfile) {
+            if (clientInfo) {
               const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
               const amount = (invoice.total_cents / 100).toFixed(2);
 
               await sendInvoiceEmail({
-                to: clientUser.email,
-                clientName: clientProfile.full_name || "Client",
+                to: clientInfo.email,
+                clientName: clientInfo.fullName,
                 matterTitle: matter.title,
                 matterId: invoice.matter_id,
                 invoiceId: id,
@@ -1489,7 +1420,7 @@ export async function inviteUser(data: {
         subject: "Welcome to MatterFlow\u2122",
         html: emailHtml,
         metadata: {
-          type: "matter_created", // Using closest type for user invitation
+          type: "user_invitation",
           recipientRole: role === "client" ? "client" : "staff",
         },
       });
@@ -2281,46 +2212,26 @@ export async function inviteClient(formData: FormData): Promise<{
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
     const inviteLink = `${appUrl}/intake/invite/${inviteCode}`
 
-    // Send invitation email via Gmail (non-blocking)
+    // Send invitation email via standard email pipeline (non-blocking)
     try {
-      // Fetch practice settings for Gmail OAuth credentials
-      const { data: settings } = await supabase
-        .from('practice_settings')
-        .select('google_refresh_token, contact_email, firm_name')
-        .single()
+      const message = notes
+        ? `${notes}\n\nMatter type: ${matterType || 'Not specified'}`
+        : matterType
+          ? `Matter type: ${matterType}`
+          : undefined
 
-      if (!settings?.google_refresh_token) {
-        console.warn('Gmail not connected - skipping invitation email. Connect Google account in Settings.')
-      } else if (!settings?.contact_email) {
-        console.warn('Contact email not configured - skipping invitation email. Add contact email in Settings.')
-      } else {
-        const { sendInvitationEmail } = await import('@/lib/email/gmail-client')
-        const message = notes
-          ? `${notes}\n\nMatter type: ${matterType || 'Not specified'}`
-          : matterType
-            ? `Matter type: ${matterType}`
-            : undefined
-
-        const result = await sendInvitationEmail(
-          {
-            to: clientEmail,
-            clientName: clientName,
-            inviteCode: inviteCode,
-            inviteLink: inviteLink,
-            lawyerName: profile?.full_name || settings.firm_name || 'Your Lawyer',
-            message: message,
-          },
-          settings.google_refresh_token,
-          settings.contact_email
-        )
-
-        if (!result.ok) {
-          console.error('Failed to send invitation email:', result.error)
-        }
-      }
+      await sendClientInvitationEmail({
+        to: clientEmail,
+        clientName,
+        inviteCode: invitation.invite_code,
+        inviteLink,
+        lawyerName: profile?.full_name || 'Your Attorney',
+        message,
+        matterId: matter?.id,
+      });
     } catch (emailError) {
       console.error('Failed to send invitation email:', emailError)
-      // Don't fail the whole operation if email fails
+      // Don't fail the invitation if email fails
     }
 
     // Audit log
@@ -2381,40 +2292,22 @@ export async function resendInvitationEmail(invitationId: string): Promise<{
       return { ok: false, error: 'Invitation not found' }
     }
 
-    // Get practice settings
-    const { data: settings } = await supabase
-      .from('practice_settings')
-      .select('google_refresh_token, contact_email, firm_name')
-      .single()
-
-    if (!settings?.google_refresh_token) {
-      return { ok: false, error: 'Gmail not connected. Please connect Google account in Settings.' }
-    }
-
-    if (!settings?.contact_email) {
-      return { ok: false, error: 'Contact email not configured. Please add contact email in Settings.' }
-    }
-
     // Generate invite link
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
     const inviteLink = `${appUrl}/intake/invite/${invitation.invite_code}`
 
-    // Send email
-    const { sendInvitationEmail } = await import('@/lib/email/gmail-client')
-    const result = await sendInvitationEmail(
-      {
-        to: invitation.client_email,
-        clientName: invitation.client_name,
-        inviteCode: invitation.invite_code,
-        inviteLink: inviteLink,
-        lawyerName: profile?.full_name || settings.firm_name || 'Your Lawyer',
-        message: invitation.notes || undefined,
-      },
-      settings.google_refresh_token,
-      settings.contact_email
-    )
+    // Send email via standard pipeline
+    const result = await sendClientInvitationEmail({
+      to: invitation.client_email,
+      clientName: invitation.client_name,
+      inviteCode: invitation.invite_code,
+      inviteLink,
+      lawyerName: profile?.full_name || 'Your Attorney',
+      message: invitation.notes || undefined,
+      matterId: invitation.matter_id || undefined,
+    });
 
-    if (!result.ok) {
+    if (!result.success) {
       return { ok: false, error: result.error || 'Failed to send email' }
     }
 
@@ -3810,7 +3703,7 @@ export async function resendIntakeReminder(matterId: string): Promise<ActionResu
   // Get matter with client info
   const { data: matter, error: matterError } = await supabase
     .from("matters")
-    .select("id, title, stage, client_id, matter_type")
+    .select("id, title, stage, client_id, matter_type, created_at")
     .eq("id", matterId)
     .single();
 
@@ -3839,49 +3732,22 @@ export async function resendIntakeReminder(matterId: string): Promise<ActionResu
     .eq("user_id", matter.client_id)
     .single();
 
-  // Get practice settings for Gmail
-  const { data: settings } = await supabase
-    .from("practice_settings")
-    .select("google_refresh_token, contact_email, firm_name")
-    .single();
-
-  if (!settings?.google_refresh_token) {
-    return { error: "Gmail not connected. Please connect Google in Settings > Integrations." };
-  }
-
-  if (!settings?.contact_email) {
-    return { error: "Contact email not configured. Please add it in Settings > Practice." };
-  }
-
   // Generate intake link
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
   const intakeLink = `${appUrl}/intake/${matterId}`;
 
-  // Send reminder email
+  // Send reminder email via standard pipeline
   try {
-    const { sendGmailEmail } = await import("@/lib/email/gmail-client");
-    const { render } = await import("@react-email/render");
-    const { default: IntakeReminderEmail } = await import("@/lib/email/templates/intake-reminder");
-
-    const html = await render(
-      IntakeReminderEmail({
-        clientName: clientProfile?.full_name || "Client",
-        matterTitle: matter.title,
-        intakeLink,
-        daysWaiting: 0, // Manual reminder, no auto-calculated days
-      })
-    );
-
-    const result = await sendGmailEmail({
+    const result = await sendIntakeReminderEmail({
       to: clientUser.email,
-      subject: `Reminder: Please complete your intake form - ${matter.title}`,
-      html,
-      refreshToken: settings.google_refresh_token,
-      fromEmail: settings.contact_email,
-      fromName: settings.firm_name || undefined,
+      clientName: clientProfile?.full_name || "Client",
+      matterTitle: matter.title,
+      matterId: matter.id,
+      intakeLink,
+      daysWaiting: Math.floor((Date.now() - new Date(matter.created_at).getTime()) / (1000 * 60 * 60 * 24)),
     });
 
-    if (!result.ok) {
+    if (!result.success) {
       return { error: result.error || "Failed to send email" };
     }
   } catch (emailError) {

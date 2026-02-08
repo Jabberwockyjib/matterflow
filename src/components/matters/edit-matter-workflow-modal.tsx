@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { useModalState } from "@/hooks/use-modal-state";
 import { Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -27,6 +28,7 @@ import {
   matterStageValues,
   responsiblePartyValues,
 } from "@/lib/validation/schemas";
+import { formatDateForInput } from "@/lib/utils/date-helpers";
 
 interface EditMatterWorkflowModalProps {
   matterId: string;
@@ -44,22 +46,13 @@ export function EditMatterWorkflowModal({
   currentNextActionDueDate,
 }: EditMatterWorkflowModalProps) {
   const router = useRouter();
-  const [open, setOpen] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const { open, setOpen, loading, setLoading, error, setError } = useModalState();
   const [createTaskChecked, setCreateTaskChecked] = useState(false);
-
-  // Format date for input (YYYY-MM-DD)
-  const formatDateForInput = (dateStr: string | null): string => {
-    if (!dateStr) return "";
-    const date = new Date(dateStr);
-    return date.toISOString().split("T")[0];
-  };
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setLoading(true);
-    setError(null);
+    setError("");
 
     const formData = new FormData(e.currentTarget);
     const newNextAction = formData.get("nextAction") as string;

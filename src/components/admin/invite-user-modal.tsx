@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { useModalState } from '@/hooks/use-modal-state'
 import { inviteUser } from '@/lib/data/actions'
 import { Button } from '@/components/ui/button'
 import {
@@ -25,9 +26,7 @@ import {
 
 export function InviteUserModal() {
   const router = useRouter()
-  const [open, setOpen] = useState(false)
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const { open, setOpen, loading, setLoading, error, setError, reset } = useModalState()
 
   const [email, setEmail] = useState('')
   const [fullName, setFullName] = useState('')
@@ -35,7 +34,7 @@ export function InviteUserModal() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    setError(null)
+    setError("")
     setLoading(true)
 
     try {

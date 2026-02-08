@@ -172,3 +172,14 @@ export function getDueDateUrgency(
     return "future";
   }
 }
+
+/**
+ * Format a date string for use in HTML date inputs (YYYY-MM-DD).
+ * Returns empty string for null/undefined input.
+ */
+export function formatDateForInput(dateStr: string | null | undefined): string {
+  if (!dateStr) return "";
+  const d = new Date(dateStr);
+  if (isNaN(d.getTime())) return "";
+  return d.toISOString().split("T")[0];
+}

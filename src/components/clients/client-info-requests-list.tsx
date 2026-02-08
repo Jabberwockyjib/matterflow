@@ -1,16 +1,10 @@
-import { Badge } from "@/components/ui/badge";
+import { WorkflowStatusBadge } from "@/components/ui/stage-badge";
 import { MessageSquare } from "lucide-react";
 import type { ClientInfoRequestSummary } from "@/lib/data/queries";
 
 interface ClientInfoRequestsListProps {
   infoRequests: ClientInfoRequestSummary[];
 }
-
-const statusBadgeColors: Record<string, string> = {
-  pending: "bg-yellow-100 text-yellow-800",
-  responded: "bg-green-100 text-green-800",
-  expired: "bg-red-100 text-red-800",
-};
 
 export function ClientInfoRequestsList({ infoRequests }: ClientInfoRequestsListProps) {
   if (infoRequests.length === 0) {
@@ -35,9 +29,7 @@ export function ClientInfoRequestsList({ infoRequests }: ClientInfoRequestsListP
                 Sent {new Date(ir.createdAt).toLocaleDateString()}
               </p>
             </div>
-            <Badge className={statusBadgeColors[ir.status] || "bg-slate-100"}>
-              {ir.status}
-            </Badge>
+            <WorkflowStatusBadge status={ir.status} />
           </div>
         </li>
       ))}

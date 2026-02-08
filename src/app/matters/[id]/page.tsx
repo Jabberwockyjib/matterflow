@@ -220,7 +220,7 @@ export default async function MatterDetailPage({ params }: MatterDetailPageProps
           <div className="rounded-lg border border-slate-200 bg-white p-6">
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-xl font-semibold text-slate-900">Time Entries</h2>
-<AddTimeEntryModal matterId={id} />
+<AddTimeEntryModal matterId={id} matterTitle={typedMatter.title} />
             </div>
 
             {/* Stats Row */}

@@ -1,17 +1,11 @@
 import Link from "next/link";
-import { Badge } from "@/components/ui/badge";
+import { WorkflowStatusBadge } from "@/components/ui/stage-badge";
 import { ClipboardList } from "lucide-react";
 import type { ClientIntakeSummary } from "@/lib/data/queries";
 
 interface ClientIntakesListProps {
   intakes: ClientIntakeSummary[];
 }
-
-const statusBadgeColors: Record<string, string> = {
-  draft: "bg-slate-100 text-slate-700",
-  submitted: "bg-blue-100 text-blue-800",
-  approved: "bg-green-100 text-green-800",
-};
 
 export function ClientIntakesList({ intakes }: ClientIntakesListProps) {
   if (intakes.length === 0) {
@@ -42,9 +36,7 @@ export function ClientIntakesList({ intakes }: ClientIntakesListProps) {
                   </p>
                 )}
               </div>
-              <Badge className={statusBadgeColors[intake.status] || "bg-slate-100"}>
-                {intake.status}
-              </Badge>
+              <WorkflowStatusBadge status={intake.status} />
             </div>
           </Link>
         </li>

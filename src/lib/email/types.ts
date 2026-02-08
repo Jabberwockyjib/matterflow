@@ -19,7 +19,9 @@ export type EmailType =
   | "matter_stage_changed"
   | "info_request"
   | "info_request_response"
-  | "account_creation";
+  | "account_creation"
+  | "user_invitation"
+  | "client_invitation";
 
 export interface EmailMetadata {
   type: EmailType;

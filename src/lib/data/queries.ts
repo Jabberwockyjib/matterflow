@@ -1484,6 +1484,49 @@ export async function getInfoRequestById(
 }
 
 // ============================================================================
+// Shared Data Helpers
+// ============================================================================
+
+/**
+ * Get client contact info (email + full name) by user ID
+ * Used when sending emails to clients from server actions
+ */
+export async function getClientInfo(userId: string): Promise<{ email: string; fullName: string } | null> {
+  if (!supabaseEnvReady()) return null;
+  const supabase = supabaseAdmin();
+
+  const [profileResult, userResult] = await Promise.all([
+    supabase.from("profiles").select("full_name").eq("user_id", userId).single(),
+    supabase.auth.admin.getUserById(userId),
+  ]);
+
+  const email = userResult.data?.user?.email;
+  if (!email) return null;
+
+  return {
+    email,
+    fullName: profileResult.data?.full_name || "Client",
+  };
+}
+
+/**
+ * Verify a client has access to a matter (for IDOR protection on uploads)
+ */
+export async function verifyClientMatterAccess(matterId: string, userId: string): Promise<boolean> {
+  if (!supabaseEnvReady()) return false;
+  const supabase = supabaseAdmin();
+
+  const { data } = await supabase
+    .from("matters")
+    .select("id")
+    .eq("id", matterId)
+    .eq("client_id", userId)
+    .single();
+
+  return !!data;
+}
+
+// ============================================================================
 // Client Profile Queries
 // ============================================================================
 

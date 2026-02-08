@@ -23,6 +23,8 @@ export interface QuickAddTimeEntryDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSuccess?: () => void;
+  defaultMatterId?: string;
+  defaultMatterTitle?: string;
 }
 
 // Generate stable IDs for accessibility
@@ -41,10 +43,16 @@ export function QuickAddTimeEntryDialog({
   open,
   onOpenChange,
   onSuccess,
+  defaultMatterId,
+  defaultMatterTitle,
 }: QuickAddTimeEntryDialogProps) {
-  const [matterId, setMatterId] = React.useState("");
+  const [matterId, setMatterId] = React.useState(defaultMatterId ?? "");
   const [selectedMatter, setSelectedMatter] =
-    React.useState<MatterSearchResult | null>(null);
+    React.useState<MatterSearchResult | null>(
+      defaultMatterId
+        ? { id: defaultMatterId, title: defaultMatterTitle ?? "", clientName: null, matterType: "" }
+        : null,
+    );
   const [duration, setDuration] = React.useState("");
   const [notes, setNotes] = React.useState("");
   const [date, setDate] = React.useState(() => {
@@ -67,8 +75,12 @@ export function QuickAddTimeEntryDialog({
     if (!open) {
       // Small delay to allow close animation
       const timer = setTimeout(() => {
-        setMatterId("");
-        setSelectedMatter(null);
+        setMatterId(defaultMatterId ?? "");
+        setSelectedMatter(
+          defaultMatterId
+            ? { id: defaultMatterId, title: defaultMatterTitle ?? "", clientName: null, matterType: "" }
+            : null,
+        );
         setDuration("");
         setNotes("");
         setDate(new Date().toISOString().split("T")[0]);
@@ -77,7 +89,7 @@ export function QuickAddTimeEntryDialog({
       }, 150);
       return () => clearTimeout(timer);
     }
-  }, [open]);
+  }, [open, defaultMatterId, defaultMatterTitle]);
 
   const handleMatterChange = (
     id: string,
@@ -191,42 +203,46 @@ export function QuickAddTimeEntryDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md" aria-describedby="quick-add-description">
         <DialogHeader>
-          <DialogTitle>Quick Add Time Entry</DialogTitle>
+          <DialogTitle>{defaultMatterId ? "Add Time Entry" : "Quick Add Time Entry"}</DialogTitle>
           <DialogDescription id="quick-add-description">
-            Log time to a matter. Press Enter to submit, Escape to cancel.
+            {defaultMatterId
+              ? "Log time for this matter. Press Enter to submit, Escape to cancel."
+              : "Log time to a matter. Press Enter to submit, Escape to cancel."}
           </DialogDescription>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="grid gap-4 py-2" noValidate>
-          {/* Matter Search */}
-          <div className="space-y-1">
-            <label
-              htmlFor={FORM_IDS.matter}
-              className="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-500"
-            >
-              Matter <span className="text-red-500" aria-hidden="true">*</span>
-              <span className="sr-only">(required)</span>
-            </label>
-            <MatterSearch
-              id={FORM_IDS.matter}
-              value={matterId}
-              onValueChange={handleMatterSelect}
-              placeholder="Search for a matter..."
-              disabled={isSubmitting}
-              aria-required="true"
-              aria-invalid={!!fieldErrors.matter}
-              aria-describedby={fieldErrors.matter ? FORM_IDS.matterError : undefined}
-            />
-            {fieldErrors.matter && (
-              <p
-                id={FORM_IDS.matterError}
-                className="text-sm text-red-600"
-                role="alert"
+          {/* Matter Search - hidden when defaultMatterId is provided */}
+          {!defaultMatterId && (
+            <div className="space-y-1">
+              <label
+                htmlFor={FORM_IDS.matter}
+                className="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-500"
               >
-                {fieldErrors.matter}
-              </p>
-            )}
-          </div>
+                Matter <span className="text-red-500" aria-hidden="true">*</span>
+                <span className="sr-only">(required)</span>
+              </label>
+              <MatterSearch
+                id={FORM_IDS.matter}
+                value={matterId}
+                onValueChange={handleMatterSelect}
+                placeholder="Search for a matter..."
+                disabled={isSubmitting}
+                aria-required="true"
+                aria-invalid={!!fieldErrors.matter}
+                aria-describedby={fieldErrors.matter ? FORM_IDS.matterError : undefined}
+              />
+              {fieldErrors.matter && (
+                <p
+                  id={FORM_IDS.matterError}
+                  className="text-sm text-red-600"
+                  role="alert"
+                >
+                  {fieldErrors.matter}
+                </p>
+              )}
+            </div>
+          )}
 
           {/* Duration Input */}
           <div className="space-y-1">
