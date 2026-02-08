@@ -5,6 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { getInvoice } from "@/lib/data/queries";
 import { InvoiceActions } from "./invoice-actions";
+import { EditableLineItems } from "@/components/billing/editable-line-items";
+import { InvoiceDraftFields } from "./invoice-draft-fields";
 
 interface InvoiceDetailPageProps {
   params: Promise<{ invoiceId: string }>;
@@ -33,6 +35,7 @@ export default async function InvoiceDetailPage({ params }: InvoiceDetailPagePro
   }
 
   const status = statusConfig[invoice.status] || statusConfig.draft;
+  const isDraft = invoice.status === "draft";
   const squarePaymentUrl = invoice.squareInvoiceId
     ? `https://squareup.com/pay-invoice/${invoice.squareInvoiceId}`
     : null;
@@ -101,68 +104,121 @@ export default async function InvoiceDetailPage({ params }: InvoiceDetailPagePro
         </div>
       </div>
 
-      {/* Line Items */}
-      <div className="rounded-lg border border-slate-200 bg-white mb-8">
-        <div className="p-4 border-b border-slate-200">
-          <h2 className="text-lg font-semibold text-slate-900">Line Items</h2>
+      {/* Draft-specific editable fields */}
+      {isDraft && (
+        <InvoiceDraftFields
+          invoiceId={invoice.id}
+          dueDate={invoice.dueDate}
+          notes={invoice.notes}
+        />
+      )}
+
+      {/* Line Items - editable for drafts, read-only otherwise */}
+      {isDraft && invoice.structuredLineItems.length > 0 ? (
+        <div className="mb-8">
+          <EditableLineItems
+            invoiceId={invoice.id}
+            lineItems={invoice.structuredLineItems}
+            totalCents={invoice.totalCents}
+          />
         </div>
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead className="bg-slate-50">
-              <tr>
-                <th className="text-left text-xs font-medium uppercase tracking-wide text-slate-500 px-4 py-3">
-                  Description
-                </th>
-                <th className="text-right text-xs font-medium uppercase tracking-wide text-slate-500 px-4 py-3">
-                  Hours
-                </th>
-                <th className="text-right text-xs font-medium uppercase tracking-wide text-slate-500 px-4 py-3">
-                  Rate
-                </th>
-                <th className="text-right text-xs font-medium uppercase tracking-wide text-slate-500 px-4 py-3">
-                  Amount
-                </th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-200">
-              {invoice.lineItems.length === 0 ? (
+      ) : isDraft && invoice.structuredLineItems.length === 0 ? (
+        <div className="mb-8">
+          <EditableLineItems
+            invoiceId={invoice.id}
+            lineItems={[]}
+            totalCents={invoice.totalCents}
+          />
+        </div>
+      ) : (
+        <div className="rounded-lg border border-slate-200 bg-white mb-8">
+          <div className="p-4 border-b border-slate-200">
+            <h2 className="text-lg font-semibold text-slate-900">Line Items</h2>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-slate-50">
                 <tr>
-                  <td colSpan={4} className="px-4 py-8 text-center text-slate-500">
-                    No line items
+                  <th className="text-left text-xs font-medium uppercase tracking-wide text-slate-500 px-4 py-3">
+                    Description
+                  </th>
+                  <th className="text-right text-xs font-medium uppercase tracking-wide text-slate-500 px-4 py-3">
+                    Hours
+                  </th>
+                  <th className="text-right text-xs font-medium uppercase tracking-wide text-slate-500 px-4 py-3">
+                    Rate
+                  </th>
+                  <th className="text-right text-xs font-medium uppercase tracking-wide text-slate-500 px-4 py-3">
+                    Amount
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-200">
+                {invoice.structuredLineItems.length > 0 ? (
+                  invoice.structuredLineItems.map((item) => (
+                    <tr key={item.id}>
+                      <td className="px-4 py-3 text-sm text-slate-900">
+                        <div className="flex items-center gap-2">
+                          {item.description}
+                          {item.taskTitle && (
+                            <Badge variant="outline" className="text-xs">
+                              {item.taskTitle}
+                            </Badge>
+                          )}
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 text-sm text-slate-600 text-right">
+                        {item.isManual ? "—" : (item.quantityMinutes / 60).toFixed(2)}
+                      </td>
+                      <td className="px-4 py-3 text-sm text-slate-600 text-right">
+                        {item.isManual ? "—" : formatCurrency(item.rateCents)}
+                      </td>
+                      <td className="px-4 py-3 text-sm font-medium text-slate-900 text-right">
+                        {formatCurrency(item.amountCents)}
+                      </td>
+                    </tr>
+                  ))
+                ) : (
+                  invoice.lineItems.map((item, index) => (
+                    <tr key={index}>
+                      <td className="px-4 py-3 text-sm text-slate-900">
+                        {item.description}
+                      </td>
+                      <td className="px-4 py-3 text-sm text-slate-600 text-right">
+                        {item.hours ? item.hours.toFixed(2) : "—"}
+                      </td>
+                      <td className="px-4 py-3 text-sm text-slate-600 text-right">
+                        {item.rate ? formatCurrency(item.rate * 100) : "—"}
+                      </td>
+                      <td className="px-4 py-3 text-sm font-medium text-slate-900 text-right">
+                        {formatCurrency(item.amount * 100)}
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+              <tfoot className="bg-slate-50">
+                <tr>
+                  <td colSpan={3} className="px-4 py-3 text-sm font-medium text-slate-900 text-right">
+                    Total
+                  </td>
+                  <td className="px-4 py-3 text-sm font-bold text-slate-900 text-right">
+                    {formatCurrency(invoice.totalCents)}
                   </td>
                 </tr>
-              ) : (
-                invoice.lineItems.map((item, index) => (
-                  <tr key={index}>
-                    <td className="px-4 py-3 text-sm text-slate-900">
-                      {item.description}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-slate-600 text-right">
-                      {item.hours ? item.hours.toFixed(2) : "-"}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-slate-600 text-right">
-                      {item.rate ? formatCurrency(item.rate * 100) : "-"}
-                    </td>
-                    <td className="px-4 py-3 text-sm font-medium text-slate-900 text-right">
-                      {formatCurrency(item.amount * 100)}
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-            <tfoot className="bg-slate-50">
-              <tr>
-                <td colSpan={3} className="px-4 py-3 text-sm font-medium text-slate-900 text-right">
-                  Total
-                </td>
-                <td className="px-4 py-3 text-sm font-bold text-slate-900 text-right">
-                  {formatCurrency(invoice.totalCents)}
-                </td>
-              </tr>
-            </tfoot>
-          </table>
+              </tfoot>
+            </table>
+          </div>
         </div>
-      </div>
+      )}
+
+      {/* Notes (read-only for non-draft) */}
+      {!isDraft && invoice.notes && (
+        <div className="rounded-lg border border-slate-200 bg-white p-4 mb-8">
+          <h2 className="text-lg font-semibold text-slate-900 mb-2">Internal Notes</h2>
+          <p className="text-sm text-slate-600 whitespace-pre-wrap">{invoice.notes}</p>
+        </div>
+      )}
 
       {/* Payment Link */}
       {squarePaymentUrl && (

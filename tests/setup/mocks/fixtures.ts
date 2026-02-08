@@ -7,6 +7,7 @@ type Task = Database['public']['Tables']['tasks']['Row']
 type TimeEntry = Database['public']['Tables']['time_entries']['Row']
 type Document = Database['public']['Tables']['documents']['Row']
 type Invoice = Database['public']['Tables']['invoices']['Row']
+type InvoiceLineItem = Database['public']['Tables']['invoice_line_items']['Row']
 type CalendarEvent = Database['public']['Tables']['calendar_events']['Row']
 type UserRole = Database['public']['Enums']['user_role']
 
@@ -15,6 +16,8 @@ const DEFAULT_USER_ID = 'test-user-id-123'
 const DEFAULT_MATTER_ID = 'test-matter-id-456'
 const DEFAULT_TASK_ID = 'test-task-id-789'
 const DEFAULT_TIME_ENTRY_ID = 'test-time-entry-id-012'
+const DEFAULT_INVOICE_ID = 'test-invoice-id-inv'
+const DEFAULT_LINE_ITEM_ID = 'test-line-item-id-li'
 const DEFAULT_CALENDAR_EVENT_ID = 'test-calendar-event-id-345'
 
 /**
@@ -240,6 +243,8 @@ export function mockTimeEntry(overrides: Partial<TimeEntry> = {}): TimeEntry {
     status: 'recorded',
     created_by: DEFAULT_USER_ID,
     created_at: now,
+    invoice_id: null,
+    line_item_id: null,
     ...overrides,
   }
 }
@@ -300,14 +305,37 @@ export function mockDocument(overrides: Partial<Document> = {}): Document {
 export function mockInvoice(overrides: Partial<Invoice> = {}): Invoice {
   const now = timestamp()
   return {
-    id: generateId('inv'),
+    id: DEFAULT_INVOICE_ID,
     matter_id: DEFAULT_MATTER_ID,
     total_cents: 50000, // $500.00
     status: 'draft',
     line_items: [],
     due_date: null,
+    notes: null,
     square_invoice_id: null,
     last_reminder_sent_at: null,
+    created_at: now,
+    updated_at: now,
+    ...overrides,
+  }
+}
+
+/**
+ * Mock invoice line item factory
+ */
+export function mockInvoiceLineItem(overrides: Partial<InvoiceLineItem> = {}): InvoiceLineItem {
+  const now = timestamp()
+  return {
+    id: DEFAULT_LINE_ITEM_ID,
+    invoice_id: DEFAULT_INVOICE_ID,
+    time_entry_id: null,
+    task_id: null,
+    description: 'Test line item',
+    quantity_minutes: 60,
+    rate_cents: 25000, // $250.00/hr
+    amount_cents: 25000, // 1hr * $250
+    sort_order: 0,
+    is_manual: false,
     created_at: now,
     updated_at: now,
     ...overrides,
@@ -381,5 +409,7 @@ export const defaultIds = {
   matterId: DEFAULT_MATTER_ID,
   taskId: DEFAULT_TASK_ID,
   timeEntryId: DEFAULT_TIME_ENTRY_ID,
+  invoiceId: DEFAULT_INVOICE_ID,
+  lineItemId: DEFAULT_LINE_ITEM_ID,
   calendarEventId: DEFAULT_CALENDAR_EVENT_ID,
 } as const

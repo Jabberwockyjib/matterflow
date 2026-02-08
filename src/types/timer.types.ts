@@ -54,8 +54,9 @@ export interface TimerActions {
    * Creates a time_entry in the database with no end time.
    * @param matterId - The matter to track time against
    * @param notes - Optional initial notes
+   * @param taskId - Optional task to associate with the entry
    */
-  start: (matterId: string, notes?: string) => Promise<void>;
+  start: (matterId: string, notes?: string, taskId?: string) => Promise<void>;
 
   /**
    * Stop the timer and finalize the time entry.

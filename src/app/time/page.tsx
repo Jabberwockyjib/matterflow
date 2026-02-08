@@ -1,5 +1,3 @@
-import { Clock4 } from "lucide-react";
-
 import { Badge } from "@/components/ui/badge";
 import {
   ContentCard,
@@ -10,17 +8,10 @@ import {
 } from "@/components/cards/content-card";
 import { TimeEntryForm } from "@/components/forms/TimeEntryForm";
 import { StopTimerForm } from "@/components/forms/StopTimerForm";
+import { EditableTimeEntry } from "@/components/time/editable-time-entry";
 import { getSessionWithProfile } from "@/lib/auth/server";
 import { fetchMatters, fetchTasks, fetchTimeEntries } from "@/lib/data/queries";
 import { supabaseEnvReady } from "@/lib/supabase/server";
-
-const formatDuration = (minutes: number | null) => {
-  if (!minutes) return "Timer running";
-  const hrs = Math.floor(minutes / 60);
-  const mins = minutes % 60;
-  if (hrs === 0) return `${mins}m`;
-  return `${hrs}h ${mins}m`;
-};
 
 export default async function TimePage() {
   const { data: entries, source, error } = await fetchTimeEntries();
@@ -29,6 +20,14 @@ export default async function TimePage() {
   const supabaseReady = supabaseEnvReady();
   const { profile } = await getSessionWithProfile();
   const canEdit = supabaseReady && profile?.role !== "client";
+
+  // Build a lookup for tasks per matter (for the editable time entry task dropdown)
+  const tasksByMatter = new Map<string, Array<{ id: string; title: string }>>();
+  for (const task of tasks) {
+    const existing = tasksByMatter.get(task.matterId) || [];
+    existing.push({ id: task.id, title: task.title });
+    tasksByMatter.set(task.matterId, existing);
+  }
 
   return (
     <div className="bg-background">
@@ -42,7 +41,7 @@ export default async function TimePage() {
               Time Tracking
             </h1>
             <p className="text-sm text-slate-600">
-              Timers and manual entries per matter.{" "}
+              Timers and manual entries per matter. Time entries auto-create draft invoices.{" "}
               <span className="font-medium text-slate-700">
                 {source === "supabase"
                   ? "Live Supabase data"
@@ -78,53 +77,51 @@ export default async function TimePage() {
           </ContentCardContent>
         </ContentCard>
 
-        <div className="grid gap-4">
-          {entries.map((entry) => (
-            <ContentCard key={entry.id} className="border-slate-200 bg-white">
-              <ContentCardHeader className="pb-2">
-                <ContentCardTitle className="text-base text-slate-900">
-                  {entry.description || "Untitled entry"}
-                </ContentCardTitle>
-                <ContentCardDescription className="text-xs text-slate-600">
-                  Matter ID: {entry.matterId}
-                  {entry.taskId ? ` • Task: ${entry.taskId}` : null}
-                </ContentCardDescription>
-              </ContentCardHeader>
-              <ContentCardContent className="flex flex-wrap items-center gap-3 text-sm text-slate-700">
-                <Badge variant="outline" className="capitalize">
-                  {entry.status}
-                </Badge>
-                <div className="flex items-center gap-1 text-slate-800">
-                  <Clock4 className="h-4 w-4 text-slate-500" />
-                  {entry.billableDurationMinutes && entry.durationMinutes !== entry.billableDurationMinutes ? (
-                    <span>
-                      {formatDuration(entry.billableDurationMinutes)}
-                      <span className="text-slate-400 text-sm ml-1">
-                        (actual: {formatDuration(entry.durationMinutes)})
-                      </span>
-                    </span>
-                  ) : (
-                    <span>{formatDuration(entry.durationMinutes)}</span>
-                  )}
+        <div className="grid gap-3">
+          {entries.map((entry) => {
+            // Running timer that isn't editable
+            if (!entry.endedAt) {
+              return (
+                <div key={entry.id} className="rounded-lg border border-amber-200 bg-amber-50 p-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <Badge variant="warning" className="shrink-0">Running</Badge>
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium text-slate-900 truncate">
+                          {entry.description || "Untitled entry"}
+                        </p>
+                        <p className="text-xs text-slate-500">
+                          {entry.matterTitle || entry.matterId}
+                          {entry.taskTitle && ` · ${entry.taskTitle}`}
+                          {" · "}Started {new Date(entry.startedAt).toLocaleString()}
+                        </p>
+                      </div>
+                    </div>
+                    {canEdit && <StopTimerForm timeEntryId={entry.id} />}
+                  </div>
                 </div>
-                <span className="text-slate-600">
-                  Started {new Date(entry.startedAt).toLocaleString()}
-                </span>
-                {entry.endedAt ? (
-                  <span className="text-slate-600">
-                    Ended {new Date(entry.endedAt).toLocaleString()}
-                  </span>
-                ) : (
-                  <>
-                    <Badge variant="warning">Running</Badge>
-                    {canEdit ? (
-                      <StopTimerForm timeEntryId={entry.id} />
-                    ) : null}
-                  </>
-                )}
-              </ContentCardContent>
-            </ContentCard>
-          ))}
+              );
+            }
+
+            return (
+              <EditableTimeEntry
+                key={entry.id}
+                id={entry.id}
+                description={entry.description}
+                durationMinutes={entry.durationMinutes}
+                billableDurationMinutes={entry.billableDurationMinutes}
+                rateCents={entry.rateCents}
+                status={entry.status}
+                startedAt={entry.startedAt}
+                endedAt={entry.endedAt}
+                taskId={entry.taskId}
+                taskTitle={entry.taskTitle}
+                matterTitle={entry.matterTitle}
+                matterId={entry.matterId}
+                tasks={tasksByMatter.get(entry.matterId) || []}
+              />
+            );
+          })}
         </div>
       </main>
     </div>

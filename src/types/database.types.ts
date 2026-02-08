@@ -627,6 +627,73 @@ export type Database = {
           },
         ]
       }
+      invoice_line_items: {
+        Row: {
+          id: string
+          invoice_id: string
+          time_entry_id: string | null
+          task_id: string | null
+          description: string
+          quantity_minutes: number
+          rate_cents: number
+          amount_cents: number
+          sort_order: number
+          is_manual: boolean
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          invoice_id: string
+          time_entry_id?: string | null
+          task_id?: string | null
+          description: string
+          quantity_minutes?: number
+          rate_cents?: number
+          amount_cents?: number
+          sort_order?: number
+          is_manual?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          invoice_id?: string
+          time_entry_id?: string | null
+          task_id?: string | null
+          description?: string
+          quantity_minutes?: number
+          rate_cents?: number
+          amount_cents?: number
+          sort_order?: number
+          is_manual?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "invoice_line_items_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "invoices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoice_line_items_time_entry_id_fkey"
+            columns: ["time_entry_id"]
+            isOneToOne: false
+            referencedRelation: "time_entries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoice_line_items_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       invoices: {
         Row: {
           created_at: string
@@ -635,6 +702,7 @@ export type Database = {
           last_reminder_sent_at: string | null
           line_items: Json
           matter_id: string
+          notes: string | null
           square_invoice_id: string | null
           status: string
           total_cents: number
@@ -647,6 +715,7 @@ export type Database = {
           last_reminder_sent_at?: string | null
           line_items?: Json
           matter_id: string
+          notes?: string | null
           square_invoice_id?: string | null
           status?: string
           total_cents?: number
@@ -659,6 +728,7 @@ export type Database = {
           last_reminder_sent_at?: string | null
           line_items?: Json
           matter_id?: string
+          notes?: string | null
           square_invoice_id?: string | null
           status?: string
           total_cents?: number
@@ -1500,6 +1570,8 @@ export type Database = {
           duration_minutes: number | null
           ended_at: string | null
           id: string
+          invoice_id: string | null
+          line_item_id: string | null
           matter_id: string
           rate_cents: number | null
           started_at: string
@@ -1514,6 +1586,8 @@ export type Database = {
           duration_minutes?: number | null
           ended_at?: string | null
           id?: string
+          invoice_id?: string | null
+          line_item_id?: string | null
           matter_id: string
           rate_cents?: number | null
           started_at?: string
@@ -1528,6 +1602,8 @@ export type Database = {
           duration_minutes?: number | null
           ended_at?: string | null
           id?: string
+          invoice_id?: string | null
+          line_item_id?: string | null
           matter_id?: string
           rate_cents?: number | null
           started_at?: string
@@ -1541,6 +1617,20 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "time_entries_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "invoices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "time_entries_line_item_id_fkey"
+            columns: ["line_item_id"]
+            isOneToOne: false
+            referencedRelation: "invoice_line_items"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "time_entries_matter_id_fkey"

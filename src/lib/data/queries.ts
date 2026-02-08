@@ -34,10 +34,13 @@ export type TaskSummary = {
 export type InvoiceSummary = {
   id: string;
   matterId: string;
+  matterTitle: string;
   status: string;
   totalCents: number;
   dueDate: string | null;
   squareInvoiceId: string | null;
+  lineItemCount: number;
+  createdAt: string;
 };
 
 export type TimeEntrySummary = {
@@ -48,8 +51,11 @@ export type TimeEntrySummary = {
   description: string | null;
   durationMinutes: number | null;
   billableDurationMinutes: number | null;
+  rateCents: number | null;
   startedAt: string;
   endedAt: string | null;
+  matterTitle: string | null;
+  taskTitle: string | null;
 };
 
 export type ClientInvitation = {
@@ -270,10 +276,13 @@ const invoiceFallback: InvoiceSummary[] = [
   {
     id: "mock-invoice-1",
     matterId: "mock-1",
+    matterTitle: "Policy Review - Evergreen",
     status: "sent",
     totalCents: 180000,
     dueDate: null,
     squareInvoiceId: null,
+    lineItemCount: 1,
+    createdAt: new Date().toISOString(),
   },
 ];
 
@@ -286,8 +295,11 @@ const timeFallback: TimeEntrySummary[] = [
     description: "Review intake and prep notes",
     durationMinutes: 45,
     billableDurationMinutes: 48,
+    rateCents: 20000,
     startedAt: new Date().toISOString(),
     endedAt: null,
+    matterTitle: "Policy Review - Evergreen",
+    taskTitle: "Review intake documents",
   },
 ];
 
@@ -437,7 +449,7 @@ export const fetchInvoices = cache(async (): Promise<{
     const supabase = supabaseAdmin();
     const { data, error } = await supabase
       .from("invoices")
-      .select("id,matter_id,status,total_cents,due_date,square_invoice_id")
+      .select("id,matter_id,status,total_cents,due_date,square_invoice_id,created_at,matters(title),invoice_line_items(id)")
       .order("created_at", { ascending: false });
 
     if (error || !data) {
@@ -449,13 +461,16 @@ export const fetchInvoices = cache(async (): Promise<{
     }
 
     return {
-      data: data.map((row) => ({
+      data: data.map((row: any) => ({
         id: row.id,
         matterId: row.matter_id,
+        matterTitle: row.matters?.title || "Unknown Matter",
         status: row.status,
         totalCents: row.total_cents,
         dueDate: row.due_date,
         squareInvoiceId: row.square_invoice_id,
+        lineItemCount: row.invoice_line_items?.length || 0,
+        createdAt: row.created_at,
       })),
       source: "supabase",
     };
@@ -464,6 +479,18 @@ export const fetchInvoices = cache(async (): Promise<{
     return { data: invoiceFallback, source: "mock", error: message };
   }
 });
+
+export type InvoiceLineItemDetail = {
+  id: string;
+  description: string;
+  quantityMinutes: number;
+  rateCents: number;
+  amountCents: number;
+  isManual: boolean;
+  taskId: string | null;
+  taskTitle: string | null;
+  timeEntryId: string | null;
+};
 
 export async function getInvoice(invoiceId: string): Promise<{
   data: {
@@ -475,6 +502,7 @@ export async function getInvoice(invoiceId: string): Promise<{
     status: string;
     totalCents: number;
     dueDate: string | null;
+    notes: string | null;
     squareInvoiceId: string | null;
     lineItems: Array<{
       description: string;
@@ -482,6 +510,7 @@ export async function getInvoice(invoiceId: string): Promise<{
       rate?: number;
       amount: number;
     }>;
+    structuredLineItems: InvoiceLineItemDetail[];
     createdAt: string;
     updatedAt: string;
   } | null;
@@ -501,6 +530,7 @@ export async function getInvoice(invoiceId: string): Promise<{
         status,
         total_cents,
         due_date,
+        notes,
         square_invoice_id,
         line_items,
         created_at,
@@ -536,6 +566,25 @@ export async function getInvoice(invoiceId: string): Promise<{
       clientName = profile?.full_name || null;
     }
 
+    // Fetch structured line items from invoice_line_items table
+    const { data: dbLineItems } = await supabase
+      .from("invoice_line_items")
+      .select("id, description, quantity_minutes, rate_cents, amount_cents, is_manual, task_id, time_entry_id, tasks(title)")
+      .eq("invoice_id", invoiceId)
+      .order("sort_order", { ascending: true });
+
+    const structuredLineItems: InvoiceLineItemDetail[] = (dbLineItems || []).map((li: any) => ({
+      id: li.id,
+      description: li.description,
+      quantityMinutes: li.quantity_minutes,
+      rateCents: li.rate_cents,
+      amountCents: li.amount_cents,
+      isManual: li.is_manual,
+      taskId: li.task_id,
+      taskTitle: li.tasks?.title || null,
+      timeEntryId: li.time_entry_id,
+    }));
+
     return {
       data: {
         id: data.id,
@@ -546,6 +595,7 @@ export async function getInvoice(invoiceId: string): Promise<{
         status: data.status,
         totalCents: data.total_cents,
         dueDate: data.due_date,
+        notes: data.notes || null,
         squareInvoiceId: data.square_invoice_id,
         lineItems: (data.line_items as Array<{
           description: string;
@@ -553,6 +603,7 @@ export async function getInvoice(invoiceId: string): Promise<{
           rate?: number;
           amount: number;
         }>) || [],
+        structuredLineItems,
         createdAt: data.created_at,
         updatedAt: data.updated_at,
       },
@@ -579,7 +630,7 @@ export const fetchTimeEntries = cache(async (): Promise<{
     const { data, error } = await supabase
       .from("time_entries")
       .select(
-        "id,matter_id,task_id,status,description,duration_minutes,billable_duration_minutes,started_at,ended_at",
+        "id,matter_id,task_id,status,description,duration_minutes,billable_duration_minutes,rate_cents,started_at,ended_at,matters(title),tasks(title)",
       )
       .order("started_at", { ascending: false });
 
@@ -592,7 +643,7 @@ export const fetchTimeEntries = cache(async (): Promise<{
     }
 
     return {
-      data: data.map((row) => ({
+      data: data.map((row: any) => ({
         id: row.id,
         matterId: row.matter_id,
         taskId: row.task_id,
@@ -600,8 +651,11 @@ export const fetchTimeEntries = cache(async (): Promise<{
         description: row.description,
         durationMinutes: row.duration_minutes,
         billableDurationMinutes: row.billable_duration_minutes,
+        rateCents: row.rate_cents,
         startedAt: row.started_at,
         endedAt: row.ended_at,
+        matterTitle: row.matters?.title || null,
+        taskTitle: row.tasks?.title || null,
       })),
       source: "supabase",
     };
@@ -625,7 +679,7 @@ export async function fetchTimeEntriesForMatter(matterId: string): Promise<{
     const { data, error } = await supabase
       .from("time_entries")
       .select(
-        "id,matter_id,task_id,status,description,duration_minutes,billable_duration_minutes,started_at,ended_at",
+        "id,matter_id,task_id,status,description,duration_minutes,billable_duration_minutes,rate_cents,started_at,ended_at,matters(title),tasks(title)",
       )
       .eq("matter_id", matterId)
       .order("started_at", { ascending: false });
@@ -639,7 +693,7 @@ export async function fetchTimeEntriesForMatter(matterId: string): Promise<{
     }
 
     return {
-      data: data.map((row) => ({
+      data: data.map((row: any) => ({
         id: row.id,
         matterId: row.matter_id,
         taskId: row.task_id,
@@ -647,14 +701,58 @@ export async function fetchTimeEntriesForMatter(matterId: string): Promise<{
         description: row.description,
         durationMinutes: row.duration_minutes,
         billableDurationMinutes: row.billable_duration_minutes,
+        rateCents: row.rate_cents,
         startedAt: row.started_at,
         endedAt: row.ended_at,
+        matterTitle: row.matters?.title || null,
+        taskTitle: row.tasks?.title || null,
       })),
       source: "supabase",
     };
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown error";
     return { data: timeFallback.filter(t => t.matterId === matterId), source: "mock", error: message };
+  }
+}
+
+/**
+ * Fetch invoices for a specific matter.
+ */
+export async function fetchInvoicesForMatter(matterId: string): Promise<{
+  data: InvoiceSummary[];
+  error?: string;
+}> {
+  if (!supabaseEnvReady()) {
+    return { data: [] };
+  }
+
+  try {
+    const supabase = supabaseAdmin();
+    const { data, error } = await supabase
+      .from("invoices")
+      .select("id,matter_id,status,total_cents,due_date,square_invoice_id,created_at,matters(title),invoice_line_items(id)")
+      .eq("matter_id", matterId)
+      .order("created_at", { ascending: false });
+
+    if (error || !data) {
+      return { data: [], error: error?.message };
+    }
+
+    return {
+      data: data.map((row: any) => ({
+        id: row.id,
+        matterId: row.matter_id,
+        matterTitle: row.matters?.title || "Unknown Matter",
+        status: row.status,
+        totalCents: row.total_cents,
+        dueDate: row.due_date,
+        squareInvoiceId: row.square_invoice_id,
+        lineItemCount: row.invoice_line_items?.length || 0,
+        createdAt: row.created_at,
+      })),
+    };
+  } catch (err) {
+    return { data: [], error: err instanceof Error ? err.message : "Unknown error" };
   }
 }
 
@@ -1491,6 +1589,31 @@ export async function getInfoRequestById(
  * Get client contact info (email + full name) by user ID
  * Used when sending emails to clients from server actions
  */
+/**
+ * Fetch practice settings for billing calculations.
+ */
+export async function fetchPracticeSettings(): Promise<{
+  defaultHourlyRate: number;
+  billingIncrementMinutes: number;
+  paymentTermsDays: number;
+} | null> {
+  if (!supabaseEnvReady()) return null;
+  const supabase = supabaseAdmin();
+
+  const { data } = await supabase
+    .from("practice_settings")
+    .select("default_hourly_rate, billing_increment_minutes, payment_terms_days")
+    .maybeSingle();
+
+  if (!data) return null;
+
+  return {
+    defaultHourlyRate: Number(data.default_hourly_rate) || 0,
+    billingIncrementMinutes: data.billing_increment_minutes ?? 6,
+    paymentTermsDays: data.payment_terms_days ?? 30,
+  };
+}
+
 export async function getClientInfo(userId: string): Promise<{ email: string; fullName: string } | null> {
   if (!supabaseEnvReady()) return null;
   const supabase = supabaseAdmin();

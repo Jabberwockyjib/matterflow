@@ -4,11 +4,10 @@ import { useState } from "react";
 import { Sidebar } from "@/components/sidebar";
 import { TopBar } from "@/components/top-bar";
 import type { BreadcrumbItem } from "@/components/breadcrumbs";
-// Timer components temporarily disabled for MVP testing
-// import { FloatingTimerButton } from "@/components/timer/floating-timer-button";
-// import { KeyboardShortcuts } from "@/components/keyboard-shortcuts";
-// import { TimerModal } from "@/components/timer/timer-modal";
-import type { MatterSummary } from "@/lib/data/queries";
+import { FloatingTimerButton } from "@/components/timer/floating-timer-button";
+import { KeyboardShortcuts } from "@/components/keyboard-shortcuts";
+import { TimerModal } from "@/components/timer/timer-modal";
+import type { MatterSummary, TaskSummary } from "@/lib/data/queries";
 
 type AppShellProps = {
   children: React.ReactNode;
@@ -21,6 +20,10 @@ type AppShellProps = {
    * Should be fetched server-side and passed down.
    */
   matters?: MatterSummary[];
+  /**
+   * List of tasks for timer modal's task selection (filtered by matter).
+   */
+  tasks?: TaskSummary[];
 };
 
 export function AppShell({
@@ -30,6 +33,7 @@ export function AppShell({
   email,
   breadcrumbs = [],
   matters = [],
+  tasks = [],
 }: AppShellProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
@@ -72,14 +76,13 @@ export function AppShell({
         <main className="flex-1 overflow-y-auto bg-slate-50">{children}</main>
       </div>
 
-      {/* Timer components - temporarily disabled for MVP testing */}
-      {/* {isAuthenticated && (
+      {isAuthenticated && (
         <>
           <KeyboardShortcuts />
           <FloatingTimerButton />
-          <TimerModal matters={matters} />
+          <TimerModal matters={matters} tasks={tasks} />
         </>
-      )} */}
+      )}
     </div>
   );
 }

@@ -1,19 +1,9 @@
 import Link from "next/link";
-import { ReceiptText, Wallet2, Eye } from "lucide-react";
+import { ReceiptText, Eye, Clock, Mail, CheckCircle, AlertCircle } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import {
-  ContentCard,
-  ContentCardContent,
-  ContentCardDescription,
-  ContentCardHeader,
-  ContentCardTitle,
-} from "@/components/cards/content-card";
-import { createInvoice, updateInvoiceStatus } from "@/lib/data/actions";
-import { getSessionWithProfile } from "@/lib/auth/server";
-import { fetchInvoices, fetchMatters } from "@/lib/data/queries";
-import { supabaseEnvReady } from "@/lib/supabase/server";
+import { fetchInvoices } from "@/lib/data/queries";
+import type { InvoiceSummary } from "@/lib/data/queries";
 
 const formatCurrency = (cents: number) =>
   new Intl.NumberFormat("en-US", {
@@ -21,12 +11,73 @@ const formatCurrency = (cents: number) =>
     currency: "USD",
   }).format((cents || 0) / 100);
 
+const statusConfig: Record<string, { label: string; variant: "default" | "success" | "warning" | "danger" | "outline"; icon: React.ReactNode }> = {
+  draft: { label: "Draft", variant: "default", icon: <Clock className="h-3.5 w-3.5" /> },
+  sent: { label: "Sent", variant: "warning", icon: <Mail className="h-3.5 w-3.5" /> },
+  paid: { label: "Paid", variant: "success", icon: <CheckCircle className="h-3.5 w-3.5" /> },
+  overdue: { label: "Overdue", variant: "danger", icon: <AlertCircle className="h-3.5 w-3.5" /> },
+  partial: { label: "Partial", variant: "warning", icon: <Clock className="h-3.5 w-3.5" /> },
+};
+
+function InvoiceGroup({ title, invoices, icon }: { title: string; invoices: InvoiceSummary[]; icon: React.ReactNode }) {
+  if (invoices.length === 0) return null;
+
+  return (
+    <div>
+      <div className="flex items-center gap-2 mb-3">
+        {icon}
+        <h2 className="text-sm font-semibold text-slate-700 uppercase tracking-wide">{title}</h2>
+        <Badge variant="outline" className="text-xs">{invoices.length}</Badge>
+      </div>
+      <div className="grid gap-3">
+        {invoices.map((invoice) => {
+          const status = statusConfig[invoice.status] || statusConfig.draft;
+          return (
+            <Link key={invoice.id} href={`/billing/${invoice.id}`}>
+              <div className="flex items-center justify-between p-4 rounded-lg border border-slate-200 bg-white hover:shadow-sm transition-shadow">
+                <div className="flex items-center gap-4 min-w-0">
+                  <Badge variant={status.variant} className="flex items-center gap-1 shrink-0">
+                    {status.icon}
+                    {status.label}
+                  </Badge>
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-slate-900 truncate">
+                      {invoice.matterTitle}
+                    </p>
+                    <p className="text-xs text-slate-500">
+                      #{invoice.id.slice(0, 8).toUpperCase()}
+                      {invoice.lineItemCount > 0 && ` · ${invoice.lineItemCount} item${invoice.lineItemCount !== 1 ? "s" : ""}`}
+                      {invoice.dueDate && ` · Due ${new Date(invoice.dueDate).toLocaleDateString()}`}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3 shrink-0">
+                  <span className="text-sm font-semibold text-slate-900">
+                    {formatCurrency(invoice.totalCents)}
+                  </span>
+                  <Eye className="h-4 w-4 text-slate-400" />
+                </div>
+              </div>
+            </Link>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 export default async function BillingPage() {
   const { data: invoices, source, error } = await fetchInvoices();
-  const { data: matters } = await fetchMatters();
-  const supabaseReady = supabaseEnvReady();
-  const { profile } = await getSessionWithProfile();
-  const canEdit = supabaseReady && profile?.role !== "client";
+  const draftInvoices = invoices.filter(i => i.status === "draft");
+  const sentInvoices = invoices.filter(i => i.status === "sent");
+  const overdueInvoices = invoices.filter(i => i.status === "overdue");
+  const paidInvoices = invoices.filter(i => i.status === "paid");
+  const partialInvoices = invoices.filter(i => i.status === "partial");
+
+  const totalOutstanding = [...sentInvoices, ...overdueInvoices, ...partialInvoices]
+    .reduce((sum, i) => sum + i.totalCents, 0);
+  const totalPaid = paidInvoices.reduce((sum, i) => sum + i.totalCents, 0);
+  const totalDraft = draftInvoices.reduce((sum, i) => sum + i.totalCents, 0);
 
   return (
     <div className="bg-background">
@@ -40,7 +91,7 @@ export default async function BillingPage() {
               Billing & Invoices
             </h1>
             <p className="text-sm text-slate-600">
-              MatterFlow is the source of truth; Square handles collection.{" "}
+              Invoices are auto-created from time entries. Edit drafts before sending.{" "}
               <span className="font-medium text-slate-700">
                 {source === "supabase"
                   ? "Live Supabase data"
@@ -49,144 +100,59 @@ export default async function BillingPage() {
               {error ? ` — ${error}` : null}
             </p>
           </div>
-          <div className="flex flex-wrap gap-2">
-            <Button variant="secondary" size="sm">
-              Retry failed syncs
-            </Button>
-          </div>
         </div>
       </header>
 
-      <main className="container py-8 space-y-4">
-        <ContentCard>
-          <ContentCardHeader className="pb-2">
-            <ContentCardTitle>Create invoice</ContentCardTitle>
-            <ContentCardDescription>Billing stays here; Square handles payment.</ContentCardDescription>
-          </ContentCardHeader>
-          <ContentCardContent>
-            {canEdit ? (
-              <form action={createInvoice as unknown as (formData: FormData) => void} className="grid gap-3 md:grid-cols-3">
-                <label className="text-sm text-slate-700">
-                  <span className="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-500">
-                    Matter ID
-                  </span>
-                  <select
-                    name="matterId"
-                    required
-                    className="w-full rounded-md border border-slate-200 px-3 py-2 text-sm"
-                    defaultValue=""
-                  >
-                    <option value="" disabled>
-                      Select a matter
-                    </option>
-                    {matters.map((m) => (
-                      <option key={m.id} value={m.id}>
-                        {m.title}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label className="text-sm text-slate-700">
-                  <span className="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-500">
-                    Amount (USD)
-                  </span>
-                  <input
-                    name="amount"
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    className="w-full rounded-md border border-slate-200 px-3 py-2 text-sm"
-                    placeholder="1800"
-                  />
-                </label>
-                <label className="text-sm text-slate-700">
-                  <span className="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-500">
-                    Status
-                  </span>
-                  <select
-                    name="status"
-                    className="w-full rounded-md border border-slate-200 px-3 py-2 text-sm"
-                    defaultValue="draft"
-                  >
-                    <option value="draft">Draft</option>
-                    <option value="sent">Sent</option>
-                  </select>
-                </label>
-                <div className="md:col-span-3">
-                  <Button type="submit">
-                    New Invoice
-                    <ReceiptText className="ml-2 h-4 w-4" />
-                  </Button>
-                </div>
-              </form>
-            ) : (
-              <p className="text-sm text-amber-700">
-                {supabaseReady
-                  ? "Clients cannot create invoices. Sign in as staff/admin."
-                  : "Supabase env vars not set; creation disabled."}
-              </p>
-            )}
-          </ContentCardContent>
-        </ContentCard>
-
-        <div className="grid gap-4">
-          {invoices.map((invoice) => (
-            <ContentCard
-              key={invoice.id}
-              className="border-slate-200 bg-white transition hover:shadow-sm"
-            >
-              <ContentCardHeader className="pb-2">
-                <ContentCardTitle className="flex items-center gap-2 text-base text-slate-900">
-                  <Wallet2 className="h-4 w-4 text-slate-500" />
-                  Invoice {invoice.id.slice(0, 8)}
-                </ContentCardTitle>
-                <ContentCardDescription className="text-xs text-slate-600">
-                  Matter ID: {invoice.matterId}
-                </ContentCardDescription>
-              </ContentCardHeader>
-              <ContentCardContent className="flex flex-wrap items-center gap-3 text-sm text-slate-700">
-                <Badge variant="outline" className="capitalize">
-                  {invoice.status}
-                </Badge>
-                <span className="font-semibold text-slate-900">
-                  {formatCurrency(invoice.totalCents)}
-                </span>
-                <span className="text-slate-600">
-                  Due: {invoice.dueDate ? new Date(invoice.dueDate).toLocaleDateString() : "Unset"}
-                </span>
-                {invoice.squareInvoiceId ? (
-                  <Badge variant="success">Square: {invoice.squareInvoiceId}</Badge>
-                ) : (
-                  <Badge variant="warning">Not synced to Square</Badge>
-                )}
-                <Link href={`/billing/${invoice.id}`}>
-                  <Button size="sm" variant="ghost">
-                    <Eye className="h-4 w-4 mr-1" />
-                    View
-                  </Button>
-                </Link>
-                {canEdit ? (
-                  <form action={updateInvoiceStatus as unknown as (formData: FormData) => void} className="flex items-center gap-2 text-xs">
-                    <input type="hidden" name="id" value={invoice.id} />
-                    <select
-                      name="status"
-                      defaultValue={invoice.status}
-                      className="rounded-md border border-slate-200 px-2 py-1 text-xs"
-                    >
-                      <option value="draft">Draft</option>
-                      <option value="sent">Sent</option>
-                      <option value="paid">Paid</option>
-                      <option value="overdue">Overdue</option>
-                    </select>
-                    <Button size="sm" variant="secondary" type="submit">
-                      Update
-                    </Button>
-                  </form>
-                ) : null}
-              </ContentCardContent>
-            </ContentCard>
-          ))}
+      <main className="container py-8 space-y-8">
+        {/* Summary Stats */}
+        <div className="grid grid-cols-3 gap-4">
+          <div className="rounded-lg border border-slate-200 bg-white p-4">
+            <p className="text-xs font-medium uppercase tracking-wide text-slate-500 mb-1">Draft</p>
+            <p className="text-2xl font-bold text-slate-900">{formatCurrency(totalDraft)}</p>
+            <p className="text-xs text-slate-500">{draftInvoices.length} invoice{draftInvoices.length !== 1 ? "s" : ""}</p>
+          </div>
+          <div className="rounded-lg border border-slate-200 bg-white p-4">
+            <p className="text-xs font-medium uppercase tracking-wide text-slate-500 mb-1">Outstanding</p>
+            <p className="text-2xl font-bold text-amber-600">{formatCurrency(totalOutstanding)}</p>
+            <p className="text-xs text-slate-500">{sentInvoices.length + overdueInvoices.length + partialInvoices.length} invoice{sentInvoices.length + overdueInvoices.length + partialInvoices.length !== 1 ? "s" : ""}</p>
+          </div>
+          <div className="rounded-lg border border-slate-200 bg-white p-4">
+            <p className="text-xs font-medium uppercase tracking-wide text-slate-500 mb-1">Collected</p>
+            <p className="text-2xl font-bold text-green-600">{formatCurrency(totalPaid)}</p>
+            <p className="text-xs text-slate-500">{paidInvoices.length} invoice{paidInvoices.length !== 1 ? "s" : ""}</p>
+          </div>
         </div>
+
+        {/* Grouped Invoice Lists */}
+        {invoices.length === 0 ? (
+          <div className="text-center py-12 text-slate-500">
+            <ReceiptText className="h-12 w-12 mx-auto mb-3 text-slate-300" />
+            <p className="text-sm">No invoices yet. Log time on a matter to auto-create a draft invoice.</p>
+          </div>
+        ) : (
+          <div className="space-y-8">
+            <InvoiceGroup
+              title="Drafts"
+              invoices={draftInvoices}
+              icon={<Clock className="h-4 w-4 text-slate-500" />}
+            />
+            <InvoiceGroup
+              title="Overdue"
+              invoices={overdueInvoices}
+              icon={<AlertCircle className="h-4 w-4 text-red-500" />}
+            />
+            <InvoiceGroup
+              title="Sent"
+              invoices={[...sentInvoices, ...partialInvoices]}
+              icon={<Mail className="h-4 w-4 text-amber-500" />}
+            />
+            <InvoiceGroup
+              title="Paid"
+              invoices={paidInvoices}
+              icon={<CheckCircle className="h-4 w-4 text-green-500" />}
+            />
+          </div>
+        )}
       </main>
     </div>
   );

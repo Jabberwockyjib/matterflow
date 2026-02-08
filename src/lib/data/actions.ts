@@ -22,6 +22,7 @@ import { FIRM_SETTING_KEYS, type FirmSettingKey } from "@/types/firm-settings";
 import { invalidateFirmSettingsCache, getClientInfo } from "@/lib/data/queries";
 import { z } from "zod";
 import { calculateBillableDuration } from "@/lib/billing/utils";
+import { fetchPracticeSettings } from "@/lib/data/queries";
 
 type ActionResult = {
   ok?: boolean;
@@ -190,6 +191,147 @@ const logAudit = async ({
     // do not block primary flow on audit failure
   }
 };
+
+// ============================================================================
+// Billing Helpers
+// ============================================================================
+
+/**
+ * Sync invoice_line_items to the invoices.line_items JSONB and recalculate total_cents.
+ */
+async function syncLineItemsToJsonb(supabase: ReturnType<typeof supabaseAdmin>, invoiceId: string) {
+  const { data: lineItems } = await supabase
+    .from("invoice_line_items")
+    .select("description, quantity_minutes, rate_cents, amount_cents, task_id, is_manual")
+    .eq("invoice_id", invoiceId)
+    .order("sort_order", { ascending: true });
+
+  const jsonLineItems = (lineItems || []).map((li) => ({
+    description: li.description,
+    hours: li.quantity_minutes / 60,
+    rate: li.rate_cents / 100,
+    amount: li.amount_cents / 100,
+    amount_cents: li.amount_cents,
+  }));
+
+  const totalCents = (lineItems || []).reduce((sum, li) => sum + li.amount_cents, 0);
+
+  await supabase
+    .from("invoices")
+    .update({
+      line_items: jsonLineItems as unknown as Json,
+      total_cents: totalCents,
+    })
+    .eq("id", invoiceId);
+}
+
+/**
+ * Find or create a draft invoice for a matter, add a line item for the time entry.
+ */
+async function addTimeEntryToInvoice({
+  supabase,
+  actorId,
+  timeEntryId,
+  matterId,
+  taskId,
+  durationMinutes,
+  rateCents,
+  description,
+}: {
+  supabase: ReturnType<typeof supabaseAdmin>;
+  actorId: string;
+  timeEntryId: string;
+  matterId: string;
+  taskId: string | null;
+  durationMinutes: number;
+  rateCents: number;
+  description: string;
+}) {
+  try {
+    // 1. Find or create draft invoice
+    let { data: invoice } = await supabase
+      .from("invoices")
+      .select("id")
+      .eq("matter_id", matterId)
+      .eq("status", "draft")
+      .maybeSingle();
+
+    if (!invoice) {
+      const { data: newInvoice, error: createErr } = await supabase
+        .from("invoices")
+        .insert({
+          matter_id: matterId,
+          status: "draft",
+          total_cents: 0,
+          line_items: [] as unknown as Json,
+        })
+        .select("id")
+        .single();
+
+      if (createErr || !newInvoice) {
+        console.error("Failed to create draft invoice:", createErr);
+        return;
+      }
+      invoice = newInvoice;
+
+      await logAudit({
+        supabase,
+        actorId,
+        eventType: "invoice_created",
+        entityType: "invoice",
+        entityId: invoice.id,
+        metadata: { matterId, auto: true },
+      });
+    }
+
+    // 2. Get current max sort_order
+    const { data: maxSort } = await supabase
+      .from("invoice_line_items")
+      .select("sort_order")
+      .eq("invoice_id", invoice.id)
+      .order("sort_order", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    const nextSort = (maxSort?.sort_order ?? -1) + 1;
+
+    // 3. Calculate amount: (minutes / 60) * rateCents
+    const amountCents = Math.round((durationMinutes / 60) * rateCents);
+
+    // 4. Create line item
+    const { data: lineItem, error: liErr } = await supabase
+      .from("invoice_line_items")
+      .insert({
+        invoice_id: invoice.id,
+        time_entry_id: timeEntryId,
+        task_id: taskId,
+        description,
+        quantity_minutes: durationMinutes,
+        rate_cents: rateCents,
+        amount_cents: amountCents,
+        sort_order: nextSort,
+        is_manual: false,
+      })
+      .select("id")
+      .single();
+
+    if (liErr || !lineItem) {
+      console.error("Failed to create line item:", liErr);
+      return;
+    }
+
+    // 5. Link time entry to invoice and line item
+    await supabase
+      .from("time_entries")
+      .update({ invoice_id: invoice.id, line_item_id: lineItem.id })
+      .eq("id", timeEntryId);
+
+    // 6. Sync JSONB and recalculate total
+    await syncLineItemsToJsonb(supabase, invoice.id);
+  } catch (err) {
+    console.error("addTimeEntryToInvoice error:", err);
+  }
+}
 
 // Matter Actions
 
@@ -430,25 +572,53 @@ export async function createTimeEntry(
       return { error: "Matter ID is required" };
     }
 
-    const { error } = await supabase.from("time_entries").insert({
+    // Fetch practice settings for rate and billing increment
+    const settings = await fetchPracticeSettings();
+    const rateCents = settings ? Math.round(settings.defaultHourlyRate * 100) : 0;
+    const billingIncrement = settings?.billingIncrementMinutes ?? 6;
+    const billableMinutes = minutes ? calculateBillableDuration(minutes, billingIncrement) : null;
+
+    const { data: newEntry, error } = await supabase.from("time_entries").insert({
       matter_id: matterId,
       task_id: taskId || null,
       description,
       duration_minutes: minutes || null,
+      billable_duration_minutes: billableMinutes,
+      rate_cents: rateCents,
       status: "draft",
-    });
+      created_by: roleCheck.session.user.id,
+    })
+    .select("id")
+    .single();
 
-    if (error) return { error: error.message };
+    if (error || !newEntry) return { error: error?.message || "Failed to create time entry" };
+
     await logAudit({
       supabase,
       actorId: roleCheck.session.user.id,
       eventType: "time_entry_created",
       entityType: "time_entry",
-      entityId: null,
+      entityId: newEntry.id,
       metadata: { matterId, minutes },
     });
+
+    // Auto-add to draft invoice if we have a duration
+    if (minutes && minutes > 0) {
+      await addTimeEntryToInvoice({
+        supabase,
+        actorId: roleCheck.session.user.id,
+        timeEntryId: newEntry.id,
+        matterId,
+        taskId: taskId || null,
+        durationMinutes: billableMinutes || minutes,
+        rateCents,
+        description,
+      });
+    }
+
     revalidatePath("/");
     revalidatePath("/time");
+    revalidatePath("/billing");
     return { ok: true };
   } catch (err) {
     return { error: err instanceof Error ? err.message : "Unknown error" };
@@ -469,17 +639,66 @@ export async function updateTimeEntry(formData: FormData): Promise<ActionResult>
     const rateCentsStr = formData.get("rateCents") as string;
     const rateCents = rateCentsStr ? parseInt(rateCentsStr, 10) : null;
     const status = (formData.get("status") as string) || null;
+    const taskIdStr = formData.get("taskId") as string;
+    const taskId = taskIdStr || undefined;
 
     if (!id) {
       return { error: "Time entry ID is required" };
     }
 
+    // Fetch current values for change tracking
+    const { data: current, error: fetchErr } = await supabase
+      .from("time_entries")
+      .select("description, duration_minutes, billable_duration_minutes, rate_cents, status, task_id, line_item_id, invoice_id")
+      .eq("id", id)
+      .single();
+
+    if (fetchErr || !current) {
+      return { error: fetchErr?.message || "Time entry not found" };
+    }
+
+    // Block edits to locked entries (unless admin)
+    if (current.status === "locked" && roleCheck.profile?.role !== "admin") {
+      return { error: "Cannot edit a locked time entry" };
+    }
+
     const updateData: Record<string, unknown> = {};
-    if (description !== null) updateData.description = description;
+    const changes: Array<{ field: string; old_value: unknown; new_value: unknown }> = [];
+
+    if (description !== null && description !== current.description) {
+      updateData.description = description;
+      changes.push({ field: "description", old_value: current.description, new_value: description });
+    }
     if (endedAt !== null) updateData.ended_at = endedAt;
-    if (durationMinutes !== null) updateData.duration_minutes = durationMinutes;
-    if (rateCents !== null) updateData.rate_cents = rateCents;
-    if (status !== null) updateData.status = status;
+    if (durationMinutes !== null && durationMinutes !== current.duration_minutes) {
+      updateData.duration_minutes = durationMinutes;
+      changes.push({ field: "duration_minutes", old_value: current.duration_minutes, new_value: durationMinutes });
+
+      // Recalculate billable duration
+      const practiceSettings = await fetchPracticeSettings();
+      const billingIncrement = practiceSettings?.billingIncrementMinutes ?? 6;
+      const newBillable = calculateBillableDuration(durationMinutes, billingIncrement);
+      updateData.billable_duration_minutes = newBillable;
+      if (newBillable !== current.billable_duration_minutes) {
+        changes.push({ field: "billable_duration_minutes", old_value: current.billable_duration_minutes, new_value: newBillable });
+      }
+    }
+    if (rateCents !== null && rateCents !== current.rate_cents) {
+      updateData.rate_cents = rateCents;
+      changes.push({ field: "rate_cents", old_value: current.rate_cents, new_value: rateCents });
+    }
+    if (status !== null && status !== current.status) {
+      updateData.status = status;
+      changes.push({ field: "status", old_value: current.status, new_value: status });
+    }
+    if (taskId !== undefined && taskId !== current.task_id) {
+      updateData.task_id = taskId || null;
+      changes.push({ field: "task_id", old_value: current.task_id, new_value: taskId || null });
+    }
+
+    if (Object.keys(updateData).length === 0) {
+      return { ok: true }; // No changes
+    }
 
     const { error } = await supabase
       .from("time_entries")
@@ -487,16 +706,42 @@ export async function updateTimeEntry(formData: FormData): Promise<ActionResult>
       .eq("id", id);
 
     if (error) return { error: error.message };
+
     await logAudit({
       supabase,
       actorId: roleCheck.session.user.id,
-      eventType: "time_entry_updated",
+      eventType: "time_entry_edited",
       entityType: "time_entry",
       entityId: id,
-      metadata: updateData as Record<string, Json | undefined>,
+      metadata: { changes } as unknown as Record<string, Json | undefined>,
     });
+
+    // Update linked line item if duration or rate changed
+    if (current.line_item_id && (updateData.duration_minutes !== undefined || updateData.rate_cents !== undefined || updateData.description !== undefined || updateData.task_id !== undefined)) {
+      const newDuration = (updateData.billable_duration_minutes as number) ?? current.billable_duration_minutes ?? (updateData.duration_minutes as number) ?? current.duration_minutes ?? 0;
+      const newRate = (updateData.rate_cents as number) ?? current.rate_cents ?? 0;
+      const newAmount = Math.round((newDuration / 60) * newRate);
+
+      const liUpdate: Record<string, unknown> = { amount_cents: newAmount };
+      if (updateData.duration_minutes !== undefined) liUpdate.quantity_minutes = newDuration;
+      if (updateData.rate_cents !== undefined) liUpdate.rate_cents = newRate;
+      if (updateData.description !== undefined) liUpdate.description = updateData.description;
+      if (updateData.task_id !== undefined) liUpdate.task_id = updateData.task_id;
+
+      await supabase
+        .from("invoice_line_items")
+        .update(liUpdate)
+        .eq("id", current.line_item_id);
+
+      // Recalculate invoice total
+      if (current.invoice_id) {
+        await syncLineItemsToJsonb(supabase, current.invoice_id);
+      }
+    }
+
     revalidatePath("/");
     revalidatePath("/time");
+    revalidatePath("/billing");
     return { ok: true };
   } catch (err) {
     return { error: err instanceof Error ? err.message : "Unknown error" };
@@ -512,7 +757,7 @@ export async function stopTimeEntry(formData: FormData): Promise<ActionResult> {
     const id = (formData.get("id") as string) || null;
     const { data, error: fetchErr } = await supabase
       .from("time_entries")
-      .select("started_at")
+      .select("started_at, matter_id, task_id, description")
       .eq("id", id || "")
       .maybeSingle();
     if (fetchErr) return { error: fetchErr.message };
@@ -522,9 +767,21 @@ export async function stopTimeEntry(formData: FormData): Promise<ActionResult> {
       startedAt && !Number.isNaN(startedAt.getTime())
         ? Math.max(1, Math.round((endedAt.getTime() - startedAt.getTime()) / 60000))
         : null;
+
+    // Get practice settings for billing
+    const practiceSettings = await fetchPracticeSettings();
+    const billingIncrement = practiceSettings?.billingIncrementMinutes ?? 6;
+    const rateCents = practiceSettings ? Math.round(practiceSettings.defaultHourlyRate * 100) : 0;
+    const billableMinutes = durationMinutes ? calculateBillableDuration(durationMinutes, billingIncrement) : null;
+
     const { error } = await supabase
       .from("time_entries")
-      .update({ ended_at: endedAt.toISOString(), duration_minutes: durationMinutes })
+      .update({
+        ended_at: endedAt.toISOString(),
+        duration_minutes: durationMinutes,
+        billable_duration_minutes: billableMinutes,
+        rate_cents: rateCents,
+      })
       .eq("id", id || "");
     if (error) return { error: error.message };
     await logAudit({
@@ -535,7 +792,23 @@ export async function stopTimeEntry(formData: FormData): Promise<ActionResult> {
       entityId: id,
       metadata: { endedAt: endedAt.toISOString(), durationMinutes },
     });
+
+    // Auto-add to draft invoice
+    if (id && data && durationMinutes && durationMinutes > 0) {
+      await addTimeEntryToInvoice({
+        supabase,
+        actorId: roleCheck.session.user.id,
+        timeEntryId: id,
+        matterId: data.matter_id,
+        taskId: data.task_id,
+        durationMinutes: billableMinutes || durationMinutes,
+        rateCents,
+        description: data.description || "Time entry",
+      });
+    }
+
     revalidatePath("/time");
+    revalidatePath("/billing");
     revalidatePath("/");
     return { ok: true };
   } catch (err) {
@@ -1215,6 +1488,246 @@ export async function updateInvoiceStatus(formData: FormData): Promise<ActionRes
 
     revalidatePath("/billing");
     revalidatePath("/");
+    return { ok: true };
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : "Unknown error" };
+  }
+}
+
+// ============================================================================
+// Invoice Line Item Actions
+// ============================================================================
+
+/**
+ * Update a single invoice line item. Only allowed on draft invoices.
+ */
+export async function updateInvoiceLineItem(
+  lineItemId: string,
+  updates: { description?: string; quantity_minutes?: number; rate_cents?: number }
+): Promise<ActionResult> {
+  const roleCheck = await ensureStaffOrAdmin();
+  if ("error" in roleCheck) return roleCheck;
+
+  try {
+    const supabase = ensureSupabase();
+
+    // Get current line item and verify invoice is draft
+    const { data: lineItem, error: fetchErr } = await supabase
+      .from("invoice_line_items")
+      .select("id, invoice_id, description, quantity_minutes, rate_cents, amount_cents")
+      .eq("id", lineItemId)
+      .single();
+
+    if (fetchErr || !lineItem) return { error: "Line item not found" };
+
+    const { data: invoice } = await supabase
+      .from("invoices")
+      .select("status")
+      .eq("id", lineItem.invoice_id)
+      .single();
+
+    if (invoice?.status !== "draft") return { error: "Can only edit draft invoices" };
+
+    const newQuantity = updates.quantity_minutes ?? lineItem.quantity_minutes;
+    const newRate = updates.rate_cents ?? lineItem.rate_cents;
+    const newAmount = Math.round((newQuantity / 60) * newRate);
+
+    const updateData: Record<string, unknown> = { amount_cents: newAmount };
+    if (updates.description !== undefined) updateData.description = updates.description;
+    if (updates.quantity_minutes !== undefined) updateData.quantity_minutes = updates.quantity_minutes;
+    if (updates.rate_cents !== undefined) updateData.rate_cents = updates.rate_cents;
+
+    const { error } = await supabase
+      .from("invoice_line_items")
+      .update(updateData)
+      .eq("id", lineItemId);
+
+    if (error) return { error: error.message };
+
+    await syncLineItemsToJsonb(supabase, lineItem.invoice_id);
+
+    await logAudit({
+      supabase,
+      actorId: roleCheck.session.user.id,
+      eventType: "line_item_updated",
+      entityType: "invoice_line_item",
+      entityId: lineItemId,
+      metadata: {
+        changes: [
+          ...(updates.description !== undefined ? [{ field: "description", old_value: lineItem.description, new_value: updates.description }] : []),
+          ...(updates.quantity_minutes !== undefined ? [{ field: "quantity_minutes", old_value: lineItem.quantity_minutes, new_value: updates.quantity_minutes }] : []),
+          ...(updates.rate_cents !== undefined ? [{ field: "rate_cents", old_value: lineItem.rate_cents, new_value: updates.rate_cents }] : []),
+        ],
+      } as unknown as Record<string, Json | undefined>,
+    });
+
+    revalidatePath("/billing");
+    return { ok: true };
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : "Unknown error" };
+  }
+}
+
+/**
+ * Add a manual (flat-fee) line item to a draft invoice.
+ */
+export async function addManualLineItem(
+  invoiceId: string,
+  data: { description: string; amount_cents: number }
+): Promise<ActionResult> {
+  const roleCheck = await ensureStaffOrAdmin();
+  if ("error" in roleCheck) return roleCheck;
+
+  try {
+    const supabase = ensureSupabase();
+
+    const { data: invoice } = await supabase
+      .from("invoices")
+      .select("status")
+      .eq("id", invoiceId)
+      .single();
+
+    if (invoice?.status !== "draft") return { error: "Can only add items to draft invoices" };
+
+    // Get max sort order
+    const { data: maxSort } = await supabase
+      .from("invoice_line_items")
+      .select("sort_order")
+      .eq("invoice_id", invoiceId)
+      .order("sort_order", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    const { error } = await supabase.from("invoice_line_items").insert({
+      invoice_id: invoiceId,
+      description: data.description,
+      amount_cents: data.amount_cents,
+      quantity_minutes: 0,
+      rate_cents: 0,
+      sort_order: (maxSort?.sort_order ?? -1) + 1,
+      is_manual: true,
+    });
+
+    if (error) return { error: error.message };
+
+    await syncLineItemsToJsonb(supabase, invoiceId);
+
+    await logAudit({
+      supabase,
+      actorId: roleCheck.session.user.id,
+      eventType: "line_item_added",
+      entityType: "invoice",
+      entityId: invoiceId,
+      metadata: { description: data.description, amount_cents: data.amount_cents },
+    });
+
+    revalidatePath("/billing");
+    return { ok: true };
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : "Unknown error" };
+  }
+}
+
+/**
+ * Delete a line item from a draft invoice. Unlinks the time entry if linked.
+ */
+export async function deleteLineItem(lineItemId: string): Promise<ActionResult> {
+  const roleCheck = await ensureStaffOrAdmin();
+  if ("error" in roleCheck) return roleCheck;
+
+  try {
+    const supabase = ensureSupabase();
+
+    const { data: lineItem, error: fetchErr } = await supabase
+      .from("invoice_line_items")
+      .select("id, invoice_id, time_entry_id")
+      .eq("id", lineItemId)
+      .single();
+
+    if (fetchErr || !lineItem) return { error: "Line item not found" };
+
+    const { data: invoice } = await supabase
+      .from("invoices")
+      .select("status")
+      .eq("id", lineItem.invoice_id)
+      .single();
+
+    if (invoice?.status !== "draft") return { error: "Can only delete items from draft invoices" };
+
+    // Unlink time entry if linked
+    if (lineItem.time_entry_id) {
+      await supabase
+        .from("time_entries")
+        .update({ invoice_id: null, line_item_id: null })
+        .eq("id", lineItem.time_entry_id);
+    }
+
+    const { error } = await supabase
+      .from("invoice_line_items")
+      .delete()
+      .eq("id", lineItemId);
+
+    if (error) return { error: error.message };
+
+    await syncLineItemsToJsonb(supabase, lineItem.invoice_id);
+
+    await logAudit({
+      supabase,
+      actorId: roleCheck.session.user.id,
+      eventType: "line_item_deleted",
+      entityType: "invoice_line_item",
+      entityId: lineItemId,
+    });
+
+    revalidatePath("/billing");
+    return { ok: true };
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : "Unknown error" };
+  }
+}
+
+/**
+ * Update invoice-level fields on a draft invoice.
+ */
+export async function updateInvoiceDraft(
+  invoiceId: string,
+  updates: { due_date?: string | null; notes?: string | null }
+): Promise<ActionResult> {
+  const roleCheck = await ensureStaffOrAdmin();
+  if ("error" in roleCheck) return roleCheck;
+
+  try {
+    const supabase = ensureSupabase();
+
+    const { data: invoice } = await supabase
+      .from("invoices")
+      .select("status")
+      .eq("id", invoiceId)
+      .single();
+
+    if (invoice?.status !== "draft") return { error: "Can only edit draft invoices" };
+
+    const updateData: Record<string, unknown> = {};
+    if (updates.due_date !== undefined) updateData.due_date = updates.due_date;
+    if (updates.notes !== undefined) updateData.notes = updates.notes;
+
+    const { error } = await supabase
+      .from("invoices")
+      .update(updateData)
+      .eq("id", invoiceId);
+
+    if (error) return { error: error.message };
+
+    await logAudit({
+      supabase,
+      actorId: roleCheck.session.user.id,
+      eventType: "invoice_updated",
+      entityType: "invoice",
+      entityId: invoiceId,
+      metadata: updateData as Record<string, Json | undefined>,
+    });
+
+    revalidatePath("/billing");
     return { ok: true };
   } catch (err) {
     return { error: err instanceof Error ? err.message : "Unknown error" };
@@ -1997,7 +2510,8 @@ export async function searchMatters(query: string): Promise<{ data: MatterSearch
 
 export async function startTimer(
   matterId: string,
-  notes?: string
+  notes?: string,
+  taskId?: string,
 ): Promise<{ error?: string; entryId?: string }> {
   try {
     await ensureStaffOrAdmin();
@@ -2008,13 +2522,19 @@ export async function startTimer(
       return { error: "Not authenticated" };
     }
 
+    // Get rate from practice settings
+    const practiceSettings = await fetchPracticeSettings();
+    const rateCents = practiceSettings ? Math.round(practiceSettings.defaultHourlyRate * 100) : 0;
+
     // Create a new time entry in draft status with started_at timestamp
     const { data, error } = await supabase
       .from("time_entries")
       .insert({
         matter_id: matterId,
+        task_id: taskId || null,
         status: "draft",
         description: notes || null,
+        rate_cents: rateCents,
         started_at: new Date().toISOString(),
         created_by: session?.user.id || "",
       })
@@ -2038,13 +2558,13 @@ export async function stopTimer(
   notes?: string
 ): Promise<{ error?: string; actualMinutes?: number; billableMinutes?: number }> {
   try {
-    await ensureStaffOrAdmin();
+    const roleCheck = await ensureStaffOrAdmin();
     const supabase = supabaseAdmin();
 
     // Get the time entry to calculate duration
     const { data: entry, error: fetchError } = await supabase
       .from("time_entries")
-      .select("started_at")
+      .select("started_at, matter_id, task_id, description")
       .eq("id", entryId)
       .single();
 
@@ -2057,22 +2577,22 @@ export async function stopTimer(
     const endedAt = new Date();
     const actualMinutes = Math.max(1, Math.round((endedAt.getTime() - startedAt.getTime()) / 60000));
 
-    // Get billing increment from practice settings
-    const { data: settings } = await supabase
-      .from("practice_settings")
-      .select("billing_increment_minutes")
-      .maybeSingle();
-
-    const billingIncrement = settings?.billing_increment_minutes ?? 6;
+    // Get practice settings for billing increment and rate
+    const practiceSettings = await fetchPracticeSettings();
+    const billingIncrement = practiceSettings?.billingIncrementMinutes ?? 6;
+    const rateCents = practiceSettings ? Math.round(practiceSettings.defaultHourlyRate * 100) : 0;
     const billableMinutes = calculateBillableDuration(actualMinutes, billingIncrement);
 
-    // Update the time entry with ended_at, actual duration, and billable duration
+    const entryDescription = notes || entry.description || "Timer entry";
+
+    // Update the time entry with ended_at, actual duration, billable duration, and rate
     const { error } = await supabase
       .from("time_entries")
       .update({
         ended_at: endedAt.toISOString(),
         duration_minutes: actualMinutes,
         billable_duration_minutes: billableMinutes,
+        rate_cents: rateCents,
         description: notes || undefined,
       })
       .eq("id", entryId);
@@ -2081,7 +2601,23 @@ export async function stopTimer(
       return { error: error.message };
     }
 
+    // Auto-add to draft invoice
+    const actorId = "error" in roleCheck ? null : roleCheck.session.user.id;
+    if (actorId) {
+      await addTimeEntryToInvoice({
+        supabase,
+        actorId,
+        timeEntryId: entryId,
+        matterId: entry.matter_id,
+        taskId: entry.task_id,
+        durationMinutes: billableMinutes,
+        rateCents,
+        description: entryDescription,
+      });
+    }
+
     revalidatePath("/time");
+    revalidatePath("/billing");
     return { actualMinutes, billableMinutes };
   } catch (error) {
     console.error("stopTimer error:", error);
@@ -2094,6 +2630,7 @@ export async function createQuickTimeEntry(data: {
   minutes: number;
   description?: string;
   date?: string;
+  taskId?: string;
 }): Promise<ActionResult> {
   // Convert object to FormData for createTimeEntry
   const formData = new FormData();
@@ -2104,6 +2641,9 @@ export async function createQuickTimeEntry(data: {
   }
   if (data.date) {
     formData.append("date", data.date);
+  }
+  if (data.taskId) {
+    formData.append("taskId", data.taskId);
   }
 
   return createTimeEntry(formData);

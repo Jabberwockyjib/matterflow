@@ -44,6 +44,10 @@ interface TimerModalProps {
    * Passed from parent to allow server-side fetching.
    */
   matters: MatterSummary[];
+  /**
+   * List of tasks for task selection, filtered by selected matter.
+   */
+  tasks?: Array<{ id: string; title: string; matterId: string }>;
 }
 
 /**
@@ -59,12 +63,18 @@ interface TimerModalProps {
  * - Keyboard navigation support
  * - Full ARIA support for screen readers
  */
-export function TimerModal({ matters }: TimerModalProps) {
+export function TimerModal({ matters, tasks = [] }: TimerModalProps) {
   const { state, actions, isModalOpen, closeModal, suggestionReason } = useTimer();
   const { isRunning, elapsedSeconds, selectedMatterId, notes, suggestedMatterId, error, status } = state;
 
   const [isPending, startTransition] = useTransition();
   const [localNotes, setLocalNotes] = useState(notes);
+  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
+
+  // Filter tasks by selected matter
+  const matterTasks = selectedMatterId
+    ? tasks.filter(t => t.matterId === selectedMatterId)
+    : [];
 
   const modalRef = useRef<HTMLDivElement>(null);
   const firstFocusableRef = useRef<HTMLSelectElement>(null);
@@ -182,6 +192,7 @@ export function TimerModal({ matters }: TimerModalProps) {
   const handleMatterChange = useCallback(
     (e: React.ChangeEvent<HTMLSelectElement>) => {
       actions.updateMatter(e.target.value);
+      setSelectedTaskId(null);
     },
     [actions]
   );
@@ -204,9 +215,9 @@ export function TimerModal({ matters }: TimerModalProps) {
     if (!selectedMatterId) return;
 
     startTransition(async () => {
-      await actions.start(selectedMatterId, localNotes);
+      await actions.start(selectedMatterId, localNotes, selectedTaskId || undefined);
     });
-  }, [selectedMatterId, localNotes, actions]);
+  }, [selectedMatterId, localNotes, selectedTaskId, actions]);
 
   /**
    * Handle stop timer
@@ -373,6 +384,32 @@ export function TimerModal({ matters }: TimerModalProps) {
               </p>
             )}
           </div>
+
+          {/* Task Selection (filtered by matter) */}
+          {matterTasks.length > 0 && !isRunning && (
+            <div className="block text-sm text-slate-700">
+              <label
+                className="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-500"
+              >
+                Task <span className="sr-only">(optional)</span>
+              </label>
+              <select
+                value={selectedTaskId || ""}
+                onChange={(e) => setSelectedTaskId(e.target.value || null)}
+                className={cn(
+                  "w-full rounded-md border border-slate-200 px-3 py-2 text-sm",
+                  "focus:outline-none focus:ring-2 focus:ring-blue-300"
+                )}
+              >
+                <option value="">No task (general time)</option>
+                {matterTasks.map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.title}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
 
           {/* Notes */}
           <div className="block text-sm text-slate-700">

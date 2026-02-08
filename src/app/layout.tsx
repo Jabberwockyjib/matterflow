@@ -6,7 +6,7 @@ import { AppShell } from "@/components/app-shell";
 import { AuthListener } from "@/components/auth-listener";
 import { TimerProvider } from "@/contexts/timer-context";
 import { getSessionWithProfile } from "@/lib/auth/server";
-import { fetchMatters } from "@/lib/data/queries";
+import { fetchMatters, fetchTasks } from "@/lib/data/queries";
 
 const lora = Lora({
   variable: "--font-lora",
@@ -37,9 +37,10 @@ export default async function RootLayout({
   children: React.ReactNode;
 }>) {
   // Fetch session and matters in parallel for better performance
-  const [{ profile, session }, { data: matters }] = await Promise.all([
+  const [{ profile, session }, { data: matters }, { data: tasks }] = await Promise.all([
     getSessionWithProfile(),
     fetchMatters(),
+    fetchTasks(),
   ]);
 
   // Timer functionality temporarily disabled for MVP testing
@@ -68,6 +69,7 @@ export default async function RootLayout({
             role={profile?.role}
             email={session?.user.email}
             matters={matters}
+            tasks={tasks}
           >
             {children}
           </AppShell>

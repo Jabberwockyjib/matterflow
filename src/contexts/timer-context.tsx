@@ -674,7 +674,7 @@ export function TimerProvider({ children, recentEntries = EMPTY_RECENT_ENTRIES }
   /**
    * Timer Actions
    */
-  const start = useCallback(async (matterId: string, notes: string = "") => {
+  const start = useCallback(async (matterId: string, notes: string = "", taskId?: string) => {
     // Prevent rapid start/stop cycles
     if (isWithinCooldown()) {
       return;
@@ -689,7 +689,7 @@ export function TimerProvider({ children, recentEntries = EMPTY_RECENT_ENTRIES }
 
     try {
       // Call the server action to create a time entry
-      const result = await startTimer(matterId, notes);
+      const result = await startTimer(matterId, notes, taskId);
 
       if (result.error) {
         // API returned an error

@@ -5,13 +5,14 @@ import dynamic from "next/dynamic";
 
 import { getMatter } from "@/lib/data/actions";
 import { getSessionWithProfile } from "@/lib/auth/server";
-import { fetchTasksForMatter, fetchTimeEntriesForMatter, getMatterEmails } from "@/lib/data/queries";
+import { fetchTasksForMatter, fetchTimeEntriesForMatter, getMatterEmails, fetchPracticeSettings, fetchInvoicesForMatter } from "@/lib/data/queries";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { MatterDocumentsTab } from "@/components/matter-documents-tab";
 import { CommunicationsTab } from "@/components/matter/communications-tab";
+import { EditableTimeEntry } from "@/components/time/editable-time-entry";
 
 // Lazy load modals for code splitting
 const AddTaskModal = dynamic(
@@ -45,10 +46,14 @@ export default async function MatterDetailPage({ params }: MatterDetailPageProps
     notFound();
   }
 
-  // Fetch tasks, time entries, and emails for this matter
-  const { data: tasks } = await fetchTasksForMatter(id);
-  const { data: timeEntries } = await fetchTimeEntriesForMatter(id);
-  const emails = await getMatterEmails(id);
+  // Fetch tasks, time entries, emails, settings, and invoices for this matter
+  const [{ data: tasks }, { data: timeEntries }, emails, practiceSettings, { data: invoices }] = await Promise.all([
+    fetchTasksForMatter(id),
+    fetchTimeEntriesForMatter(id),
+    getMatterEmails(id),
+    fetchPracticeSettings(),
+    fetchInvoicesForMatter(id),
+  ]);
 
   // Check if Google Drive folders are initialized
   const supabase = supabaseAdmin();
@@ -61,12 +66,17 @@ export default async function MatterDetailPage({ params }: MatterDetailPageProps
   const foldersInitialized = Boolean(matterFolders);
 
   // Calculate time entry stats - use billable duration when available
+  const hourlyRate = practiceSettings?.defaultHourlyRate ?? 0;
   const totalBillableMinutes = timeEntries.reduce((sum, entry) => sum + (entry.billableDurationMinutes ?? entry.durationMinutes ?? 0), 0);
   const totalActualMinutes = timeEntries.reduce((sum, entry) => sum + (entry.durationMinutes || 0), 0);
   const totalHours = (totalBillableMinutes / 60).toFixed(1);
   const totalActualHours = (totalActualMinutes / 60).toFixed(1);
-  // For now, assume $200/hr rate (this should come from matter settings)
-  const billableAmount = (parseFloat(totalHours) * 200).toFixed(2);
+  const billableAmount = (parseFloat(totalHours) * hourlyRate).toFixed(2);
+
+  // Invoice stats
+  const draftInvoice = invoices.find(i => i.status === "draft");
+  const totalBilled = invoices.reduce((sum, i) => sum + (i.status !== "draft" ? i.totalCents : 0), 0);
+  const totalPaid = invoices.reduce((sum, i) => sum + (i.status === "paid" ? i.totalCents : 0), 0);
 
   const typedMatter = matter as {
     id: string;
@@ -112,12 +122,13 @@ export default async function MatterDetailPage({ params }: MatterDetailPageProps
 
       {/* Tabs */}
       <Tabs defaultValue="overview" className="w-full">
-        <TabsList className="grid w-full grid-cols-5">
+        <TabsList className="grid w-full grid-cols-6">
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="documents">Documents</TabsTrigger>
           <TabsTrigger value="communications">Communications</TabsTrigger>
           <TabsTrigger value="tasks">Tasks</TabsTrigger>
           <TabsTrigger value="time">Time</TabsTrigger>
+          <TabsTrigger value="billing">Billing</TabsTrigger>
         </TabsList>
 
         {/* Overview Tab */}
@@ -248,7 +259,9 @@ export default async function MatterDetailPage({ params }: MatterDetailPageProps
                 <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
                   Billed
                 </p>
-                <p className="mt-1 text-2xl font-semibold text-slate-900 tabular-nums">$0.00</p>
+                <p className="mt-1 text-2xl font-semibold text-slate-900 tabular-nums">
+                  ${(totalBilled / 100).toFixed(2)}
+                </p>
               </div>
             </div>
 
@@ -277,36 +290,104 @@ export default async function MatterDetailPage({ params }: MatterDetailPageProps
               /* Time Entry List */
               <div className="space-y-3 border-t border-slate-200 pt-6">
                 {timeEntries.map((entry) => (
-                  <div
+                  <EditableTimeEntry
                     key={entry.id}
-                    className="flex items-start justify-between p-4 rounded-lg border border-slate-200 hover:bg-slate-50"
-                  >
-                    <div className="flex-1">
-                      <p className="text-sm text-slate-900">
-                        {entry.description || "No description"}
-                      </p>
-                      <div className="mt-2 flex items-center gap-2 text-xs">
-                        <Badge variant="outline">{entry.status}</Badge>
-                        {entry.billableDurationMinutes && entry.durationMinutes !== entry.billableDurationMinutes ? (
-                          <span className="text-slate-500">
-                            {(entry.billableDurationMinutes / 60).toFixed(1)} hrs
-                            <span className="text-slate-400 ml-1">
-                              (actual: {entry.durationMinutes ? `${(entry.durationMinutes / 60).toFixed(1)} hrs` : "N/A"})
-                            </span>
-                          </span>
-                        ) : (
-                          <span className="text-slate-500">
-                            {entry.durationMinutes ? `${(entry.durationMinutes / 60).toFixed(1)} hrs` : "N/A"}
-                          </span>
-                        )}
-                        {entry.startedAt && (
-                          <span className="text-slate-500">
-                            {new Date(entry.startedAt).toLocaleDateString()}
-                          </span>
-                        )}
-                      </div>
-                    </div>
+                    id={entry.id}
+                    description={entry.description}
+                    durationMinutes={entry.durationMinutes}
+                    billableDurationMinutes={entry.billableDurationMinutes}
+                    status={entry.status}
+                    startedAt={entry.startedAt}
+                    endedAt={entry.endedAt}
+                    taskId={entry.taskId}
+                    taskTitle={tasks.find(t => t.id === entry.taskId)?.title}
+                    tasks={tasks.map(t => ({ id: t.id, title: t.title }))}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
+        </TabsContent>
+
+        {/* Billing Tab */}
+        <TabsContent value="billing" className="space-y-4">
+          <div className="rounded-lg border border-slate-200 bg-white p-6">
+            <h2 className="text-xl font-semibold text-slate-900 mb-6">Billing</h2>
+
+            {/* Summary Stats */}
+            <div className="grid grid-cols-3 gap-4 mb-6">
+              <div className="rounded-lg bg-slate-50 p-4">
+                <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
+                  Total Billed
+                </p>
+                <p className="mt-1 text-2xl font-semibold text-slate-900 tabular-nums">
+                  ${(totalBilled / 100).toFixed(2)}
+                </p>
+              </div>
+              <div className="rounded-lg bg-green-50 p-4">
+                <p className="text-xs font-medium uppercase tracking-wide text-green-700">
+                  Paid
+                </p>
+                <p className="mt-1 text-2xl font-semibold text-green-900 tabular-nums">
+                  ${(totalPaid / 100).toFixed(2)}
+                </p>
+              </div>
+              <div className="rounded-lg bg-amber-50 p-4">
+                <p className="text-xs font-medium uppercase tracking-wide text-amber-700">
+                  Outstanding
+                </p>
+                <p className="mt-1 text-2xl font-semibold text-amber-900 tabular-nums">
+                  ${((totalBilled - totalPaid) / 100).toFixed(2)}
+                </p>
+              </div>
+            </div>
+
+            {/* Draft Invoice Link */}
+            {draftInvoice && (
+              <div className="mb-4 p-4 rounded-lg border border-blue-200 bg-blue-50">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="font-medium text-blue-900">Draft Invoice</p>
+                    <p className="text-sm text-blue-700">
+                      ${(draftInvoice.totalCents / 100).toFixed(2)} — auto-updated from time entries
+                    </p>
                   </div>
+                  <Link href={`/billing/${draftInvoice.id}`}>
+                    <Button size="sm" variant="outline">
+                      Edit &amp; Send
+                    </Button>
+                  </Link>
+                </div>
+              </div>
+            )}
+
+            {/* Invoice List */}
+            {invoices.length === 0 ? (
+              <div className="text-center py-8 text-slate-500">
+                <p className="text-sm">No invoices yet. Log time to auto-create a draft invoice.</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {invoices.map((inv) => (
+                  <Link key={inv.id} href={`/billing/${inv.id}`} className="block">
+                    <div className="flex items-center justify-between p-4 rounded-lg border border-slate-200 hover:bg-slate-50">
+                      <div className="flex items-center gap-3">
+                        <Badge variant={
+                          inv.status === "paid" ? "success" :
+                          inv.status === "sent" ? "warning" :
+                          inv.status === "overdue" ? "danger" : "outline"
+                        } className="capitalize">
+                          {inv.status}
+                        </Badge>
+                        <span className="text-sm text-slate-600">
+                          #{inv.id.slice(0, 8).toUpperCase()}
+                        </span>
+                      </div>
+                      <span className="font-semibold text-slate-900">
+                        ${(inv.totalCents / 100).toFixed(2)}
+                      </span>
+                    </div>
+                  </Link>
                 ))}
               </div>
             )}
